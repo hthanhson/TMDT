@@ -1,0 +1,97 @@
+1. Chức năng của Người Dùng (Customer)
+1.1 Đăng ký/Đăng nhập tài khoản
+Nút "Đăng ký" và "Đăng nhập":
+Vị trí tối ưu: Góc trên cùng bên phải của trang chủ, trong một thanh điều hướng cố định (header). Đây là vị trí tiêu chuẩn mà người dùng thường tìm kiếm các tùy chọn đăng nhập/đăng ký.
+Mô tả: Hai nút này nằm cạnh nhau, với "Đăng nhập" ở bên trái và "Đăng ký" ở bên phải, cách nhau khoảng 10-15px để phân biệt rõ ràng. Có thể sử dụng màu nổi bật (VD: xanh dương cho "Đăng nhập", xanh lá cho "Đăng ký") để thu hút sự chú ý.
+1.2 Quản lý thông tin cá nhân và mật khẩu
+Nút "Trang cá nhân" và "Thay đổi mật khẩu":
+Vị trí tối ưu: Trong menu thả xuống (dropdown) xuất hiện khi người dùng nhấp vào tên tài khoản hoặc biểu tượng người dùng (avatar) ở góc trên cùng bên phải của header.
+Mô tả:
+"Trang cá nhân" là mục đầu tiên trong menu thả xuống.
+"Thay đổi mật khẩu" nằm ngay dưới, cách nhau bằng một đường phân cách mảnh (divider).
+Nút "Lưu" trong trang chỉnh sửa thông tin nên đặt ở góc dưới cùng bên phải của biểu mẫu, với màu xanh lá để biểu thị xác nhận.
+1.3 Đăng xuất an toàn
+Nút "Đăng xuất":
+Vị trí tối ưu: Mục cuối cùng trong menu thả xuống từ biểu tượng tài khoản ở góc trên cùng bên phải.
+Mô tả: Nút này nên có màu chữ xám hoặc đỏ nhạt để phân biệt với các tùy chọn khác, kèm biểu tượng thoát (logout icon) nhỏ bên cạnh.
+1.4 Hiển thị sản phẩm
+Thanh công cụ tìm kiếm và bộ lọc:
+Vị trí tối ưu:
+Thanh tìm kiếm: Nằm giữa header, ngay dưới hoặc bên cạnh logo trang web, kéo dài ngang với chiều rộng tối đa 50% màn hình để dễ nhập liệu.
+Bộ lọc: Bên trái trang danh sách sản phẩm, trong một thanh dọc (sidebar) cố định, hoặc dưới dạng nút "Bộ lọc" (Filter) ở góc trên cùng bên phải của danh sách sản phẩm (nếu dùng trên mobile, bộ lọc có thể ẩn vào menu hamburger).
+Mô tả:
+Thanh tìm kiếm có biểu tượng kính lúp ở bên trái và nút "Tìm" (hoặc phím Enter) để kích hoạt.
+Bộ lọc hiển thị các tùy chọn như giá, đánh giá, danh mục dưới dạng checkbox hoặc slider, với nút "Áp dụng" ở dưới cùng.
+Nút danh mục:
+Vị trí tối ưu: Thanh điều hướng ngang ngay dưới header hoặc trong sidebar bên trái.
+Mô tả: Các danh mục (VD: Điện thoại, Thời trang) được hiển thị dưới dạng tab hoặc danh sách dọc, với hiệu ứng hover đổi màu để người dùng dễ nhận biết.
+1.5 Quản lý giỏ hàng
+Nút "Thêm vào giỏ hàng":
+Vị trí tối ưu: Ngay dưới giá sản phẩm trong trang chi tiết sản phẩm, bên cạnh nút "Mua ngay" (nếu có).
+Mô tả: Nút này nên có kích thước lớn (VD: 40-50px chiều cao), màu cam hoặc xanh dương, kèm biểu tượng giỏ hàng nhỏ.
+Biểu tượng "Giỏ hàng":
+Vị trí tối ưu: Góc trên cùng bên phải của header, cạnh nút tài khoản, hiển thị số lượng sản phẩm trong giỏ (badge).
+Mô tả: Khi nhấp, mở ra một bảng nhỏ (mini-cart) liệt kê sản phẩm, với nút "Xem giỏ hàng" và "Thanh toán" ở dưới cùng.
+1.6 Đặt hàng
+Nút "Thanh toán":
+Vị trí tối ưu: Góc dưới cùng bên phải của trang giỏ hàng, nổi bật trên nền trắng.
+Mô tả: Nút lớn, màu xanh lá hoặc cam, với chữ trắng để thu hút sự chú ý.
+Nút "Xác nhận đặt hàng":
+Vị trí tối ưu: Cuối biểu mẫu đặt hàng, căn phải.
+Mô tả: Kích thước tương tự nút "Thanh toán", kèm nút "Quay lại" (màu xám) bên trái để người dùng chỉnh sửa nếu cần.
+1.7 Quản lý đơn hàng
+Nút "Lịch sử đơn hàng":
+Vị trí tối ưu: Trong menu thả xuống từ biểu tượng tài khoản, ngay dưới "Trang cá nhân".
+Mô tả: Có biểu tượng lịch sử (history icon) nhỏ bên cạnh.
+Nút "Hủy đơn hàng":
+Vị trí tối ưu: Bên phải thông tin chi tiết đơn hàng, trong trang "Lịch sử đơn hàng".
+Mô tả: Nút nhỏ, màu đỏ nhạt, chỉ hiển thị khi đơn hàng ở trạng thái "Chờ xử lý".
+1.8 Thông báo
+Biểu tượng "Thông báo":
+Vị trí tối ưu: Góc trên cùng bên phải của header, cạnh biểu tượng giỏ hàng, với số thông báo chưa đọc (badge đỏ).
+Mô tả: Khi nhấp, mở danh sách thả xuống, với các nút "Xem tất cả" hoặc "Xóa thông báo" ở dưới cùng.
+1.9 Chức năng bổ sung
+Nút "Đánh giá":
+Vị trí tối ưu: Bên dưới sản phẩm trong trang "Lịch sử đơn hàng" hoặc chi tiết đơn hàng đã giao.
+Mô tả: Nút nhỏ, màu xanh dương, kèm biểu tượng sao.
+Nút "Thêm vào yêu thích":
+Vị trí tối ưu: Góc trên cùng bên phải của ảnh sản phẩm trong trang chi tiết hoặc danh sách sản phẩm.
+Mô tả: Biểu tượng trái tim, đổi màu (VD: xám sang đỏ) khi được chọn.
+Biểu tượng "Chat":
+Vị trí tối ưu: Góc dưới cùng bên phải màn hình, dạng nút tròn cố định (floating button).
+Mô tả: Màu xanh lá, kèm biểu tượng chat, mở cửa sổ chat khi nhấp.
+2. Chức năng của Quản Trị Viên (Admin)
+2.1 Quản lý sản phẩm
+Thanh công cụ quản lý:
+Vị trí tối ưu: Thanh dọc (sidebar) bên trái giao diện admin, cố định.
+Mô tả: Chứa các mục như "Sản phẩm", "Danh mục", "Đơn hàng" dưới dạng danh sách, với mục "Quản lý sản phẩm" ở đầu.
+Nút "Thêm sản phẩm":
+Vị trí tối ưu: Góc trên cùng bên phải của trang "Quản lý sản phẩm".
+Mô tả: Nút lớn, màu xanh lá, nổi bật trên nền trắng.
+2.2 Quản lý danh mục
+Nút "Thêm danh mục":
+Vị trí tối ưu: Góc trên cùng bên phải trong trang "Quản lý danh mục".
+Mô tả: Nút nhỏ hơn, màu xanh dương, cạnh nút "Sửa" và "Xóa" khi chọn danh mục.
+2.3 Quản lý đơn hàng
+Nút "Thay đổi trạng thái":
+Vị trí tối ưu: Bên phải mỗi đơn hàng trong danh sách hoặc trong trang chi tiết đơn hàng.
+Mô tả: Menu thả xuống (dropdown) với các trạng thái (VD: "Đang giao"), nút "Lưu" bên cạnh.
+2.4 Quản lý người dùng
+Nút "Khóa" và "Xóa":
+Vị trí tối ưu: Bên phải thông tin mỗi người dùng trong danh sách.
+Mô tả: "Khóa" (màu vàng), "Xóa" (màu đỏ), cách nhau 10px.
+2.5 Thông báo
+Nút "Tạo thông báo":
+Vị trí tối ưu: Góc trên cùng bên phải trong trang "Quản lý thông báo".
+Mô tả: Nút lớn, màu xanh lá, kèm biểu tượng chuông.
+2.6 Quản lý đánh giá sản phẩm
+Nút "Xóa" và "Phản hồi":
+Vị trí tối ưu: Bên phải mỗi đánh giá trong danh sách.
+Mô tả: "Xóa" (màu đỏ nhạt), "Phản hồi" (màu xanh dương), cách nhau 10px.
+2.7 Báo cáo thống kê
+Thanh công cụ chọn báo cáo:
+Vị trí tối ưu: Góc trên cùng của trang "Báo cáo thống kê".
+Mô tả: Menu thả xuống chọn loại báo cáo (doanh thu, sản phẩm), cạnh thanh chọn khoảng thời gian (datepicker).
+Nút "Xuất báo cáo":
+Vị trí tối ưu: Góc dưới cùng bên phải của trang báo cáo.
+Mô tả: Nút nhỏ, màu xanh dương, kèm biểu tượng tải xuống.
