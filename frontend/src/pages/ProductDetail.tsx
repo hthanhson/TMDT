@@ -40,6 +40,7 @@ import TopProducts from '../components/Products/TopProducts';
 import { useAuth } from '../contexts/AuthContext';
 import ReviewForm from '../components/Products/ReviewForm';
 import api from '../services/api';
+import WishlistService from '../services/WishlistService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -114,11 +115,16 @@ const ProductDetail: React.FC = () => {
       // Check if product is in wishlist
       if (isAuthenticated) {
         try {
-          const wishlistResponse = await ProductService.checkInFavorites(productId as string);
+          const wishlistResponse = await WishlistService.checkInWishlist(productId as string);
           setInWishlist(wishlistResponse.data);
         } catch (err) {
           console.error('Error checking wishlist status:', err);
+          // Nếu có lỗi, vẫn tiếp tục và giả định sản phẩm không có trong wishlist
+          setInWishlist(false);
         }
+      } else {
+        // Nếu chưa đăng nhập, đảm bảo rằng inWishlist là false
+        setInWishlist(false);
       }
       
       setError(null);
@@ -172,7 +178,7 @@ const ProductDetail: React.FC = () => {
 
   const handleToggleWishlist = async () => {
     if (!isAuthenticated) {
-      showSnackbar('Please log in to save favorites', 'error');
+      showSnackbar('Vui lòng đăng nhập để lưu sản phẩm yêu thích', 'error');
       setTimeout(() => {
         navigate('/login', { state: { from: `/products/${productId}` } });
       }, 1500);
@@ -181,17 +187,24 @@ const ProductDetail: React.FC = () => {
     
     try {
       if (inWishlist) {
-        await ProductService.removeFromFavorites(productId as string);
+        await WishlistService.removeFromWishlist(productId as string);
         setInWishlist(false);
-        showSnackbar('Removed from favorites', 'success');
+        showSnackbar('Đã xóa khỏi danh sách yêu thích', 'success');
       } else {
-        await ProductService.addToFavorites(productId as string);
+        await WishlistService.addToWishlist(productId as string);
         setInWishlist(true);
-        showSnackbar('Added to favorites', 'success');
+        showSnackbar('Đã thêm vào danh sách yêu thích', 'success');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating wishlist:', err);
-      showSnackbar('Failed to update favorites. Please try again after logging in.', 'error');
+      if (err.message && err.message.includes('đăng nhập')) {
+        showSnackbar(err.message, 'error');
+        setTimeout(() => {
+          navigate('/login', { state: { from: `/products/${productId}` } });
+        }, 1500);
+      } else {
+        showSnackbar('Không thể cập nhật danh sách yêu thích. Vui lòng thử lại.', 'error');
+      }
     }
   };
 
@@ -310,19 +323,44 @@ const ProductDetail: React.FC = () => {
             </Box>
 
             <Box display="flex" alignItems="center" mb={3}>
-              <TextField
-                type="number"
-                label="Quantity"
-                value={quantity}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  if (!isNaN(value)) handleQuantityChange(value);
-                }}
-                InputProps={{ inputProps: { min: 1, max: product.stock } }}
-                disabled={product.stock === 0}
-                size="small"
-                sx={{ width: 100, mr: 2 }}
-              />
+              <Box display="flex" alignItems="center" sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mr: 2 }}>
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleQuantityChange(Math.max(1, quantity - 1))}
+                  disabled={product.stock === 0}
+                >
+                  <RemoveIcon fontSize="small" />
+                </IconButton>
+                
+                <TextField
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (!isNaN(value)) handleQuantityChange(value);
+                  }}
+                  InputProps={{ 
+                    inputProps: { min: 1, max: product.stock },
+                    disableUnderline: true,
+                  }}
+                  disabled={product.stock === 0}
+                  variant="standard"
+                  size="small"
+                  sx={{ 
+                    width: 50, 
+                    input: { textAlign: 'center' },
+                    '& .MuiInputBase-input': { p: 0.5 }
+                  }}
+                />
+                
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleQuantityChange(Math.min(product.stock, quantity + 1))}
+                  disabled={product.stock === 0 || quantity >= product.stock}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Box>
 
               <Button
                 variant="contained"

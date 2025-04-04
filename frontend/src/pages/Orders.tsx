@@ -42,6 +42,8 @@ const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [cancelledMessage, setCancelledMessage] = useState('');
   
   useEffect(() => {
     if (!user) {
@@ -54,6 +56,24 @@ const Orders: React.FC = () => {
         setLoading(true);
         const response = await OrderService.getOrders();
         setOrders(response.data);
+        
+        // Hiển thị thông báo đơn hàng thành công
+        const successfulOrders = response.data.filter(order => order.status === 'DELIVERED');
+        if (successfulOrders.length > 0) {
+          setSuccessMessage(`Bạn có ${successfulOrders.length} đơn hàng đã giao thành công!`);
+        } else {
+          setSuccessMessage('');
+        }
+        
+        // Hiển thị thông báo đơn hàng bị hủy
+        const cancelledOrders = response.data.filter(order => order.status === 'CANCELLED');
+        if (cancelledOrders.length > 0) {
+          setCancelledMessage(`Bạn có ${cancelledOrders.length} đơn hàng đã bị hủy`);
+        } else {
+          setCancelledMessage('');
+        }
+        
+        setError('');
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to fetch orders');
       } finally {
@@ -160,6 +180,18 @@ const Orders: React.FC = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
+        </Alert>
+      )}
+      
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          {successMessage}
+        </Alert>
+      )}
+      
+      {cancelledMessage && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          {cancelledMessage}
         </Alert>
       )}
       
@@ -272,4 +304,4 @@ const Orders: React.FC = () => {
   );
 };
 
-export default Orders; 
+export default Orders;

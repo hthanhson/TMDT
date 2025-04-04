@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -17,17 +17,34 @@ import {
   TableHead,
   TableRow,
   Alert,
-  useTheme
+  useTheme,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Chip
 } from '@mui/material';
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
   Delete as DeleteIcon,
   ShoppingBasket as ShoppingBasketIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  LocalOffer as CouponIcon
 } from '@mui/icons-material';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
+
+interface Coupon {
+  id: string;
+  code: string;
+  description: string;
+  discountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountValue: number;
+  minPurchaseAmount: number;
+  expiryDate: string;
+}
 
 const Cart: React.FC = () => {
   const { items, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -36,16 +53,34 @@ const Cart: React.FC = () => {
   const theme = useTheme();
   
   const [couponCode, setCouponCode] = useState('');
-  const [couponError, setCouponError] = useState<string | null>(null);
-  const [couponSuccess, setCouponSuccess] = useState<string | null>(null);
+  const [userCoupons, setUserCoupons] = useState<Coupon[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState<string>('');
   const [discount, setDiscount] = useState(0);
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  // Danh sách mã giảm giá demo
-  const validCoupons = [
-    { code: "WELCOME10", discount: 0.1, message: "Giảm 10% cho đơn hàng" },
-    { code: "SUMMER20", discount: 0.2, message: "Giảm 20% cho đơn hàng mùa hè" },
-    { code: "FREESHIP", discount: 0.05, message: "Miễn phí vận chuyển - Giảm 5%" }
-  ];
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUserCoupons();
+    }
+  }, [isAuthenticated]);
+
+  const fetchUserCoupons = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/coupons/my-coupons');
+      setUserCoupons(response.data);
+      if (response.data.length > 0) {
+        setCouponSuccess(`Bạn có ${response.data.length} mã giảm giá mới từ admin!`);
+      }
+    } catch (error) {
+      console.error('Error fetching user coupons:', error);
+      setCouponError('Không thể tải mã giảm giá');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleQuantityChange = (id: string, quantity: number) => {
     updateQuantity(id, quantity);
@@ -55,27 +90,45 @@ const Cart: React.FC = () => {
     removeFromCart(id);
   };
   
-  const handleApplyCoupon = () => {
-    // Reset trạng thái trước
-    setCouponError(null);
-    setCouponSuccess(null);
-    
-    if (!couponCode.trim()) {
-      setCouponError('Vui lòng nhập mã giảm giá');
+  const handleApplyCoupon = async () => {
+    if (!selectedCoupon) {
+      setCouponError('Vui lòng chọn mã giảm giá');
+      setCouponSuccess('');
       return;
     }
-    
-    // Kiểm tra mã giảm giá
-    const matchedCoupon = validCoupons.find(
-      coupon => coupon.code.toLowerCase() === couponCode.trim().toLowerCase()
-    );
-    
-    if (matchedCoupon) {
-      setCouponSuccess(matchedCoupon.message);
-      setDiscount(matchedCoupon.discount);
-    } else {
-      setCouponError('Mã giảm giá không hợp lệ hoặc đã hết hạn');
-      setDiscount(0);
+
+    try {
+      const response = await api.post('/coupons/verify', {
+        code: selectedCoupon,
+        orderAmount: calculateSubtotal()
+      });
+
+      const selectedCouponObj = userCoupons.find(c => c.code === selectedCoupon);
+      
+      if (!selectedCouponObj) {
+        setCouponError('Mã giảm giá không hợp lệ');
+        setCouponSuccess('');
+        return;
+      }
+
+      // Xử lý theo loại giảm giá
+      if (selectedCouponObj.discountType === 'PERCENTAGE') {
+        setDiscount(selectedCouponObj.discountValue / 100);
+      } else {
+        // FIXED_AMOUNT - tính ra phần trăm tương đương
+        const subtotal = calculateSubtotal();
+        if (subtotal > 0) {
+          setDiscount(Math.min(selectedCouponObj.discountValue / subtotal, 1));
+        }
+      }
+
+      setCouponCode(selectedCoupon);
+      setCouponSuccess(`Áp dụng mã giảm giá thành công!`);
+      setCouponError('');
+    } catch (error: any) {
+      console.error('Error applying coupon:', error);
+      setCouponError(error.response?.data?.message || 'Không thể áp dụng mã giảm giá');
+      setCouponSuccess('');
     }
   };
   
@@ -94,6 +147,11 @@ const Cart: React.FC = () => {
   
   const formatCurrency = (amount: number) => {
     return `$${amount.toFixed(2)}`;
+  };
+  
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('vi-VN');
   };
   
   const handleCheckout = () => {
@@ -219,33 +277,64 @@ const Cart: React.FC = () => {
               Tóm tắt đơn hàng
             </Typography>
             
-            {/* Coupon Code Input */}
+            {/* Coupon Code Selection */}
             <Box mb={3}>
-              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                <TextField 
-                  label="Mã giảm giá" 
-                  size="small" 
-                  fullWidth
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value)}
-                  sx={{ flexGrow: 1 }}
-                />
-                <Button 
-                  variant="outlined" 
-                  onClick={handleApplyCoupon}
+              <Typography variant="subtitle1" gutterBottom>
+                <CouponIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                Mã giảm giá của bạn
+              </Typography>
+              
+              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                
+                <Select
+                  labelId="coupon-select-label"
+                  value={selectedCoupon}
+                  onChange={(e) => setSelectedCoupon(e.target.value as string)}
+                  label="Chọn mã giảm giá"
+                  displayEmpty
                 >
-                  Áp dụng
-                </Button>
-              </Box>
+                  <MenuItem value="">
+                    <em>Không sử dụng mã giảm giá</em>
+                  </MenuItem>
+                  {userCoupons.map((coupon) => (
+                    <MenuItem key={coupon.id} value={coupon.code}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="body2">{coupon.description}</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                          <Chip 
+                            size="small" 
+                            label={coupon.discountType === 'PERCENTAGE' 
+                              ? `Giảm ${coupon.discountValue}%` 
+                              : `Giảm ${formatCurrency(coupon.discountValue)}`} 
+                            color="primary" 
+                            variant="outlined" 
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            HSD: {formatDate(coupon.expiryDate)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <Button 
+                variant="outlined" 
+                onClick={handleApplyCoupon}
+                fullWidth
+              >
+                Áp dụng mã giảm giá
+              </Button>
               
               {couponError && (
-                <Alert severity="error" sx={{ mb: 1 }}>
+                <Alert severity="error" sx={{ mt: 1 }}>
                   {couponError}
                 </Alert>
               )}
               
               {couponSuccess && (
-                <Alert severity="success" sx={{ mb: 1 }}>
+                <Alert severity="success" sx={{ mt: 1 }}>
                   {couponSuccess}
                 </Alert>
               )}
@@ -318,4 +407,4 @@ const Cart: React.FC = () => {
   );
 };
 
-export default Cart; 
+export default Cart;

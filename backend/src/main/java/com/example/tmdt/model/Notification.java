@@ -6,6 +6,7 @@ import javax.persistence.*;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,6 +24,7 @@ public class Notification {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties("notifications")
     private User user;
 
     @NotBlank
@@ -91,4 +93,4 @@ public class Notification {
         notification.setMessage("You earned " + points + " points from your order #" + order.getId());
         return notification;
     }
-} 
+}

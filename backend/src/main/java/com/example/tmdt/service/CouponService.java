@@ -169,4 +169,28 @@ public class CouponService {
         
         return discount;
     }
+
+    public List<Coupon> getAllCoupons() {
+        return couponRepository.findAll();
+    }
+
+    public Coupon getCouponById(Long id) {
+        return couponRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Coupon not found with id: " + id));
+    }
+
+    public Coupon updateCoupon(Coupon coupon) {
+        // Đảm bảo coupon tồn tại
+        if (coupon.getId() == null || !couponRepository.existsById(coupon.getId())) {
+            throw new RuntimeException("Cannot update non-existent coupon");
+        }
+        
+        return couponRepository.save(coupon);
+    }
+
+    public void deactivateCouponById(Long id) {
+        Coupon coupon = getCouponById(id);
+        coupon.setIsActive(false);
+        couponRepository.save(coupon);
+    }
 }

@@ -44,6 +44,8 @@ const AdminDashboard: React.FC = () => {
     totalRevenue: 0,
     recentOrders: [],
     topProducts: [],
+    stats: {},
+    salesData: []
   });
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,10 +141,10 @@ const AdminDashboard: React.FC = () => {
             }}
           >
             <OrderIcon sx={{ fontSize: 48, mb: 1 }} />
-            <Typography variant="h5">{dashboardData.totalOrders}</Typography>
+            <Typography variant="h5">{dashboardData.stats?.totalOrders || 0}</Typography>
             <Typography variant="subtitle1">Total Orders</Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
-              {dashboardData.pendingOrders} pending
+              {dashboardData.stats?.pendingOrders || 0} pending
             </Typography>
           </Paper>
         </Grid>
@@ -160,7 +162,7 @@ const AdminDashboard: React.FC = () => {
             }}
           >
             <UserIcon sx={{ fontSize: 48, mb: 1 }} />
-            <Typography variant="h5">{dashboardData.totalUsers}</Typography>
+            <Typography variant="h5">{dashboardData.stats?.totalUsers || 0}</Typography>
             <Typography variant="subtitle1">Total Users</Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
               Active accounts
@@ -181,10 +183,10 @@ const AdminDashboard: React.FC = () => {
             }}
           >
             <ProductIcon sx={{ fontSize: 48, mb: 1 }} />
-            <Typography variant="h5">{dashboardData.totalProducts}</Typography>
+            <Typography variant="h5">{dashboardData.stats?.totalProducts || 0}</Typography>
             <Typography variant="subtitle1">Total Products</Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
-              {dashboardData.outOfStockProducts} out of stock
+              {dashboardData.stats?.outOfStockProducts || 0} out of stock
             </Typography>
           </Paper>
         </Grid>
@@ -203,7 +205,7 @@ const AdminDashboard: React.FC = () => {
           >
             <RevenueIcon sx={{ fontSize: 48, mb: 1 }} />
             <Typography variant="h5">
-              ${dashboardData.totalRevenue.toFixed(2)}
+              ${(dashboardData.stats?.totalRevenue || 0).toFixed(2)}
             </Typography>
             <Typography variant="subtitle1">Total Revenue</Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
@@ -215,14 +217,14 @@ const AdminDashboard: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* Recent Orders */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Recent Orders
               </Typography>
               <Divider sx={{ my: 1 }} />
-              {dashboardData.recentOrders.length > 0 ? (
+              {Array.isArray(dashboardData.recentOrders) && dashboardData.recentOrders.length > 0 ? (
                 dashboardData.recentOrders.map((order: any) => (
                   <Box key={order.id} sx={{ mb: 2 }}>
                     <Grid container spacing={2}>
@@ -233,7 +235,7 @@ const AdminDashboard: React.FC = () => {
                       </Grid>
                       <Grid item xs={4}>
                         <Typography variant="body2">
-                          ${parseFloat(order.totalAmount).toFixed(2)}
+                          ${order.totalAmount ? parseFloat(order.totalAmount).toFixed(2) : '0.00'}
                         </Typography>
                       </Grid>
                       <Grid item xs={4}>
@@ -252,151 +254,113 @@ const AdminDashboard: React.FC = () => {
                         </Typography>
                       </Grid>
                     </Grid>
-                    <Divider sx={{ my: 1 }} />
                   </Box>
                 ))
               ) : (
-                <Typography variant="body1" align="center" sx={{ py: 2 }}>
+                <Typography variant="body2" color="textSecondary">
                   No recent orders
                 </Typography>
               )}
-            </CardContent>
-            <CardActions>
               <Button
-                size="small"
                 component={RouterLink}
                 to="/admin/orders"
-                sx={{ ml: 'auto' }}
+                size="small"
+                sx={{ mt: 1 }}
               >
                 View All Orders
               </Button>
-            </CardActions>
+            </CardContent>
           </Card>
         </Grid>
 
         {/* Top Products */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Top Selling Products
+                Top Products
               </Typography>
               <Divider sx={{ my: 1 }} />
-              {dashboardData.topProducts.length > 0 ? (
+              {Array.isArray(dashboardData.topProducts) && dashboardData.topProducts.length > 0 ? (
                 dashboardData.topProducts.map((product: any) => (
                   <Box key={product.id} sx={{ mb: 2 }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">{product.name}</Typography>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={2}>
+                        <Avatar
+                          alt={product.name}
+                          src={product.imageUrl}
+                          variant="rounded"
+                          sx={{ width: 40, height: 40 }}
+                        />
                       </Grid>
-                      <Grid item xs={3}>
-                        <Typography variant="body2" color="textSecondary">
-                          ${parseFloat(product.price).toFixed(2)}
+                      <Grid item xs={6}>
+                        <Typography variant="body2" noWrap>
+                          {product.name}
                         </Typography>
                       </Grid>
-                      <Grid item xs={3}>
-                        <Typography variant="body2" color="textSecondary">
-                          {product.soldCount} sold
+                      <Grid item xs={4}>
+                        <Typography variant="body2">
+                          ${product.price ? parseFloat(product.price).toFixed(2) : '0.00'}
                         </Typography>
                       </Grid>
                     </Grid>
-                    <Divider sx={{ my: 1 }} />
                   </Box>
                 ))
               ) : (
-                <Typography variant="body1" align="center" sx={{ py: 2 }}>
-                  No products data
+                <Typography variant="body2" color="textSecondary">
+                  No product data available
                 </Typography>
               )}
-            </CardContent>
-            <CardActions>
               <Button
-                size="small"
                 component={RouterLink}
                 to="/admin/products"
-                sx={{ ml: 'auto' }}
-              >
-                Manage Products
-              </Button>
-            </CardActions>
-          </Card>
-        </Grid>
-
-        {/* Recent Notifications */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
-                <Badge badgeContent={notifications.filter(n => !n.isRead).length} color="error" sx={{ mr: 1 }}>
-                  <NotificationsIcon color="primary" />
-                </Badge>
-                <Typography variant="h6">
-                  Thông báo gần đây
-                </Typography>
-              </Box>
-              <Divider sx={{ my: 1 }} />
-              
-              {notificationLoading ? (
-                <Box display="flex" justifyContent="center" py={2}>
-                  <CircularProgress size={30} />
-                </Box>
-              ) : notifications.length === 0 ? (
-                <Box textAlign="center" py={2}>
-                  <Typography variant="body2" color="textSecondary">
-                    Không có thông báo nào
-                  </Typography>
-                </Box>
-              ) : (
-                <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-                  {notifications.slice(0, 5).map((notification) => (
-                    <ListItem 
-                      key={notification.id}
-                      sx={{
-                        bgcolor: notification.isRead ? 'transparent' : 'action.hover',
-                        mb: 1,
-                        borderRadius: 1
-                      }}
-                    >
-                      <ListItemIcon>
-                        <Avatar 
-                          sx={{ 
-                            bgcolor: notification.isRead ? 'grey.300' : 'primary.light',
-                            width: 36,
-                            height: 36
-                          }}
-                        >
-                          {getNotificationIcon(notification.type)}
-                        </Avatar>
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={notification.message}
-                        secondary={formatTime(notification.createdAt)}
-                        primaryTypographyProps={{
-                          variant: 'body2',
-                          fontWeight: notification.isRead ? 'normal' : 'bold'
-                        }}
-                        secondaryTypographyProps={{
-                          variant: 'caption'
-                        }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </CardContent>
-            <CardActions>
-              <Button
                 size="small"
-                component={RouterLink}
-                to="/admin/notifications"
-                sx={{ ml: 'auto' }}
+                sx={{ mt: 1 }}
               >
-                Xem tất cả
+                View All Products
               </Button>
-            </CardActions>
+            </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {/* Sales Report Section */}
+      <Box mt={4}>
+        <Typography variant="h5" gutterBottom>
+          Sales Reports
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Monthly Revenue
+                </Typography>
+                <Box height={300} display="flex" justifyContent="center" alignItems="center">
+                  {Array.isArray(dashboardData.salesData) && dashboardData.salesData.length > 0 ? (
+                    <Typography>Chart would be displayed here</Typography>
+                  ) : (
+                    <Typography color="textSecondary">No sales data available</Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Order Status Distribution
+                </Typography>
+                <Box height={300} display="flex" justifyContent="center" alignItems="center">
+                  <Typography>Pie chart would be displayed here</Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
     </Box>
   );
 };

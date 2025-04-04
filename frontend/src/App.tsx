@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { SnackbarProvider } from 'notistack';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -35,6 +36,7 @@ import NotFound from './pages/NotFound';
 import Products from './pages/Products';
 import Wishlist from './pages/Wishlist';
 import ProductForm from './pages/admin/ProductForm';
+import AdminCoupons from './pages/admin/Coupons';
 
 // Contexts
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -60,83 +62,86 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <CartProvider>
-        <Router>
-          <ToastContainer position="top-right" autoClose={3000} />
-          <NavigationGuard>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Home />} />
-                <Route path="login" element={<Login />} />
-                <Route path="register" element={<Register />} />
-                <Route path="products" element={<Products />} />
-                <Route path="products/:productId" element={<ProductDetail />} />
-                <Route path="cart" element={<Cart />} />
+        <SnackbarProvider maxSnack={3}>
+          <Router>
+            <ToastContainer position="top-right" autoClose={3000} />
+            <NavigationGuard>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Home />} />
+                  <Route path="login" element={<Login />} />
+                  <Route path="register" element={<Register />} />
+                  <Route path="products" element={<Products />} />
+                  <Route path="products/:productId" element={<ProductDetail />} />
+                  <Route path="cart" element={<Cart />} />
+                  
+                  {/* Protected Routes - chỉ hiển thị cho người dùng thông thường */}
+                  <Route 
+                    path="checkout" 
+                    element={<ProtectedRoute adminOnly={false}><Checkout /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="order-success" 
+                    element={<ProtectedRoute adminOnly={false}><OrderSuccess /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="orders" 
+                    element={<ProtectedRoute adminOnly={false}><Orders /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="orders/:id" 
+                    element={<ProtectedRoute adminOnly={false}><OrderDetail /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="profile" 
+                    element={<ProtectedRoute adminOnly={false}><Profile /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="notifications" 
+                    element={<ProtectedRoute adminOnly={false}><Notifications /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="dashboard" 
+                    element={<ProtectedRoute adminOnly={false}><UserDashboard /></ProtectedRoute>} 
+                  />
+                  <Route 
+                    path="wishlist" 
+                    element={<ProtectedRoute adminOnly={false}><Wishlist /></ProtectedRoute>} 
+                  />
+                </Route>
                 
-                {/* Protected Routes - chỉ hiển thị cho người dùng thông thường */}
+                {/* Admin Routes */}
                 <Route 
-                  path="checkout" 
-                  element={<ProtectedRoute adminOnly={false}><Checkout /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="order-success" 
-                  element={<ProtectedRoute adminOnly={false}><OrderSuccess /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="orders" 
-                  element={<ProtectedRoute adminOnly={false}><Orders /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="orders/:id" 
-                  element={<ProtectedRoute adminOnly={false}><OrderDetail /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="profile" 
-                  element={<ProtectedRoute adminOnly={false}><Profile /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="notifications" 
-                  element={<ProtectedRoute adminOnly={false}><Notifications /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="dashboard" 
-                  element={<ProtectedRoute adminOnly={false}><UserDashboard /></ProtectedRoute>} 
-                />
-                <Route 
-                  path="wishlist" 
-                  element={<ProtectedRoute adminOnly={false}><Wishlist /></ProtectedRoute>} 
-                />
-              </Route>
-              
-              {/* Admin Routes */}
-              <Route 
-                path="/admin" 
-                element={
-                  <AdminRoute>
-                    <AdminLayout />
-                  </AdminRoute>
-                }
-              >
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="products/new" element={<ProductForm />} />
-                <Route path="products/edit/:id" element={<ProductForm />} />
-                <Route path="categories" element={<AdminCategories />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="reviews" element={<AdminReviews />} />
-                <Route path="notifications" element={<AdminNotifications />} />
-                <Route path="reports" element={<AdminReports />} />
-              </Route>
-              
-              {/* 404 Route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </NavigationGuard>
-          
-          {/* Chatbot - visible on all pages */}
-          <ChatBot />
-        </Router>
+                  path="/admin" 
+                  element={
+                    <AdminRoute>
+                      <AdminLayout />
+                    </AdminRoute>
+                  }
+                >
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="products" element={<AdminProducts />} />
+                  <Route path="products/new" element={<ProductForm />} />
+                  <Route path="products/edit/:id" element={<ProductForm />} />
+                  <Route path="categories" element={<AdminCategories />} />
+                  <Route path="orders" element={<AdminOrders />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="reviews" element={<AdminReviews />} />
+                  <Route path="coupons" element={<AdminCoupons />} />
+                  <Route path="notifications" element={<AdminNotifications />} />
+                  <Route path="reports" element={<AdminReports />} />
+                </Route>
+                
+                {/* 404 Route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </NavigationGuard>
+            
+            {/* Chatbot - visible on all pages */}
+            <ChatBot />
+          </Router>
+        </SnackbarProvider>
       </CartProvider>
     </AuthProvider>
   );

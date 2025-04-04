@@ -17,10 +17,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.core.convert.converter.Converter;
 
 import com.example.tmdt.security.jwt.AuthEntryPointJwt;
 import com.example.tmdt.security.jwt.AuthTokenFilter;
 import com.example.tmdt.security.services.UserDetailsServiceImpl;
+import com.example.tmdt.security.services.UserDetailsImpl;
+import com.example.tmdt.repository.UserRepository;
+import com.example.tmdt.model.User;
 
 import java.util.Arrays;
 
@@ -34,6 +41,9 @@ public class SecurityConfig {
 
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
@@ -48,6 +58,26 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+    
+    @Bean
+    public Converter<Authentication, User> authenticationUserConverter() {
+        return new Converter<Authentication, User>() {
+            @Override
+            public User convert(Authentication authentication) {
+                if (authentication == null) {
+                    return null;
+                }
+                
+                Object principal = authentication.getPrincipal();
+                if (principal instanceof UserDetailsImpl) {
+                    UserDetailsImpl userDetails = (UserDetailsImpl) principal;
+                    return userRepository.findById(userDetails.getId()).orElse(null);
+                }
+                
+                return null;
+            }
+        };
     }
 
     @Bean

@@ -26,11 +26,11 @@ const ProductService = {
   },
 
   getFeaturedProducts() {
-    return api.get<Product[]>('/products/featured');
+    return api.get<Product[]>('/products/recommended');
   },
 
   searchProducts(query: string) {
-    return api.get<Product[]>('/products/search', { params: { q: query } });
+    return api.get<Product[]>('/products/search', { params: { query } });
   },
 
   getProductsByCategory(categoryId: string) {
@@ -38,10 +38,12 @@ const ProductService = {
   },
 
   getRelatedProducts(productId: string, limit = 4) {
-    return api.get<Product[]>(`/products/${productId}/related`, { params: { limit } });
+    // Sử dụng API khuyến nghị sản phẩm thay vì API related không tồn tại
+    return api.get<Product[]>('/products/recommended', { params: { limit } });
   },
 
   getCategories() {
+    // Sử dụng endpoint categories từ CategoryController
     return api.get<string[]>('/categories');
   },
 
@@ -77,7 +79,11 @@ const ProductService = {
   },
   
   checkInFavorites(productId: string) {
-    return api.get(`/wishlist/check/${productId}`);
+    // Kiểm tra sản phẩm có trong danh sách yêu thích bằng cách lấy toàn bộ danh sách và kiểm tra
+    return this.getFavorites().then(response => {
+      const favorites = response.data;
+      return { data: favorites.some((product: Product) => product.id === productId) };
+    });
   },
 
   getProductReviews(productId: string) {

@@ -30,6 +30,9 @@ interface Category {
   id: string;
   name: string;
   description: string;
+  imageUrl?: string;
+  isActive?: boolean;
+  displayOrder?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,18 +58,39 @@ const AdminCategories: React.FC = () => {
     try {
       setLoading(true);
       const response = await AdminService.getCategories();
-      const categoriesData = response.data.map((cat: string | Category) => {
-        if (typeof cat === 'string') {
-          return { 
-            id: cat, 
-            name: cat, 
-            description: '', 
-            createdAt: '', 
-            updatedAt: '' 
+      console.log('Categories response:', response.data);
+      
+      // Xử lý dữ liệu phản hồi
+      let categoriesData: Category[] = [];
+      
+      if (Array.isArray(response.data)) {
+        categoriesData = response.data.map((cat: any) => {
+          // Nếu cat là một chuỗi
+          if (typeof cat === 'string') {
+            return { 
+              id: cat, 
+              name: cat, 
+              description: '', 
+              createdAt: '', 
+              updatedAt: '' 
+            };
+          }
+          
+          // Nếu cat là một đối tượng, đảm bảo tất cả các trường đều có giá trị hợp lệ
+          return {
+            id: cat.id?.toString() || '',
+            name: cat.name?.toString() || '',
+            description: cat.description?.toString() || '',
+            imageUrl: cat.imageUrl?.toString() || '',
+            isActive: !!cat.isActive,
+            displayOrder: Number(cat.displayOrder) || 0,
+            createdAt: cat.createdAt?.toString() || '',
+            updatedAt: cat.updatedAt?.toString() || ''
           };
-        }
-        return cat;
-      });
+        });
+      }
+      
+      console.log('Processed categories:', categoriesData);
       setCategories(categoriesData);
       setError(null);
     } catch (err: any) {
@@ -181,9 +205,9 @@ const AdminCategories: React.FC = () => {
             {categories.length > 0 ? (
               categories.map((category) => (
                 <TableRow key={category.id}>
-                  <TableCell>{category.id}</TableCell>
-                  <TableCell>{category.name}</TableCell>
-                  <TableCell>{category.description}</TableCell>
+                  <TableCell>{String(category.id)}</TableCell>
+                  <TableCell>{String(category.name)}</TableCell>
+                  <TableCell>{String(category.description)}</TableCell>
                   <TableCell align="right">
                     <IconButton
                       color="primary"
@@ -242,6 +266,11 @@ const AdminCategories: React.FC = () => {
             value={categoryForm.description}
             onChange={handleInputChange}
           />
+          {formError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {formError}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
@@ -249,7 +278,7 @@ const AdminCategories: React.FC = () => {
             onClick={handleSaveCategory}
             variant="contained"
             color="primary"
-            disabled={saving || !categoryForm.name.trim()}
+            disabled={saving}
           >
             {saving ? <CircularProgress size={24} /> : 'Save'}
           </Button>

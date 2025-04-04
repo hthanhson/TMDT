@@ -27,7 +27,8 @@ import {
   Notifications as NotificationsIcon,
   Star as ReviewsIcon,
   BarChart as ReportsIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  LocalOffer as CouponIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -62,6 +63,7 @@ const AdminLayout: React.FC = () => {
     { text: 'Quản lý danh mục', icon: <CategoryIcon />, path: '/admin/categories' },
     { text: 'Quản lý đơn hàng', icon: <OrdersIcon />, path: '/admin/orders' },
     { text: 'Quản lý người dùng', icon: <UsersIcon />, path: '/admin/users' },
+    { text: 'Mã giảm giá', icon: <CouponIcon />, path: '/admin/coupons' },
     { text: 'Thông báo', icon: <NotificationsIcon />, path: '/admin/notifications' },
     { text: 'Đánh giá sản phẩm', icon: <ReviewsIcon />, path: '/admin/reviews' },
     { text: 'Báo cáo thống kê', icon: <ReportsIcon />, path: '/admin/reports' },

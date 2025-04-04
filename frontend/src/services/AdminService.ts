@@ -27,14 +27,20 @@ interface User {
   email: string;
   roles: string[];
   enabled: boolean;
+  coupons: string[];
   createdAt: string;
 }
 
 interface Order {
   id: string;
   userId: string;
-  username: string;
-  total: number;
+  user: {
+    id: string;
+    username: string;
+    fullName: string;
+    email: string;
+  };
+  totalAmount: number;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -121,6 +127,10 @@ const AdminService = {
     return api.delete(`/admin/users/${id}`);
   },
 
+  updateUserStatus(id: string, enabled: boolean) {
+    return api.put(`/admin/users/${id}/status`, { enabled });
+  },
+
   // Orders
   getAllOrders(params?: any) {
     return api.get<Page<Order>>('/admin/orders', { params });
@@ -131,7 +141,7 @@ const AdminService = {
   },
 
   updateOrderStatus(id: string, status: string) {
-    return api.put(`/admin/orders/${id}/status`, { status });
+    return api.put(`/admin/orders/${id}/status?status=${status}`, {});
   },
 
   // Dashboard statistics
@@ -185,6 +195,15 @@ const AdminService = {
     return api.delete(`/admin/notifications/${id}`);
   },
 
+  // Coupons
+  assignCouponToUser(userId: string, couponCode: string) {
+    return api.put(`/admin/users/${userId}/coupons`, { couponCode });
+  },
+
+  getActiveCoupons() {
+    return api.get('/coupons/active');
+  },
+
   // Reports
   getSalesReport(params?: any) {
     return api.get('/admin/reports/sales', { params });
@@ -207,7 +226,8 @@ const AdminService = {
       params, 
       responseType: 'blob' 
     });
-  }
+  },
+
 };
 
 export default AdminService;

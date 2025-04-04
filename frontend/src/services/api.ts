@@ -15,15 +15,26 @@ const instance: AxiosInstance = axios.create({
 // Request interceptor for adding auth token
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const token = user.accessToken || user.token;
-    
-    if (token) {
-      // Log cho debugging
-      console.log('Adding token to request');
-      config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.log('No token available for request');
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        console.log('No user data found in localStorage');
+        return config;
+      }
+
+      const user = JSON.parse(userStr);
+      // Kiểm tra cả hai loại token có thể có
+      const token = user.accessToken || user.token;
+      
+      if (token) {
+        // Đảm bảo token được định dạng đúng
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log('Token added to request:', config.url);
+      } else {
+        console.log('No token available for request:', config.url);
+      }
+    } catch (error) {
+      console.error('Error setting auth token:', error);
     }
     
     return config;
@@ -46,13 +57,14 @@ instance.interceptors.response.use(
     const publicEndpoints = [
       '/products', 
       '/categories', 
-      '/auth',
+      '/auth/signin',
+      '/auth/signup',
       '/products/recommended'
     ];
     
     // Kiểm tra xem URL hiện tại có phải là public endpoint
     const isPublicRequest = publicEndpoints.some(endpoint => 
-      originalConfig.url?.startsWith(endpoint)
+      originalConfig.url?.includes(endpoint)
     );
 
     if (err.response) {
@@ -69,10 +81,17 @@ instance.interceptors.response.use(
         
         // Chỉ đăng xuất nếu không phải là public endpoint
         if (!isPublicRequest) {
-          // Handle unauthorized error
+          console.error('Unauthorized request for protected endpoint:', originalConfig.url);
+          // Try refreshing token here if refresh endpoint is available
+          // ...
+
+          // For now, log out the user
           authService.logout();
-          localStorage.removeItem('user');
-          window.location.href = '/login';
+          
+          // Redirect to login page only if in browser environment
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login?session=expired';
+          }
         }
         
         return Promise.reject(err);

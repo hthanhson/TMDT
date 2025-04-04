@@ -1,77 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Button, 
-  IconButton,
-  Badge,
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import {
+  AppBar,
   Box,
-  Container,
+  Toolbar,
+  IconButton,
+  Typography,
   Menu,
+  Container,
+  Avatar,
+  Button,
+  Tooltip,
   MenuItem,
+  Badge,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
   Divider,
-  InputBase,
-  alpha,
-  styled,
   useTheme
 } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import LogoutIcon from '@mui/icons-material/Logout';
-import SearchIcon from '@mui/icons-material/Search';
-import PersonIcon from '@mui/icons-material/Person';
-import HistoryIcon from '@mui/icons-material/History';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import LockIcon from '@mui/icons-material/Lock';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import {
+  Menu as MenuIcon,
+  AccountCircle,
+  ShoppingCart as CartIcon,
+  Favorite as FavoriteIcon,
+  Person as PersonIcon,
+  Logout as LogoutIcon,
+  Login as LoginIcon,
+  Notifications as NotificationsIcon,
+  History as HistoryIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon
+} from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
+import SearchBar from './SearchBar';
 import NotificationService from '../services/NotificationService';
+import { Notification } from '../types/notification';
 import NotificationMenu from './NotificationMenu';
-
-const Search = styled('div')(({ theme }) => ({
-  position: 'relative',
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: alpha(theme.palette.common.white, 0.15),
-  '&:hover': {
-    backgroundColor: alpha(theme.palette.common.white, 0.25),
-  },
-  marginRight: theme.spacing(2),
-  marginLeft: 0,
-  width: '100%',
-  [theme.breakpoints.up('sm')]: {
-    marginLeft: theme.spacing(3),
-    width: 'auto',
-  },
-}));
-
-const SearchIconWrapper = styled('div')(({ theme }) => ({
-  padding: theme.spacing(0, 2),
-  height: '100%',
-  position: 'absolute',
-  pointerEvents: 'none',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}));
-
-const StyledInputBase = styled(InputBase)(({ theme }) => ({
-  color: 'inherit',
-  '& .MuiInputBase-input': {
-    padding: theme.spacing(1, 1, 1, 0),
-    // vertical padding + font size from searchIcon
-    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-    transition: theme.transitions.create('width'),
-    width: '100%',
-    [theme.breakpoints.up('md')]: {
-      width: '40ch',
-    },
-  },
-}));
 
 const Header: React.FC = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
@@ -84,6 +51,8 @@ const Header: React.FC = () => {
   const [cartAnchorEl, setCartAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationCount, setNotificationCount] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationLoading, setNotificationLoading] = useState(false);
   
   // Debug authentication state và đảm bảo component re-render khi trạng thái xác thực thay đổi
   useEffect(() => {
@@ -165,6 +134,32 @@ const Header: React.FC = () => {
     }
   };
   
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
+
+  const fetchNotifications = async () => {
+    try {
+      setNotificationLoading(true);
+      const response = await NotificationService.getNotifications();
+      setNotifications(response.data);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const handleNotificationMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationMenuClose = () => {
+    setNotificationAnchorEl(null);
+  };
+  
   return (
     <AppBar position="static">
       <Container maxWidth="lg">
@@ -180,24 +175,12 @@ const Header: React.FC = () => {
           
           {/* Chỉ hiển thị search bar khi không phải admin */}
           {!isAdmin && (
-            <Search sx={{ flexGrow: 1, maxWidth: '50%', mx: 'auto' }}>
-              <SearchIconWrapper>
-                <SearchIcon />
-              </SearchIconWrapper>
-              <form onSubmit={handleSearch}>
-                <StyledInputBase
-                  placeholder="Tìm kiếm sản phẩm..."
-                  inputProps={{ 'aria-label': 'search' }}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchQuery.trim() !== '') {
-                      navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
-                    }
-                  }}
-                />
-              </form>
-            </Search>
+            <SearchBar
+              sx={{ flexGrow: 1, maxWidth: '50%', mx: 'auto' }}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              handleSearch={handleSearch}
+            />
           )}
           
           <Box sx={{ display: 'flex', ml: 'auto' }}>
@@ -221,7 +204,7 @@ const Header: React.FC = () => {
                 sx={{ mx: 0.5 }}
               >
                 <Badge badgeContent={itemCount} color="error">
-                  <ShoppingCartIcon />
+                  <CartIcon />
                 </Badge>
               </IconButton>
             )}
@@ -306,29 +289,36 @@ const Header: React.FC = () => {
               ) : (
                 <>
                   {/* Regular user buttons */}
-                  <IconButton 
-                    color="inherit"
-                    onClick={handleNotificationClick}
-                    sx={{ mx: 0.5 }}
-                  >
-                    <Badge badgeContent={notificationCount} color="error">
-                      <NotificationsIcon />
-                    </Badge>
-                  </IconButton>
+                  <Tooltip title="Notifications">
+                    <IconButton
+                      onClick={handleNotificationMenuOpen}
+                      size="large"
+                      color="inherit"
+                      sx={{ mr: 1 }}
+                    >
+                      <Badge badgeContent={notifications.filter(n => !n.isRead).length} color="error">
+                        <NotificationsIcon />
+                      </Badge>
+                    </IconButton>
+                  </Tooltip>
                   
                   {/* Notification Menu */}
                   <NotificationMenu 
                     anchorEl={notificationAnchorEl}
                     open={Boolean(notificationAnchorEl)}
-                    onClose={handleNotificationClose}
+                    onClose={handleNotificationMenuClose}
                   />
+                  
+                  {notifications.filter(n => !n.isRead).length > 0 && (
+                    <Button size="small">Mark all as read</Button>
+                  )}
                   
                   <IconButton 
                     color="inherit"
                     onClick={handleMenuOpen}
                     sx={{ mx: 0.5 }}
                   >
-                    <AccountCircleIcon />
+                    <PersonIcon />
                   </IconButton>
                   
                   {/* User menu */}

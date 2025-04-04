@@ -74,11 +74,31 @@ const AdminProducts: React.FC = () => {
     try {
       setLoading(true);
       const response = await AdminService.getAllProducts();
-      setProducts(response.data.content);
+      console.log('Products API response:', response);
+      
+      if (response && response.data) {
+        if (response.data.content) {
+          // Dữ liệu trả về theo dạng phân trang
+          console.log('Setting products from paginated data:', response.data.content);
+          setProducts(response.data.content);
+        } else if (Array.isArray(response.data)) {
+          // Dữ liệu trả về trực tiếp là mảng
+          console.log('Setting products from array data:', response.data);
+          setProducts(response.data);
+        } else {
+          console.error('Unexpected data format:', response.data);
+          setProducts([]);
+        }
+      } else {
+        console.error('Invalid response format:', response);
+        setProducts([]);
+      }
+      
       setError(null);
     } catch (err: any) {
       console.error('Error fetching products:', err);
       setError(err.response?.data?.message || 'Failed to fetch products');
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -217,39 +237,40 @@ const AdminProducts: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  <Box
-                    component="img"
-                    sx={{ width: 50, height: 50, objectFit: 'contain' }}
-                    src={product.imageUrl || 'https://via.placeholder.com/50'}
-                    alt={product.name}
-                  />
-                </TableCell>
-                <TableCell>{product.name}</TableCell>
-                <TableCell>${product.price.toFixed(2)}</TableCell>
-                <TableCell>
-                  <Chip label={product.category} size="small" />
-                </TableCell>
-                <TableCell>
-                  {product.stock > 0 ? (
-                    product.stock
-                  ) : (
-                    <Chip label="Out of stock" color="error" size="small" />
-                  )}
-                </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenDialog(product)}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleDeleteProduct(product.id)} color="error">
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-            {products.length === 0 && (
+            {Array.isArray(products) && products.length > 0 ? (
+              products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    <Box
+                      component="img"
+                      sx={{ width: 50, height: 50, objectFit: 'contain' }}
+                      src={product.imageUrl || 'https://via.placeholder.com/50'}
+                      alt={product.name}
+                    />
+                  </TableCell>
+                  <TableCell>{product.name}</TableCell>
+                  <TableCell>${product.price.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Chip label={product.category?.name || product.category} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    {product.stock > 0 ? (
+                      product.stock
+                    ) : (
+                      <Chip label="Out of stock" color="error" size="small" />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton onClick={() => handleOpenDialog(product)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton onClick={() => handleDeleteProduct(product.id)} color="error">
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
               <TableRow>
                 <TableCell colSpan={6} align="center">
                   No products found
@@ -362,4 +383,4 @@ const AdminProducts: React.FC = () => {
   );
 };
 
-export default AdminProducts; 
+export default AdminProducts;

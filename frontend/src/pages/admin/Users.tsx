@@ -25,8 +25,9 @@ import {
   Alert,
   IconButton,
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Block as BlockIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import AdminService from '../../services/AdminService';
+import { toast } from 'react-toastify';
 
 interface User {
   id: string;
@@ -58,21 +59,55 @@ const AdminUsers: React.FC = () => {
     address: '',
     phoneNumber: '',
     roles: [] as string[],
+    enabled: false,
   });
+  const [coupons, setCoupons] = useState<any[]>([]);
 
   useEffect(() => {
     fetchUsers();
+    fetchActiveCoupons();
   }, []);
+
+  const fetchActiveCoupons = async () => {
+    try {
+      const response = await AdminService.getActiveCoupons();
+      console.log('Coupons API response:', response);
+      setCoupons(response.data || []);
+    } catch (err) {
+      console.error('Error fetching coupons:', err);
+      setCoupons([]);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const response = await AdminService.getAllUsers();
-      setUsers(response.data.content);
+      console.log('User API response:', response);
+      
+      if (response && response.data) {
+        if (response.data.content) {
+          // Dữ liệu trả về theo dạng phân trang
+          console.log('Setting users from paginated data:', response.data.content);
+          setUsers(response.data.content);
+        } else if (Array.isArray(response.data)) {
+          // Dữ liệu trả về trực tiếp là mảng
+          console.log('Setting users from array data:', response.data);
+          setUsers(response.data);
+        } else {
+          console.error('Unexpected data format:', response.data);
+          setUsers([]);
+        }
+      } else {
+        console.error('Invalid response format:', response);
+        setUsers([]);
+      }
+      
       setError(null);
     } catch (err: any) {
       console.error('Error fetching users:', err);
       setError(err.response?.data?.message || 'Failed to fetch users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -87,6 +122,7 @@ const AdminUsers: React.FC = () => {
       address: user.address || '',
       phoneNumber: user.phoneNumber || '',
       roles: user.roles || [],
+      enabled: user.enabled || false,
     });
     setOpenDialog(true);
   };
@@ -123,15 +159,46 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleToggleUserStatus = async (userId: string, enabled: boolean) => {
+    const action = enabled ? 'unlock' : 'lock';
+    if (window.confirm(`Are you sure you want to ${action} this user account?`)) {
+      try {
+        await AdminService.updateUserStatus(userId, enabled);
+        fetchUsers();
+        setError(null);
+      } catch (err: any) {
+        console.error('Error updating user status:', err);
+        setError(err.response?.data?.message || `Failed to ${action} user account`);
+      }
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, roles: string[]) => {
+    if (roles.includes('ROLE_ADMIN')) {
+      setError('Admin users cannot be deleted');
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       try {
         await AdminService.deleteUser(userId);
         fetchUsers();
+        setError(null);
       } catch (err: any) {
         console.error('Error deleting user:', err);
         setError(err.response?.data?.message || 'Failed to delete user');
       }
+    }
+  };
+
+  const handleAssignCoupon = async (userId: string, couponCode: string) => {
+    try {
+      await AdminService.assignCouponToUser(userId, couponCode);
+      toast.success('Đã tặng mã giảm giá thành công');
+      fetchUsers();
+    } catch (err: any) {
+      console.error('Lỗi khi tặng mã:', err);
+      toast.error(err.response?.data?.message || 'Lỗi khi tặng mã giảm giá');
     }
   };
 
@@ -160,40 +227,69 @@ const AdminUsers: React.FC = () => {
               <TableCell>Full Name</TableCell>
               <TableCell>Roles</TableCell>
               <TableCell>Actions</TableCell>
+              <TableCell>Tặng mã</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.username}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.fullName || '-'}</TableCell>
-                <TableCell>
-                  {user.roles?.map((role: string) => (
-                    <Chip
-                      key={role}
-                      label={role.replace('ROLE_', '')}
-                      color={role.includes('ADMIN') ? 'primary' : 'default'}
-                      size="small"
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                </TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenDialog(user)}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    onClick={() => handleDeleteUser(user.id)}
-                    color="error"
-                    disabled={user.roles?.includes('ROLE_ADMIN')}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-            {users.length === 0 && (
+            {Array.isArray(users) && users.length > 0 ? (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.username}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.fullName || '-'}</TableCell>
+                  <TableCell>
+                    {Array.isArray(user.roles) && user.roles.map((role: any) => {
+                      const roleStr = typeof role === 'string' ? role : String(role);
+                      return (
+                        <Chip
+                          key={roleStr}
+                          label={roleStr.replace('ROLE_', '')}
+                          color={roleStr.includes('ADMIN') ? 'primary' : 'default'}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      );
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton onClick={() => handleOpenDialog(user)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleDeleteUser(user.id, user.roles)}
+                      color="error"
+                      disabled={Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')}
+                      title={user.roles.includes('ROLE_ADMIN') ? 'Admin users cannot be deleted' : 'Delete user'}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleToggleUserStatus(user.id, !user.enabled)}
+                      color={user.enabled ? "error" : "success"}
+                      disabled={Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')}
+                    >
+                      {user.enabled ? <BlockIcon /> : <CheckCircleIcon />}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <InputLabel>Mã giảm giá</InputLabel>
+                      <Select
+                        value={''}
+                        label="Mã giảm giá"
+                        onChange={(e) => handleAssignCoupon(user.id, e.target.value as string)}
+                      >
+                        {coupons.map((coupon) => (
+                          <MenuItem key={coupon.code} value={coupon.code}>
+                            {coupon.code} ({coupon.discount}% giảm)
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
               <TableRow>
                 <TableCell colSpan={5} align="center">
                   No users found
@@ -301,4 +397,4 @@ const AdminUsers: React.FC = () => {
   );
 };
 
-export default AdminUsers; 
+export default AdminUsers;

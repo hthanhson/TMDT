@@ -64,20 +64,59 @@ const AdminOrders: React.FC = () => {
     try {
       setLoading(true);
       const response = await AdminService.getAllOrders();
-      setOrders(response.data.content);
+      console.log('Orders API response:', response);
+      
+      if (response && response.data) {
+        if (response.data.content) {
+          // Dữ liệu trả về theo dạng phân trang
+          console.log('Setting orders from paginated data:', response.data.content);
+          setOrders(response.data.content);
+        } else if (Array.isArray(response.data)) {
+          // Dữ liệu trả về trực tiếp là mảng
+          console.log('Setting orders from array data:', response.data);
+          setOrders(response.data);
+        } else {
+          console.error('Unexpected data format:', response.data);
+          setOrders([]);
+        }
+      } else {
+        console.error('Invalid response format:', response);
+        setOrders([]);
+      }
+      
       setError(null);
     } catch (err: any) {
       console.error('Error fetching orders:', err);
       setError(err.response?.data?.message || 'Failed to fetch orders');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
+  const isValidStatusTransition = (currentStatus: string, newStatus: string): boolean => {
+    const validTransitions: { [key: string]: string[] } = {
+      'PENDING': ['PROCESSING', 'CANCELLED', 'ON_HOLD'],
+      'PROCESSING': ['SHIPPED', 'CANCELLED', 'ON_HOLD'],
+      'SHIPPED': ['DELIVERED', 'CANCELLED'],
+      'DELIVERED': ['REFUNDED'],
+      'ON_HOLD': ['PROCESSING', 'CANCELLED'],
+      'CANCELLED': ['REFUNDED'],
+      'REFUNDED': []
+    };
+    return validTransitions[currentStatus]?.includes(newStatus) || false;
+  };
+
+  const handleStatusChange = async (orderId: string, newStatus: string, currentStatus: string) => {
+    if (!isValidStatusTransition(currentStatus, newStatus)) {
+      setError(`Invalid status transition from ${currentStatus} to ${newStatus}`);
+      return;
+    }
+
     try {
       await AdminService.updateOrderStatus(orderId, newStatus);
       fetchOrders(); // Refresh the orders list
+      setError(null);
     } catch (err: any) {
       console.error('Error updating order status:', err);
       setError(err.response?.data?.message || 'Failed to update order status');
@@ -105,6 +144,10 @@ const AdminOrders: React.FC = () => {
         return 'success';
       case 'CANCELLED':
         return 'error';
+      case 'REFUNDED':
+        return 'secondary';
+      case 'ON_HOLD':
+        return 'default';
       default:
         return 'default';
     }
@@ -139,51 +182,54 @@ const AdminOrders: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell>#{order.id}</TableCell>
-                <TableCell>
-                  {format(new Date(order.createdAt), 'MMM d, yyyy')}
-                </TableCell>
-                <TableCell>{order.user?.fullName || order.user?.username}</TableCell>
-                <TableCell>${parseFloat(order.totalAmount).toFixed(2)}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={order.status}
-                    color={getStatusColor(order.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" alignItems="center">
-                    <FormControl size="small" sx={{ minWidth: 120, mr: 1 }}>
-                      <InputLabel id={`status-label-${order.id}`}>Status</InputLabel>
-                      <Select
-                        labelId={`status-label-${order.id}`}
-                        value={order.status}
-                        label="Status"
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        disabled={order.status === 'DELIVERED' || order.status === 'CANCELLED'}
-                      >
-                        <MenuItem value="PENDING">Pending</MenuItem>
-                        <MenuItem value="PROCESSING">Processing</MenuItem>
-                        <MenuItem value="SHIPPED">Shipped</MenuItem>
-                        <MenuItem value="DELIVERED">Delivered</MenuItem>
-                        <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <Button
+            {Array.isArray(orders) && orders.length > 0 ? (
+              orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell>#{order.id}</TableCell>
+                  <TableCell>
+                    {order.createdAt && format(new Date(order.createdAt), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell>{order.user?.fullName || order.user?.username || 'Unknown'}</TableCell>
+                  <TableCell>${order.totalAmount ? parseFloat(order.totalAmount).toFixed(2) : '0.00'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={order.status}
+                      color={getStatusColor(order.status)}
                       size="small"
-                      variant="outlined"
-                      onClick={() => handleOpenDialog(order)}
-                    >
-                      Details
-                    </Button>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-            {orders.length === 0 && (
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" alignItems="center">
+                      <FormControl size="small" sx={{ minWidth: 120, mr: 1 }}>
+                        <InputLabel id={`status-label-${order.id}`}>Status</InputLabel>
+                        <Select
+                          labelId={`status-label-${order.id}`}
+                          value={order.status || ''}
+                          label="Status"
+                          onChange={(e) => handleStatusChange(order.id, e.target.value, order.status)}
+                          disabled={order.status === 'DELIVERED' || order.status === 'CANCELLED'}
+                        >
+                          <MenuItem value="PENDING" disabled={!isValidStatusTransition(order.status, 'PENDING')}>Pending</MenuItem>
+                          <MenuItem value="PROCESSING" disabled={!isValidStatusTransition(order.status, 'PROCESSING')}>Processing</MenuItem>
+                          <MenuItem value="SHIPPED" disabled={!isValidStatusTransition(order.status, 'SHIPPED')}>Shipped</MenuItem>
+                          <MenuItem value="DELIVERED" disabled={!isValidStatusTransition(order.status, 'DELIVERED')}>Delivered</MenuItem>
+                          <MenuItem value="CANCELLED" disabled={!isValidStatusTransition(order.status, 'CANCELLED')}>Cancelled</MenuItem>
+                          <MenuItem value="REFUNDED" disabled={!isValidStatusTransition(order.status, 'REFUNDED')}>Refunded</MenuItem>
+                          <MenuItem value="ON_HOLD" disabled={!isValidStatusTransition(order.status, 'ON_HOLD')}>On Hold</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleOpenDialog(order)}
+                      >
+                        Details
+                      </Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
               <TableRow>
                 <TableCell colSpan={6} align="center">
                   No orders found
@@ -214,7 +260,7 @@ const AdminOrders: React.FC = () => {
                     Order Information
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Date:</strong> {format(new Date(selectedOrder.createdAt), 'PPP')}
+                    <strong>Date:</strong> {selectedOrder.createdAt && format(new Date(selectedOrder.createdAt), 'PPP')}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Customer:</strong> {selectedOrder.user?.fullName || selectedOrder.user?.username}
@@ -242,7 +288,7 @@ const AdminOrders: React.FC = () => {
                     Order Items
                   </Typography>
                   <List>
-                    {selectedOrder.orderItems?.map((item: any) => (
+                    {Array.isArray(selectedOrder.orderItems) && selectedOrder.orderItems.map((item: any) => (
                       <React.Fragment key={item.id}>
                         <ListItem>
                           <ListItemText
@@ -280,7 +326,7 @@ const AdminOrders: React.FC = () => {
                     value={selectedOrder.status}
                     label="Update Status"
                     onChange={(e) => {
-                      handleStatusChange(selectedOrder.id, e.target.value);
+                      handleStatusChange(selectedOrder.id, e.target.value, selectedOrder.status);
                       handleCloseDialog();
                     }}
                   >
@@ -300,4 +346,4 @@ const AdminOrders: React.FC = () => {
   );
 };
 
-export default AdminOrders; 
+export default AdminOrders;

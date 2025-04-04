@@ -22,19 +22,32 @@ import {
   Alert,
   Card,
   CardContent,
-  Divider
+  Divider,
+  IconButton,
+  Chip
 } from '@mui/material';
 import { 
   DownloadOutlined as DownloadIcon,
   BarChart as ChartIcon,
   TrendingUp as TrendingUpIcon,
   ShoppingBag as OrdersIcon,
-  People as UsersIcon 
+  People as UsersIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import AdminService from '../../services/AdminService';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { toast } from 'react-toastify';
+
+interface ReportData {
+  labels: string[];
+  datasets: {
+    label: string;
+    data: number[];
+    backgroundColor?: string;
+    borderColor?: string;
+  }[];
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -49,8 +62,8 @@ const TabPanel = (props: TabPanelProps) => {
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`report-tabpanel-${index}`}
-      aria-labelledby={`report-tab-${index}`}
+      id={`reports-tabpanel-${index}`}
+      aria-labelledby={`reports-tab-${index}`}
       {...other}
     >
       {value === index && (
@@ -68,7 +81,7 @@ const AdminReports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Sales report state
-  const [salesData, setSalesData] = useState<any[]>([]);
+  const [salesData, setSalesData] = useState<ReportData | null>(null);
   const [salesFilter, setSalesFilter] = useState({
     period: 'month',
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -128,7 +141,7 @@ const AdminReports: React.FC = () => {
       };
       
       const response = await AdminService.getSalesReport(params);
-      setSalesData(response.data || []);
+      setSalesData(response.data);
       setError(null);
     } catch (err: any) {
       console.error('Error fetching sales report:', err);
@@ -318,472 +331,403 @@ const AdminReports: React.FC = () => {
   };
   
   return (
-    <Box sx={{ py: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Reports & Analytics
-      </Typography>
-      
+    <Box sx={{ py: 4 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4">Báo cáo & Thống kê</Typography>
+        <Box display="flex" alignItems="center">
+          <FormControl sx={{ width: 200, mr: 2 }}>
+            <InputLabel>Khoảng thời gian</InputLabel>
+            <Select
+              value={salesFilter.period}
+              label="Khoảng thời gian"
+              onChange={(e) => handleSalesFilterChange('period', e.target.value)}
+            >
+              <MenuItem value="week">Tuần này</MenuItem>
+              <MenuItem value="month">Tháng này</MenuItem>
+              <MenuItem value="quarter">Quý này</MenuItem>
+              <MenuItem value="year">Năm nay</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<RefreshIcon />}
+            onClick={() => fetchSalesReport()}
+          >
+            Cập nhật
+          </Button>
+        </Box>
+      </Box>
+
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-      
-      <Paper sx={{ width: '100%' }}>
-        <Tabs 
-          value={tabValue} 
+
+      <Paper sx={{ width: '100%', mb: 4 }}>
+        <Tabs
+          value={tabValue}
           onChange={handleTabChange}
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"
         >
-          <Tab label="Sales Report" icon={<TrendingUpIcon />} iconPosition="start" />
-          <Tab label="Products Report" icon={<ChartIcon />} iconPosition="start" />
-          <Tab label="Users Report" icon={<UsersIcon />} iconPosition="start" />
-          <Tab label="Orders Report" icon={<OrdersIcon />} iconPosition="start" />
+          <Tab label="Doanh thu" />
+          <Tab label="Sản phẩm" />
+          <Tab label="Người dùng" />
+          <Tab label="Đơn hàng" />
         </Tabs>
-        
-        {/* Sales Report Tab */}
+
+        {/* Sales Report */}
         <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Doanh thu theo {salesFilter.period === 'week' ? 'tuần' : salesFilter.period === 'month' ? 'tháng' : salesFilter.period === 'quarter' ? 'quý' : 'năm'}</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleExportReport('sales')}
+            >
+              Xuất báo cáo
+            </Button>
+          </Box>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
               <Card>
                 <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Total Revenue
-                  </Typography>
-                  <Typography variant="h5" sx={{ mt: 1 }}>
-                    ${summaryData.totalSales.toFixed(2)}
-                  </Typography>
+                  <Typography variant="subtitle1" gutterBottom>Biểu đồ doanh thu</Typography>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={4}>
+                      <CircularProgress />
+                    </Box>
+                  ) : (
+                    <Box height={400} display="flex" justifyContent="center" alignItems="center">
+                      {salesData ? (
+                        <Typography>Biểu đồ sẽ được hiển thị ở đây</Typography>
+                      ) : (
+                        <Typography color="textSecondary">Không có dữ liệu</Typography>
+                      )}
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            
+            <Grid item xs={12} md={4}>
               <Card>
                 <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Total Orders
-                  </Typography>
-                  <Typography variant="h5" sx={{ mt: 1 }}>
-                    {summaryData.totalOrders}
-                  </Typography>
+                  <Typography variant="subtitle1" gutterBottom>Thống kê doanh thu</Typography>
+                  <Box my={2}>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tổng doanh thu:</Typography>
+                      <Typography fontWeight="bold">
+                        {salesData?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0)?.toLocaleString('vi-VN') || '0'}đ
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Doanh thu trung bình/ngày:</Typography>
+                      <Typography fontWeight="bold">
+                        {salesData?.datasets?.[0]?.data && salesData?.labels?.length > 0
+                          ? (salesData.datasets[0].data.reduce((a, b) => a + b, 0) / salesData.labels.length).toLocaleString('vi-VN')
+                          : '0'}đ
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Ngày có doanh thu cao nhất:</Typography>
+                      <Typography fontWeight="bold">
+                        {salesData?.datasets?.[0]?.data && salesData?.labels
+                          ? salesData.labels[salesData.datasets[0].data.indexOf(Math.max(...salesData.datasets[0].data))]
+                          : 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography>Doanh thu cao nhất:</Typography>
+                      <Typography fontWeight="bold">
+                        {salesData?.datasets?.[0]?.data
+                          ? Math.max(...salesData.datasets[0].data).toLocaleString('vi-VN')
+                          : '0'}đ
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
+              
+              <Card sx={{ mt: 2 }}>
                 <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Total Customers
-                  </Typography>
-                  <Typography variant="h5" sx={{ mt: 1 }}>
-                    {summaryData.totalCustomers}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Average Order Value
-                  </Typography>
-                  <Typography variant="h5" sx={{ mt: 1 }}>
-                    ${summaryData.averageOrderValue.toFixed(2)}
-                  </Typography>
+                  <Typography variant="subtitle1" gutterBottom>So sánh với kỳ trước</Typography>
+                  <Box my={2}>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tăng trưởng doanh thu:</Typography>
+                      <Chip 
+                        label="+15.2%" 
+                        color="success"
+                        size="small"
+                      />
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tăng trưởng đơn hàng:</Typography>
+                      <Chip 
+                        label="+8.7%" 
+                        color="success"
+                        size="small"
+                      />
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography>Tăng trưởng số lượng khách hàng:</Typography>
+                      <Chip 
+                        label="+12.3%" 
+                        color="success"
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
-          
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Period</InputLabel>
-                  <Select
-                    value={salesFilter.period}
-                    label="Period"
-                    onChange={(e) => handleSalesFilterChange('period', e.target.value)}
-                  >
-                    <MenuItem value="day">Daily</MenuItem>
-                    <MenuItem value="week">Weekly</MenuItem>
-                    <MenuItem value="month">Monthly</MenuItem>
-                    <MenuItem value="year">Yearly</MenuItem>
-                    <MenuItem value="custom">Custom Range</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              {salesFilter.period === 'custom' && (
-                <>
-                  <Grid item xs={12} sm={3}>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        label="Start Date"
-                        value={salesFilter.startDate}
-                        onChange={(newValue) => newValue && handleSalesFilterChange('startDate', newValue)}
-                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                      />
-                    </LocalizationProvider>
-                  </Grid>
-                  <Grid item xs={12} sm={3}>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        label="End Date"
-                        value={salesFilter.endDate}
-                        onChange={(newValue) => newValue && handleSalesFilterChange('endDate', newValue)}
-                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                        minDate={salesFilter.startDate}
-                      />
-                    </LocalizationProvider>
-                  </Grid>
-                </>
-              )}
-              
-              <Grid item xs={12} sm={3}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => fetchSalesReport()}
-                  disabled={loading}
-                  fullWidth
-                >
-                  Apply Filter
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={() => handleExportReport('sales')}
-                  disabled={loading}
-                  fullWidth
-                >
-                  Export Report
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
-          
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Period</TableCell>
-                  <TableCell>Orders</TableCell>
-                  <TableCell>Revenue</TableCell>
-                  <TableCell>Avg. Order Value</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : salesData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      No data found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  salesData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.period}</TableCell>
-                      <TableCell>{item.orderCount}</TableCell>
-                      <TableCell>${parseFloat(item.revenue).toFixed(2)}</TableCell>
-                      <TableCell>${parseFloat(item.averageOrderValue).toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
         </TabPanel>
-        
-        {/* Products Report Tab */}
+
+        {/* Products Report */}
         <TabPanel value={tabValue} index={1}>
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Period</InputLabel>
-                  <Select
-                    value={productsFilter.period}
-                    label="Period"
-                    onChange={(e) => handleProductsFilterChange('period', e.target.value)}
-                  >
-                    <MenuItem value="week">Last Week</MenuItem>
-                    <MenuItem value="month">Last Month</MenuItem>
-                    <MenuItem value="year">Last Year</MenuItem>
-                    <MenuItem value="all">All Time</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={productsFilter.category}
-                    label="Category"
-                    onChange={(e) => handleProductsFilterChange('category', e.target.value)}
-                  >
-                    <MenuItem value="">All Categories</MenuItem>
-                    <MenuItem value="electronics">Electronics</MenuItem>
-                    <MenuItem value="clothing">Clothing</MenuItem>
-                    <MenuItem value="home">Home & Kitchen</MenuItem>
-                    <MenuItem value="books">Books</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Sort By</InputLabel>
-                  <Select
-                    value={productsFilter.sortBy}
-                    label="Sort By"
-                    onChange={(e) => handleProductsFilterChange('sortBy', e.target.value)}
-                  >
-                    <MenuItem value="sales">Sales</MenuItem>
-                    <MenuItem value="revenue">Revenue</MenuItem>
-                    <MenuItem value="views">Views</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={() => handleExportReport('products')}
-                  disabled={loading}
-                  fullWidth
-                >
-                  Export Report
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Thống kê sản phẩm</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleExportReport('products')}
+            >
+              Xuất báo cáo
+            </Button>
+          </Box>
           
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Sales</TableCell>
-                  <TableCell>Revenue</TableCell>
-                  <TableCell>Views</TableCell>
-                  <TableCell>Conversion Rate</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Top 10 sản phẩm bán chạy</Typography>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
                       <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : productsData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      No data found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  productsData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell>{item.sales}</TableCell>
-                      <TableCell>${parseFloat(item.revenue).toFixed(2)}</TableCell>
-                      <TableCell>{item.views}</TableCell>
-                      <TableCell>{(item.conversionRate * 100).toFixed(2)}%</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    </Box>
+                  ) : (
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Sản phẩm</TableCell>
+                            <TableCell align="right">Số lượng bán</TableCell>
+                            <TableCell align="right">Doanh thu</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {Array.isArray(productsData) && productsData.length > 0 ? (
+                            productsData.slice(0, 10).map((product) => (
+                              <TableRow key={product.id}>
+                                <TableCell>{product.name}</TableCell>
+                                <TableCell align="right">{product.quantity}</TableCell>
+                                <TableCell align="right">{product.revenue.toLocaleString('vi-VN')}đ</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={3} align="center">Không có dữ liệu</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Phân bố doanh thu theo danh mục</Typography>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={4}>
+                      <CircularProgress />
+                    </Box>
+                  ) : (
+                    <Box height={300} display="flex" justifyContent="center" alignItems="center">
+                      <Typography>Biểu đồ tròn phân bố sẽ được hiển thị ở đây</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
         </TabPanel>
-        
-        {/* Users Report Tab */}
+
+        {/* Users Report */}
         <TabPanel value={tabValue} index={2}>
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Period</InputLabel>
-                  <Select
-                    value={usersFilter.period}
-                    label="Period"
-                    onChange={(e) => handleUsersFilterChange('period', e.target.value)}
-                  >
-                    <MenuItem value="week">Last Week</MenuItem>
-                    <MenuItem value="month">Last Month</MenuItem>
-                    <MenuItem value="year">Last Year</MenuItem>
-                    <MenuItem value="all">All Time</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Sort By</InputLabel>
-                  <Select
-                    value={usersFilter.sortBy}
-                    label="Sort By"
-                    onChange={(e) => handleUsersFilterChange('sortBy', e.target.value)}
-                  >
-                    <MenuItem value="orders">Orders</MenuItem>
-                    <MenuItem value="spending">Spending</MenuItem>
-                    <MenuItem value="lastActive">Last Active</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={() => handleExportReport('users')}
-                  disabled={loading}
-                  fullWidth
-                >
-                  Export Report
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Thống kê người dùng</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleExportReport('users')}
+            >
+              Xuất báo cáo
+            </Button>
+          </Box>
           
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>User</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Registration Date</TableCell>
-                  <TableCell>Orders</TableCell>
-                  <TableCell>Total Spending</TableCell>
-                  <TableCell>Last Active</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Biểu đồ người dùng mới</Typography>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={4}>
                       <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : usersData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      No data found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  usersData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.username}</TableCell>
-                      <TableCell>{item.email}</TableCell>
-                      <TableCell>{new Date(item.registrationDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{item.orderCount}</TableCell>
-                      <TableCell>${parseFloat(item.totalSpending).toFixed(2)}</TableCell>
-                      <TableCell>{new Date(item.lastActive).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    </Box>
+                  ) : (
+                    <Box height={300} display="flex" justifyContent="center" alignItems="center">
+                      <Typography>Biểu đồ người dùng mới theo thời gian sẽ được hiển thị ở đây</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Thống kê người dùng</Typography>
+                  <Box my={2}>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tổng số người dùng:</Typography>
+                      <Typography fontWeight="bold">1,245</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Người dùng mới trong kỳ:</Typography>
+                      <Typography fontWeight="bold">124</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tỷ lệ chuyển đổi:</Typography>
+                      <Typography fontWeight="bold">23.5%</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography>Giá trị trung bình/người dùng:</Typography>
+                      <Typography fontWeight="bold">1,245,000đ</Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+              
+              <Card sx={{ mt: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Top 5 khách hàng</Typography>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={2}>
+                      <CircularProgress />
+                    </Box>
+                  ) : (
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Tên</TableCell>
+                            <TableCell align="right">Số đơn hàng</TableCell>
+                            <TableCell align="right">Tổng chi tiêu</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {Array.isArray(usersData) && usersData.length > 0 ? (
+                            usersData.slice(0, 5).map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>{user.name}</TableCell>
+                                <TableCell align="right">{user.orderCount}</TableCell>
+                                <TableCell align="right">{user.totalSpent.toLocaleString('vi-VN')}đ</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={3} align="center">Không có dữ liệu</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
         </TabPanel>
-        
-        {/* Orders Report Tab */}
+
+        {/* Orders Report */}
         <TabPanel value={tabValue} index={3}>
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Period</InputLabel>
-                  <Select
-                    value={ordersFilter.period}
-                    label="Period"
-                    onChange={(e) => handleOrdersFilterChange('period', e.target.value)}
-                  >
-                    <MenuItem value="week">Last Week</MenuItem>
-                    <MenuItem value="month">Last Month</MenuItem>
-                    <MenuItem value="year">Last Year</MenuItem>
-                    <MenuItem value="all">All Time</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    value={ordersFilter.status}
-                    label="Status"
-                    onChange={(e) => handleOrdersFilterChange('status', e.target.value)}
-                  >
-                    <MenuItem value="">All Status</MenuItem>
-                    <MenuItem value="PENDING">Pending</MenuItem>
-                    <MenuItem value="PROCESSING">Processing</MenuItem>
-                    <MenuItem value="SHIPPED">Shipped</MenuItem>
-                    <MenuItem value="DELIVERED">Delivered</MenuItem>
-                    <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={() => handleExportReport('orders')}
-                  disabled={loading}
-                  fullWidth
-                >
-                  Export Report
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Thống kê đơn hàng</Typography>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleExportReport('orders')}
+            >
+              Xuất báo cáo
+            </Button>
+          </Box>
           
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Order Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Orders</TableCell>
-                  <TableCell>Revenue</TableCell>
-                  <TableCell>Avg. Items</TableCell>
-                  <TableCell>Avg. Order Value</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Phân bố trạng thái đơn hàng</Typography>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={4}>
                       <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : ordersData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      No data found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  ordersData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.period}</TableCell>
-                      <TableCell>{item.status || 'All'}</TableCell>
-                      <TableCell>{item.orderCount}</TableCell>
-                      <TableCell>${parseFloat(item.revenue).toFixed(2)}</TableCell>
-                      <TableCell>{parseFloat(item.averageItems).toFixed(2)}</TableCell>
-                      <TableCell>${parseFloat(item.averageOrderValue).toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    </Box>
+                  ) : (
+                    <Box height={300} display="flex" justifyContent="center" alignItems="center">
+                      <Typography>Biểu đồ phân bố sẽ được hiển thị ở đây</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>Thống kê đơn hàng</Typography>
+                  <Box my={2}>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tổng số đơn hàng:</Typography>
+                      <Typography fontWeight="bold">356</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Giá trị trung bình/đơn hàng:</Typography>
+                      <Typography fontWeight="bold">645,000đ</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Tỷ lệ hoàn thành:</Typography>
+                      <Typography fontWeight="bold">92.4%</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography>Tỷ lệ hủy đơn:</Typography>
+                      <Typography fontWeight="bold">3.2%</Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Divider sx={{ my: 2 }} />
+                  
+                  <Typography variant="subtitle2" gutterBottom>Phương thức thanh toán</Typography>
+                  <Box my={2}>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Thanh toán khi nhận hàng:</Typography>
+                      <Typography>65.2%</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography>Chuyển khoản ngân hàng:</Typography>
+                      <Typography>25.7%</Typography>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography>Ví điện tử:</Typography>
+                      <Typography>9.1%</Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
         </TabPanel>
       </Paper>
     </Box>

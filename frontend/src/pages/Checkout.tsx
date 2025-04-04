@@ -120,7 +120,11 @@ const Checkout: React.FC = () => {
   };
 
   const handleBack = () => {
-    setActiveStep(prev => prev - 1);
+    if (activeStep === 0) {
+      navigate('/cart');
+    } else {
+      setActiveStep(prev => prev - 1);
+    }
   };
 
   const validateDeliveryInfo = (): boolean => {

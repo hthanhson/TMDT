@@ -16,16 +16,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.tmdt.model.Order;
 import com.example.tmdt.model.Product;
 import com.example.tmdt.model.User;
+import com.example.tmdt.model.Coupon;
 import com.example.tmdt.repository.OrderRepository;
 import com.example.tmdt.repository.ProductRepository;
 import com.example.tmdt.repository.UserRepository;
+import com.example.tmdt.repository.CouponRepository;
 import com.example.tmdt.service.OrderService;
+import java.time.LocalDateTime;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -43,6 +47,9 @@ public class AdminController {
 
     @Autowired
     private OrderService orderService;
+    
+    @Autowired
+    private CouponRepository couponRepository;
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getDashboardSummary() {
@@ -144,6 +151,7 @@ public class AdminController {
     @GetMapping("/products")
     public ResponseEntity<List<Product>> getAllProducts() {
         List<Product> products = productRepository.findAll();
+        System.out.println(products);
         return new ResponseEntity<>(products, HttpStatus.OK);
     }
 
@@ -156,4 +164,42 @@ public class AdminController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-} 
+
+    @PutMapping("/users/{id}/coupons")
+    public ResponseEntity<?> assignCouponToUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        String couponCode = request.get("couponCode");
+        if (couponCode == null || couponCode.isEmpty()) {
+            return new ResponseEntity<>("Thiếu tham số couponCode", HttpStatus.BAD_REQUEST);
+        }
+        try {
+            Optional<User> userData = userRepository.findById(id);
+            if (!userData.isPresent()) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+            
+            User user = userData.get();
+            
+            // Kiểm tra coupon hợp lệ
+            Coupon coupon = couponRepository.findByCode(couponCode)
+                .orElseThrow(() -> new RuntimeException("Coupon không tồn tại"));
+                
+            if (!coupon.getIsActive()) {
+                return new ResponseEntity<>("Coupon đã hết hiệu lực", HttpStatus.BAD_REQUEST);
+            }
+            
+            if (coupon.getExpiryDate().isBefore(LocalDateTime.now())) {
+                return new ResponseEntity<>("Coupon đã hết hạn", HttpStatus.BAD_REQUEST);
+            }
+            
+            // Thêm coupon vào danh sách coupons của user
+            coupon.setUser(user);
+            user.getCoupons().add(coupon);
+            couponRepository.save(coupon);
+            userRepository.save(user);
+            
+            return new ResponseEntity<>(coupon, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}

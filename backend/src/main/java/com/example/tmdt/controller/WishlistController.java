@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,6 +60,14 @@ public class WishlistController {
     public ResponseEntity<?> addToWishlist(
             @AuthenticationPrincipal User user,
             @PathVariable Long productId) {
+        
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null) {
+            logger.info("Authentication: principal={}, authorities={}", 
+                auth.getPrincipal(), auth.getAuthorities());
+        } else {
+            logger.error("No Authentication in SecurityContext");
+        }
         
         logger.info("Add to wishlist request: user={}, productId={}", user != null ? user.getId() : "null", productId);
         if (user == null) {
