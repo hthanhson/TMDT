@@ -4,6 +4,7 @@ import com.example.tmdt.model.Order;
 import com.example.tmdt.model.OrderItem;
 import com.example.tmdt.model.Product;
 import com.example.tmdt.model.User;
+import com.example.tmdt.model.Coupon;
 import com.example.tmdt.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,11 +25,13 @@ public class OrderService {
     
     private final OrderRepository orderRepository;
     private final ProductService productService;
+    private final CouponService couponService;
     
     @Autowired
-    public OrderService(OrderRepository orderRepository, ProductService productService) {
+    public OrderService(OrderRepository orderRepository, ProductService productService, CouponService couponService) {
         this.orderRepository = orderRepository;
         this.productService = productService;
+        this.couponService = couponService;
     }
     
     public List<Order> getAllOrders() {
@@ -79,7 +82,55 @@ public class OrderService {
         }
         
         order.setOrderItems(orderItems);
-        order.setTotalAmount(total);
+        order.calculateTotal(); // Calculate subtotal before applying coupon discount
+        
+        // Apply coupon if provided
+        if (orderRequest.getCouponCode() != null && !orderRequest.getCouponCode().isEmpty()) {
+            try {
+                Coupon coupon = couponService.verifyCoupon(
+                    orderRequest.getCouponCode(), 
+                    user, 
+                    total.doubleValue()
+                );
+                
+                // Calculate discount
+                double discountAmount = 0;
+                if (coupon.getDiscountType() == Coupon.DiscountType.PERCENTAGE) {
+                    // Calculate percentage discount
+                    discountAmount = total.doubleValue() * (coupon.getDiscountValue().doubleValue() / 100.0);
+                } else {
+                    // Fixed amount discount
+                    discountAmount = coupon.getDiscountValue().doubleValue();
+                    // Make sure discount doesn't exceed total
+                    if (discountAmount > total.doubleValue()) {
+                        discountAmount = total.doubleValue();
+                    }
+                }
+                
+                // Set coupon and discount amount
+                order.setCoupon(coupon);
+                order.setDiscountAmount(BigDecimal.valueOf(discountAmount));
+                
+                // Recalculate total with the applied discount
+                order.calculateTotal();
+                
+                // Mark coupon as used if it's a one-time use coupon
+                couponService.useCoupon(orderRequest.getCouponCode());
+                
+            } catch (Exception e) {
+                // If coupon validation fails, continue without applying coupon
+                // Consider logging the error or handling it in a different way
+            }
+        }
+        
+        // Set the final total amount, prioritizing client-provided total if available
+        if (orderRequest.getTotal() != null) {
+            // Use the client-provided total that includes the discount
+            order.setTotalAmount(BigDecimal.valueOf(orderRequest.getTotal()));
+        } else {
+            // If no client total is provided, calculate the total with discount
+            order.calculateTotal();
+        }
         
         return orderRepository.save(order);
     }

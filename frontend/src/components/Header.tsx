@@ -309,9 +309,9 @@ const Header: React.FC = () => {
                     onClose={handleNotificationMenuClose}
                   />
                   
-                  {notifications.filter(n => !n.isRead).length > 0 && (
+                  {/* {notifications.filter(n => !n.isRead).length > 0 && (
                     <Button size="small">Mark all as read</Button>
-                  )}
+                  )} */}
                   
                   <IconButton 
                     color="inherit"

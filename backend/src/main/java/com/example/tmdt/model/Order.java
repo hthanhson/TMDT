@@ -51,6 +51,13 @@ public class Order {
     @Column(length = 20)
     private String paymentStatus;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coupon_id")
+    private Coupon coupon;
+    
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -86,10 +93,19 @@ public class Order {
         calculateTotal();
     }
 
-    private void calculateTotal() {
-        this.totalAmount = orderItems.stream()
+    public void calculateTotal() {
+        BigDecimal subtotal = orderItems.stream()
                 .map(item -> item.getPrice().multiply(new BigDecimal(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            if (discountAmount.compareTo(subtotal) > 0) {
+                discountAmount = subtotal;
+            }
+            this.totalAmount = subtotal.subtract(discountAmount);
+        } else {
+            this.totalAmount = subtotal;
+        }
     }
 
     public enum OrderStatus {

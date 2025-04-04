@@ -18,6 +18,12 @@ export interface Order {
   shippingAddress: string;
   totalAmount: number;
   orderItems: OrderItem[];
+  discountAmount?: number;
+  coupon?: {
+    id: number;
+    code: string;
+    description: string;
+  };
 }
 
 export interface OrderData {
@@ -27,6 +33,8 @@ export interface OrderData {
   }>;
   shippingAddress: string;
   paymentMethod: string;
+  couponCode?: string;
+  total?: number;
 }
 
 export interface OrderSummary {
