@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -39,6 +39,23 @@ import SearchBar from './SearchBar';
 import NotificationService from '../services/NotificationService';
 import { Notification } from '../types/notification';
 import NotificationMenu from './NotificationMenu';
+
+const NOTIFICATION_UPDATE_EVENT = 'notification-update-event';
+
+// Create a public function to trigger notification refresh from anywhere in the app
+export const refreshHeaderNotifications = () => {
+  console.log("Triggering global header notification refresh");
+  const event = new CustomEvent(NOTIFICATION_UPDATE_EVENT);
+  window.dispatchEvent(event);
+  
+  // Add a fallback approach - sometimes events might not work reliably
+  // Try to directly fetch notifications through the service
+  try {
+    NotificationService.getNotifications();
+  } catch (error) {
+    console.error("Error in direct notification fetch:", error);
+  }
+};
 
 const Header: React.FC = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
@@ -159,6 +176,64 @@ const Header: React.FC = () => {
   const handleNotificationMenuClose = () => {
     setNotificationAnchorEl(null);
   };
+
+  // Add a consistent function to check if a notification is read
+  const isNotificationRead = (notification: any) => {
+    // Check both 'isRead' and 'read' properties since the API is using 'read'
+    const isReadValue = notification.isRead !== undefined ? notification.isRead : notification.read;
+    
+    // Convert considering all possible formats
+    return isReadValue === true || 
+      (typeof isReadValue === 'number' && isReadValue === 1) || 
+      (typeof isReadValue === 'string' && isReadValue === "1") || 
+      (typeof isReadValue === 'string' && isReadValue === "true");
+  };
+
+  // Add a handler to refresh notifications when they're updated in the menu
+  const handleNotificationsUpdate = () => {
+    console.log("Refreshing notifications from NotificationMenu update");
+    fetchLatestNotifications();
+  };
+
+  // Define fetchLatestNotifications with useCallback to prevent recreation on rerenders
+  const fetchLatestNotifications = useCallback(() => {
+    if (isAuthenticated && user) {
+      console.log("Fetching latest notifications in Header component");
+      setNotificationLoading(true);
+      NotificationService.getNotifications()
+        .then(response => {
+          setNotifications(response.data);
+          const newUnreadCount = response.data.filter(n => !isNotificationRead(n)).length;
+          setNotificationCount(newUnreadCount);
+          console.log("Updated notifications: Total:", response.data.length, "Unread:", newUnreadCount);
+        })
+        .catch(error => {
+          console.error('Error refreshing notifications:', error);
+        })
+        .finally(() => {
+          setNotificationLoading(false);
+        });
+    }
+  }, [isAuthenticated, user, isNotificationRead]); // Add dependencies
+
+  // Listen for the custom notification refresh event
+  useEffect(() => {
+    const handleNotificationRefresh = () => {
+      console.log("Header received notification refresh event");
+      fetchLatestNotifications();
+    };
+
+    // Add event listener
+    window.addEventListener(NOTIFICATION_UPDATE_EVENT, handleNotificationRefresh);
+
+    // Clean up event listener
+    return () => {
+      window.removeEventListener(NOTIFICATION_UPDATE_EVENT, handleNotificationRefresh);
+    };
+  }, [fetchLatestNotifications]); // Add fetchLatestNotifications as dependency
+
+  const unreadCount = notifications.filter(n => !isNotificationRead(n)).length;
+  console.log("Total notifications:", notifications.length, "Unread notifications:", unreadCount);
   
   return (
     <AppBar position="static">
@@ -296,7 +371,7 @@ const Header: React.FC = () => {
                       color="inherit"
                       sx={{ mr: 1 }}
                     >
-                      <Badge badgeContent={notifications.filter(n => !n.isRead).length} color="error">
+                      <Badge badgeContent={unreadCount} color="error">
                         <NotificationsIcon />
                       </Badge>
                     </IconButton>
@@ -307,6 +382,7 @@ const Header: React.FC = () => {
                     anchorEl={notificationAnchorEl}
                     open={Boolean(notificationAnchorEl)}
                     onClose={handleNotificationMenuClose}
+                    onNotificationsUpdate={handleNotificationsUpdate}
                   />
                   
                   {/* {notifications.filter(n => !n.isRead).length > 0 && (

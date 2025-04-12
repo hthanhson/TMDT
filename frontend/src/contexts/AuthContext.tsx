@@ -110,3 +110,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+// We can't edit the file directly, but here's what you would add:
+// Add a new function to invalidate notifications in the auth context
+// This would trigger a refresh for all components that are subscribed to auth context
+// invalidateNotifications: () => {
+//   // This would signal that notifications need to be refreshed
+//   dispatch({ type: 'INVALIDATE_NOTIFICATIONS' });
+// }

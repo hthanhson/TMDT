@@ -29,7 +29,7 @@ import lombok.ToString;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"roles", "notifications", "orders", "coupons"})
+@ToString(exclude = {"roles", "notifications", "orders", "coupons", "userBalance", "balanceTransactions"})
 @JsonIdentityInfo(
         generator = ObjectIdGenerators.PropertyGenerator.class,
         property = "id")
@@ -77,6 +77,15 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<Coupon> coupons = new ArrayList<>();
+    
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private UserBalance userBalance;
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<BalanceTransaction> balanceTransactions = new ArrayList<>();
+    
     public User(String username, String email, String password, String fullName) {
         this.username = username;
         this.email = email;

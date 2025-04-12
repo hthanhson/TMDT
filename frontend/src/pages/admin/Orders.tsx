@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import AdminService from '../../services/AdminService';
+import { formatCurrency } from '../../utils/formatters';
 
 interface Order {
   id: string;
@@ -296,8 +297,7 @@ const AdminOrders: React.FC = () => {
                             secondary={`Quantity: ${item.quantity}`}
                           />
                           <Typography>
-                            ${parseFloat(item.price).toFixed(2)} × {item.quantity} = $
-                            {(parseFloat(item.price) * item.quantity).toFixed(2)}
+                            {formatCurrency(parseFloat(item.price) * item.quantity)}
                           </Typography>
                         </ListItem>
                         <Divider />
@@ -309,7 +309,7 @@ const AdminOrders: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="h6">Total:</Typography>
                       <Typography variant="h6">
-                        ${parseFloat(selectedOrder.totalAmount).toFixed(2)}
+                        {formatCurrency(parseFloat(selectedOrder.totalAmount))}
                       </Typography>
                     </Box>
                   </Box>

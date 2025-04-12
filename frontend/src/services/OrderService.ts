@@ -20,6 +20,10 @@ const OrderService = {
     return api.put(`/orders/${id}/cancel`, {});
   },
 
+  refundOrder(id: string | number) {
+    return api.put(`/orders/${id}/refund`, {});
+  },
+
   getOrderSummary() {
     return api.get<OrderSummary>(`/orders/summary`);
   }

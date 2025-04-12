@@ -80,6 +80,15 @@ const ProductDetail: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   const processProduct = (product: any) => {
     // Process fields that might be objects
     return {
@@ -234,10 +243,10 @@ const ProductDetail: React.FC = () => {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error || 'Product not found'}
+          {error || 'Không tìm thấy sản phẩm'}
         </Alert>
         <Button variant="contained" onClick={() => navigate('/products')}>
-          Back to Products
+          Quay lại danh sách sản phẩm
         </Button>
       </Container>
     );
@@ -247,7 +256,7 @@ const ProductDetail: React.FC = () => {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {addedToCart && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Product added to cart successfully!
+          Đã thêm sản phẩm vào giỏ hàng thành công!
         </Alert>
       )}
 
@@ -296,12 +305,12 @@ const ProductDetail: React.FC = () => {
             <Box display="flex" alignItems="center" mb={2}>
               <Rating value={product.rating} precision={0.1} readOnly />
               <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                ({product.reviews.length} reviews)
+                ({product.reviews.length} đánh giá)
               </Typography>
             </Box>
 
             <Typography variant="h5" color="primary" gutterBottom>
-              ${product.price.toFixed(2)}
+              {formatCurrency(product.price)}
             </Typography>
 
             <Divider sx={{ my: 2 }} />
@@ -312,13 +321,13 @@ const ProductDetail: React.FC = () => {
 
             <Box display="flex" alignItems="center" mb={3}>
               <Chip
-                label={product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
+                label={product.stock > 0 ? `Còn hàng (${product.stock} sản phẩm)` : 'Hết hàng'}
                 color={product.stock > 0 ? 'success' : 'error'}
                 variant="outlined"
                 sx={{ mr: 2 }}
               />
               <Typography variant="body2" color="text.secondary">
-                Category: {product.category}
+                Danh mục: {product.category}
               </Typography>
             </Box>
 

@@ -16,11 +16,28 @@ const NotificationService = {
   },
 
   markAllAsRead: async () => {
-    return api.put('/notifications/mark-all-read');
+    return api.put('/notifications/read-all');
   },
 
   deleteNotification(id: number) {
     return api.delete(`/notifications/${id}`);
+  },
+
+  // Các phương thức mới để tạo thông báo cho các sự kiện cụ thể
+  
+  // Tạo thông báo khi đơn hàng được đặt thành công
+  createOrderSuccessNotification: async (orderId: number, totalAmount: number) => {
+    return api.post('/notifications/order-success', { orderId, totalAmount });
+  },
+  
+  // Tạo thông báo khi đơn hàng bị hủy
+  createOrderCancelledNotification: async (orderId: number, reason: string) => {
+    return api.post('/notifications/order-cancelled', { orderId, reason });
+  },
+  
+  // Tạo thông báo khi người dùng nhận được mã giảm giá
+  createCouponReceivedNotification: async (couponCode: string, userId: number) => {
+    return api.post('/notifications/coupon-received', { couponCode, userId });
   }
 };
 

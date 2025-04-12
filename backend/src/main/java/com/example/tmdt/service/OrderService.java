@@ -14,7 +14,9 @@ import javax.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.example.tmdt.payload.request.OrderItemRequest;
 import com.example.tmdt.payload.request.OrderRequest;
@@ -26,12 +28,21 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductService productService;
     private final CouponService couponService;
+    private final NotificationService notificationService;
+    private final UserBalanceService userBalanceService;
     
     @Autowired
-    public OrderService(OrderRepository orderRepository, ProductService productService, CouponService couponService) {
+    public OrderService(
+            OrderRepository orderRepository, 
+            ProductService productService, 
+            CouponService couponService,
+            NotificationService notificationService,
+            UserBalanceService userBalanceService) {
         this.orderRepository = orderRepository;
         this.productService = productService;
         this.couponService = couponService;
+        this.notificationService = notificationService;
+        this.userBalanceService = userBalanceService;
     }
     
     public List<Order> getAllOrders() {
@@ -87,43 +98,41 @@ public class OrderService {
         // Apply coupon if provided
         if (orderRequest.getCouponCode() != null && !orderRequest.getCouponCode().isEmpty()) {
             try {
+                // Validate coupon - use the appropriate method from your CouponService
                 Coupon coupon = couponService.verifyCoupon(
                     orderRequest.getCouponCode(), 
                     user, 
-                    total.doubleValue()
+                    order.getTotalAmount().doubleValue()
                 );
                 
-                // Calculate discount
-                double discountAmount = 0;
-                if (coupon.getDiscountType() == Coupon.DiscountType.PERCENTAGE) {
-                    // Calculate percentage discount
-                    discountAmount = total.doubleValue() * (coupon.getDiscountValue().doubleValue() / 100.0);
-                } else {
-                    // Fixed amount discount
-                    discountAmount = coupon.getDiscountValue().doubleValue();
-                    // Make sure discount doesn't exceed total
-                    if (discountAmount > total.doubleValue()) {
-                        discountAmount = total.doubleValue();
+                if (coupon != null) {
+                    // Apply discount
+                    BigDecimal discountAmount;
+                    if ("PERCENTAGE".equals(coupon.getDiscountType())) {
+                        // Calculate percentage discount using BigDecimal operations
+                        BigDecimal hundred = new BigDecimal("100");
+                        BigDecimal percentage = coupon.getDiscountValue().divide(hundred, 6, BigDecimal.ROUND_HALF_UP);
+                        discountAmount = order.getTotalAmount().multiply(percentage);
+                    } else {
+                        // Fixed amount discount - already a BigDecimal, no conversion needed
+                        discountAmount = coupon.getDiscountValue();
                     }
+                    
+                    // Make sure discount doesn't exceed total
+                    if (discountAmount.compareTo(order.getTotalAmount()) > 0) {
+                        discountAmount = order.getTotalAmount();
+                    }
+                    
+                    order.setCoupon(coupon);
+                    order.setDiscountAmount(discountAmount);
+                    order.calculateTotal(); // Recalculate total with discount
                 }
-                
-                // Set coupon and discount amount
-                order.setCoupon(coupon);
-                order.setDiscountAmount(BigDecimal.valueOf(discountAmount));
-                
-                // Recalculate total with the applied discount
-                order.calculateTotal();
-                
-                // Mark coupon as used if it's a one-time use coupon
-                couponService.useCoupon(orderRequest.getCouponCode());
-                
             } catch (Exception e) {
                 // If coupon validation fails, continue without applying coupon
-                // Consider logging the error or handling it in a different way
+                System.out.println("Coupon validation failed: " + e.getMessage());
             }
         }
         
-        // Set the final total amount, prioritizing client-provided total if available
         if (orderRequest.getTotal() != null) {
             // Use the client-provided total that includes the discount
             order.setTotalAmount(BigDecimal.valueOf(orderRequest.getTotal()));
@@ -132,26 +141,122 @@ public class OrderService {
             order.calculateTotal();
         }
         
-        return orderRepository.save(order);
+        // Process payment based on payment method
+        if ("account_balance".equals(orderRequest.getPaymentMethod())) {
+            // Check if user has sufficient balance
+            if (!userBalanceService.hasSufficientBalance(user, order.getTotalAmount())) {
+                throw new RuntimeException("Insufficient account balance to complete payment");
+            }
+            
+            // Process payment using user's balance
+            try {
+                userBalanceService.processOrderPayment(user, order.getTotalAmount(), order.getId());
+                order.setPaymentStatus("PAID");
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to process payment: " + e.getMessage());
+            }
+        } else {
+            // For other payment methods, just set status as pending
+            order.setPaymentStatus("PENDING");
+        }
+        
+        Order savedOrder = orderRepository.save(order);
+        
+        // Create notification for order success
+        String title = "Đặt hàng thành công";
+        String message = String.format("Đơn hàng #%d của bạn đã được đặt thành công. Tổng tiền: %.2f VND. Cảm ơn bạn đã mua sắm!", 
+                savedOrder.getId(), savedOrder.getTotalAmount().doubleValue());
+        
+        Map<String, Object> additionalData = new HashMap<>();
+        additionalData.put("orderId", savedOrder.getId());
+        additionalData.put("totalAmount", savedOrder.getTotalAmount().doubleValue());
+        
+        notificationService.createNotificationForUser(
+            user, 
+            title, 
+            message, 
+            "ORDER_STATUS_CHANGE", 
+            additionalData
+        );
+        
+        return savedOrder;
     }
     
     @Transactional
-    public Order updateOrderStatus(Long orderId, Order.OrderStatus status) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
+    public Order cancelOrder(Long orderId, User user) {
+        Order order = getOrderById(orderId);
         
-        order.setStatus(status);
-        
-        // If order is cancelled, restore stock
-        if (status == Order.OrderStatus.CANCELLED) {
-            for (OrderItem item : order.getOrderItems()) {
-                Product product = item.getProduct();
-                product.setStock(product.getStock() + item.getQuantity());
-                productService.updateProduct(product.getId(), product);
-            }
+        // Check if this is the user's order
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You can only cancel your own orders");
         }
         
-        return orderRepository.save(order);
+        // Check if order is in a state that can be cancelled
+        if (order.getStatus() != Order.OrderStatus.PENDING && order.getStatus() != Order.OrderStatus.PROCESSING) {
+            throw new RuntimeException("Cannot cancel order with status: " + order.getStatus());
+        }
+        
+        // If payment was made with account balance, process refund
+        if ("account_balance".equals(order.getPaymentMethod()) && "PAID".equals(order.getPaymentStatus())) {
+            userBalanceService.refundOrderPayment(user, order.getTotalAmount(), orderId);
+        }
+        
+        // Return items to stock
+        for (OrderItem item : order.getOrderItems()) {
+            Product product = item.getProduct();
+            product.setStock(product.getStock() + item.getQuantity());
+            productService.updateProduct(product.getId(), product);
+        }
+        
+        // Update order status
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
+        
+        Order savedOrder = orderRepository.save(order);
+        
+        // Create notification for order cancellation
+        String title = "Đơn hàng đã bị hủy";
+        String message = String.format("Đơn hàng #%d của bạn đã bị hủy.", savedOrder.getId());
+        
+        Map<String, Object> additionalData = new HashMap<>();
+        additionalData.put("orderId", savedOrder.getId());
+        
+        notificationService.createNotificationForUser(
+            user, 
+            title, 
+            message, 
+            "ORDER_STATUS_CHANGE", 
+            additionalData
+        );
+        
+        return savedOrder;
+    }
+    
+    @Transactional
+    public Order updateOrderStatus(Long orderId, Order.OrderStatus newStatus) {
+        Order order = getOrderById(orderId);
+        order.setStatus(newStatus);
+        
+        Order savedOrder = orderRepository.save(order);
+        
+        // Create notification for status update
+        String title = "Cập nhật trạng thái đơn hàng";
+        String message = String.format("Đơn hàng #%d của bạn đã được cập nhật trạng thái thành: %s", 
+                savedOrder.getId(), newStatus.toString());
+        
+        Map<String, Object> additionalData = new HashMap<>();
+        additionalData.put("orderId", savedOrder.getId());
+        additionalData.put("status", newStatus.toString());
+        
+        notificationService.createNotificationForUser(
+            savedOrder.getUser(), 
+            title, 
+            message, 
+            "ORDER_STATUS_CHANGE", 
+            additionalData
+        );
+        
+        return savedOrder;
     }
     
     public Order updatePaymentStatus(Long id, String paymentStatus) {
@@ -177,5 +282,53 @@ public class OrderService {
     
     public List<Order> getOrdersByDateRange(LocalDateTime start, LocalDateTime end) {
         return orderRepository.findByCreatedAtBetween(start, end);
+    }
+    
+    @Transactional
+    public Order refundOrder(Long orderId) {
+        Order order = getOrderById(orderId);
+        
+        // Chỉ hoàn tiền cho đơn hàng đã bị hủy
+        if (order.getStatus() != Order.OrderStatus.CANCELLED) {
+            throw new RuntimeException("Chỉ có thể hoàn tiền cho đơn hàng đã bị hủy");
+        }
+        
+        // Nếu đơn hàng đã được hoàn tiền trước đó, không hoàn tiền lại
+        if ("REFUNDED".equals(order.getPaymentStatus())) {
+            throw new RuntimeException("Đơn hàng này đã được hoàn tiền trước đó");
+        }
+        
+        // Hoàn tiền dựa trên phương thức thanh toán
+        if ("account_balance".equals(order.getPaymentMethod()) || "credit".equals(order.getPaymentMethod())) {
+            // Hoàn tiền vào tài khoản người dùng
+            userBalanceService.refundOrderPayment(order.getUser(), order.getTotalAmount(), orderId);
+            order.setPaymentStatus("REFUNDED");
+        } else if ("cod".equals(order.getPaymentMethod())) {
+            // Đối với COD, chỉ cần đánh dấu là đã hủy vì khách hàng chưa thanh toán
+            order.setPaymentStatus("CANCELLED");
+        }
+        
+        order.setUpdatedAt(LocalDateTime.now());
+        Order savedOrder = orderRepository.save(order);
+        
+        // Tạo thông báo hoàn tiền
+        String title = "Hoàn tiền thành công";
+        String message = String.format("Đơn hàng #%d đã được hoàn tiền thành công. Số tiền %s đã được hoàn vào tài khoản của bạn.", 
+                savedOrder.getId(), savedOrder.getTotalAmount().toString());
+        
+        Map<String, Object> additionalData = new HashMap<>();
+        additionalData.put("orderId", savedOrder.getId());
+        additionalData.put("amount", savedOrder.getTotalAmount().doubleValue());
+        additionalData.put("type", "REFUND");
+        
+        notificationService.createNotificationForUser(
+            order.getUser(), 
+            title, 
+            message, 
+            "ORDER_PAYMENT", 
+            additionalData
+        );
+        
+        return savedOrder;
     }
 } 
