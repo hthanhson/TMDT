@@ -517,7 +517,7 @@ const AdminCoupons: React.FC = () => {
                   fullWidth
                   error={!!formErrors.minPurchaseAmount}
                   helperText={formErrors.minPurchaseAmount}
-                  InputProps={{ startAdornment: '$' }}
+                  InputProps={{ startAdornment: 'VND' }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>

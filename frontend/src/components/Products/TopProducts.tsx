@@ -19,6 +19,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { Product } from '../../types/product';
 import ProductService from '../../services/productService';
+import { formatCurrency } from '../../utils/formatters';
 
 interface TopProductsProps {
   title?: string;
@@ -135,7 +136,7 @@ const TopProducts: React.FC<TopProductsProps> = ({
                           </Typography>
                         </Box>
                         <Typography variant="h6" color="primary">
-                          ${product.price.toFixed(2)}
+                          {formatCurrency(product.price)}
                         </Typography>
                       </CardContent>
                     </CardActionArea>
@@ -196,7 +197,7 @@ const TopProducts: React.FC<TopProductsProps> = ({
                         </Box>
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                           <Typography variant="h6" color="primary">
-                            ${product.price.toFixed(2)}
+                            {formatCurrency(product.price)}
                           </Typography>
                           <Chip 
                             size="small" 

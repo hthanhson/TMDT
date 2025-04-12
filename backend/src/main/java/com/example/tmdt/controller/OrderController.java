@@ -192,8 +192,39 @@ public class OrderController {
                     .body(null); // Cannot cancel orders that are already shipped, delivered or cancelled
             }
             
-            // Cancel the order
+            // Cancel the order using the enum directly
             return ResponseEntity.ok(orderService.updateOrderStatus(id, Order.OrderStatus.CANCELLED));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping("/{id}/refund")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<Order> refundOrder(@PathVariable Long id) {
+        try {
+            // Get current user
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = userService.getUserByUsername(auth.getName());
+            
+            // Get the order
+            Order order = orderService.getOrderById(id);
+            
+            // Check if current user is the owner of the order or an admin
+            boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!order.getUser().getId().equals(user.getId()) && !isAdmin) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            // Check if order can be refunded (only for CANCELLED orders)
+            if (order.getStatus() != Order.OrderStatus.CANCELLED) {
+                return ResponseEntity.badRequest()
+                    .body(null); // Cannot refund orders that are not cancelled
+            }
+            
+            // Process the refund
+            return ResponseEntity.ok(orderService.refundOrder(id));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

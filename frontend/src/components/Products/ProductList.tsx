@@ -62,53 +62,7 @@ const ProductList: React.FC<ProductListProps> = ({
       } catch (err) {
         console.error('Error fetching products:', err);
         // Nếu không có sản phẩm, hiển thị sản phẩm mẫu
-        setProducts([
-          {
-            id: "1",
-            name: "Smartphone",
-            description: "Latest model smartphone with advanced features",
-            price: 799.99,
-            imageUrl: "https://via.placeholder.com/300x200?text=Smartphone",
-            category: "Electronics",
-            stock: 50,
-            rating: 4.5,
-            reviews: []
-          },
-          {
-            id: "2",
-            name: "Laptop",
-            description: "Powerful laptop for work and entertainment",
-            price: 1299.99,
-            imageUrl: "https://via.placeholder.com/300x200?text=Laptop",
-            category: "Electronics",
-            stock: 30,
-            rating: 4.7,
-            reviews: []
-          },
-          {
-            id: "3",
-            name: "SmartWatch",
-            description: "Track your fitness and stay connected",
-            price: 249.99,
-            imageUrl: "https://via.placeholder.com/300x200?text=SmartWatch",
-            category: "Accessories",
-            stock: 100,
-            rating: 4.2,
-            reviews: []
-          },
-          {
-            id: "4",
-            name: "Headphones",
-            description: "Noise cancelling wireless headphones",
-            price: 199.99,
-            imageUrl: "https://via.placeholder.com/300x200?text=Headphones",
-            category: "Audio",
-            stock: 75,
-            rating: 4.4,
-            reviews: []
-          }
-        ]);
-        // Không hiển thị lỗi cho người dùng khi API không phản hồi
+        
         setError(null);
       } finally {
         setLoading(false);
@@ -261,7 +215,7 @@ const ProductList: React.FC<ProductListProps> = ({
                 </Box>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
                   <Typography variant="h6" color="primary">
-                    ${product.price.toFixed(2)}
+                    {product.price.toFixed(2)}đ
                   </Typography>
                   <Chip 
                     label={product.stock > 0 ? 'In Stock' : 'Out of Stock'} 

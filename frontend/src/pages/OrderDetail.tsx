@@ -14,6 +14,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  Alert,
 } from '@mui/material';
 import { format } from 'date-fns';
 import OrderService from '../services/OrderService';
@@ -31,6 +32,16 @@ const OrderDetail: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [refundSuccess, setRefundSuccess] = useState<boolean>(false);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -61,6 +72,15 @@ const OrderDetail: React.FC = () => {
       
       // First, cancel the order
       await OrderService.cancelOrder(Number(id));
+
+      // Hoàn tiền vào tài khoản
+      try {
+        await OrderService.refundOrder(Number(id));
+        setRefundSuccess(true);
+      } catch (refundErr) {
+        console.error('Error refunding order:', refundErr);
+        // Vẫn tiếp tục với việc hủy đơn hàng ngay cả khi hoàn tiền thất bại
+      }
       
       // After successful order cancellation, use multiple approaches to refresh notifications
       console.log("Order cancelled successfully, refreshing notifications...");
@@ -111,7 +131,7 @@ const OrderDetail: React.FC = () => {
         </Typography>
         <Box display="flex" justifyContent="center" mt={2}>
           <Button variant="contained" onClick={() => navigate('/orders')}>
-            Back to Orders
+            Quay lại danh sách đơn hàng
           </Button>
         </Box>
       </Box>
@@ -121,10 +141,10 @@ const OrderDetail: React.FC = () => {
   if (!order) {
     return (
       <Box my={4}>
-        <Typography align="center">Order not found</Typography>
+        <Typography align="center">Không tìm thấy đơn hàng</Typography>
         <Box display="flex" justifyContent="center" mt={2}>
           <Button variant="contained" onClick={() => navigate('/orders')}>
-            Back to Orders
+            Quay lại danh sách đơn hàng
           </Button>
         </Box>
       </Box>
@@ -150,8 +170,14 @@ const OrderDetail: React.FC = () => {
 
   return (
     <Box my={4}>
+      {refundSuccess && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          Đơn hàng đã được hủy và số tiền đã được hoàn trả vào tài khoản của bạn.
+        </Alert>
+      )}
+      
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Order #{order.id}</Typography>
+        <Typography variant="h4">Đơn hàng #{order.id}</Typography>
         <Chip
           label={order.status}
           color={getStatusColor(order.status)}
@@ -163,18 +189,17 @@ const OrderDetail: React.FC = () => {
         <Grid item xs={12} md={8}>
           <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Order Items
+              Sản phẩm đã đặt
             </Typography>
             <List>
               {order.orderItems?.map((item) => (
                 <ListItem key={item.id} divider>
                   <ListItemText
                     primary={item.productName}
-                    secondary={`Quantity: ${item.quantity}`}
+                    secondary={`Số lượng: ${item.quantity}`}
                   />
                   <Typography>
-                    ${item.price.toFixed(2)} × {item.quantity} = $
-                    {(item.price * item.quantity).toFixed(2)}
+                    {formatCurrency(item.price)} × {item.quantity} = {formatCurrency(item.price * item.quantity)}
                   </Typography>
                 </ListItem>
               ))}
@@ -188,7 +213,7 @@ const OrderDetail: React.FC = () => {
                 color="error"
                 onClick={handleCancelOrder}
               >
-                Cancel Order
+                Hủy đơn hàng
               </Button>
             </Box>
           )}
@@ -198,21 +223,21 @@ const OrderDetail: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Order Summary
+                Thông tin đơn hàng
               </Typography>
               <Divider sx={{ my: 1 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 1 }}>
-                <Typography variant="body1">Order Date:</Typography>
+                <Typography variant="body1">Ngày đặt:</Typography>
                 <Typography variant="body1">
                   {format(new Date(order.createdAt), 'PPP')}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 1 }}>
-                <Typography variant="body1">Payment Method:</Typography>
+                <Typography variant="body1">Phương thức thanh toán:</Typography>
                 <Typography variant="body1">{order.paymentMethod}</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 1 }}>
-                <Typography variant="body1">Payment Status:</Typography>
+                <Typography variant="body1">Trạng thái thanh toán:</Typography>
                 <Chip
                   label={order.paymentStatus}
                   color={order.paymentStatus === 'PAID' ? 'success' : 'warning'}
@@ -221,14 +246,14 @@ const OrderDetail: React.FC = () => {
               </Box>
               <Divider sx={{ my: 2 }} />
               <Typography variant="h6" gutterBottom>
-                Shipping Address
+                Địa chỉ giao hàng
               </Typography>
               <Typography variant="body2">{order.shippingAddress}</Typography>
               <Divider sx={{ my: 2 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 1 }}>
-                <Typography variant="h6">Total:</Typography>
+                <Typography variant="h6">Tổng cộng:</Typography>
                 <Typography variant="h6">
-                  ${order.totalAmount.toFixed(2)}
+                  {formatCurrency(order.totalAmount)}
                 </Typography>
               </Box>
             </CardContent>
@@ -238,7 +263,7 @@ const OrderDetail: React.FC = () => {
 
       <Box display="flex" justifyContent="flex-start" mt={3}>
         <Button variant="outlined" onClick={() => navigate('/orders')}>
-          Back to Orders
+          Quay lại danh sách đơn hàng
         </Button>
       </Box>
     </Box>

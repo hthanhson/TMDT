@@ -1,5 +1,7 @@
 com\example\tmdt\config\CorsConfig.class
+com\example\tmdt\config\UserBalanceDataInitializer.class
 com\example\tmdt\controller\AuthController.class
+com\example\tmdt\model\BalanceTransaction$TransactionType.class
 com\example\tmdt\repository\OrderRepository.class
 com\example\tmdt\repository\ReviewHelpfulRepository.class
 com\example\tmdt\payload\response\ProductResponse.class
@@ -17,6 +19,7 @@ com\example\tmdt\model\Wishlist.class
 com\example\tmdt\service\OrderService.class
 com\example\tmdt\controller\FileController.class
 com\example\tmdt\payload\request\SignupRequest.class
+com\example\tmdt\repository\UserBalanceRepository.class
 com\example\tmdt\service\CouponService.class
 com\example\tmdt\repository\RoleRepository.class
 com\example\tmdt\model\ProductRecommendation$RecommendationType.class
@@ -57,16 +60,21 @@ com\example\tmdt\model\RecommendationType.class
 com\example\tmdt\exception\ErrorResponse$ErrorResponseBuilder.class
 com\example\tmdt\TmdtApplication.class
 com\example\tmdt\model\Coupon$DiscountType.class
+com\example\tmdt\repository\BalanceTransactionRepository.class
 com\example\tmdt\repository\ProductRecommendationRepository.class
 com\example\tmdt\model\Notification$NotificationType.class
 com\example\tmdt\service\FileStorageService.class
+com\example\tmdt\model\BalanceTransaction.class
 com\example\tmdt\model\UserPointsTransaction.class
 com\example\tmdt\model\Order$OrderStatus.class
+com\example\tmdt\payload\request\DepositRequest.class
+com\example\tmdt\model\UserBalance.class
 com\example\tmdt\repository\ProductRepository.class
 com\example\tmdt\service\UserService.class
 com\example\tmdt\repository\CategoryRepository.class
 com\example\tmdt\model\Order.class
 com\example\tmdt\security\jwt\JwtUtils.class
+com\example\tmdt\controller\UserBalanceController.class
 com\example\tmdt\payload\response\FileResponse.class
 com\example\tmdt\controller\ProductController.class
 com\example\tmdt\filter\RequestLoggingFilter.class
@@ -78,6 +86,7 @@ com\example\tmdt\aspect\LoggingAspect.class
 com\example\tmdt\exception\ErrorResponse.class
 com\example\tmdt\security\jwt\AuthTokenFilter.class
 com\example\tmdt\security\services\UserDetailsImpl.class
+com\example\tmdt\service\UserBalanceService.class
 com\example\tmdt\controller\WishlistController.class
 com\example\tmdt\model\ReviewMedia.class
 com\example\tmdt\payload\request\CouponVerifyRequest.class

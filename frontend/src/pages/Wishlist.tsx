@@ -29,6 +29,7 @@ import ProductService from '../services/productService';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Product } from '../types/product';
+import { formatCurrency } from '../utils/formatters';
 
 const Wishlist: React.FC = () => {
   const navigate = useNavigate();
@@ -194,7 +195,7 @@ const Wishlist: React.FC = () => {
                       </Typography>
                     </Box>
                     <Typography variant="h6" color="primary">
-                      ${product.price.toFixed(2)}
+                      {formatCurrency(product.price)}
                     </Typography>
                   </CardContent>
                   
