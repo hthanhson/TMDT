@@ -32,9 +32,10 @@ interface NotificationMenuProps {
   anchorEl: HTMLElement | null;
   open: boolean;
   onClose: () => void;
+  onNotificationsUpdate?: () => void;
 }
 
-const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onClose }) => {
+const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onClose, onNotificationsUpdate }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +67,10 @@ const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onC
       // Đánh dấu thông báo đã đọc
       if (!notification.isRead) {
         await NotificationService.markAsRead(notification.id);
+        // Notify parent to refresh notifications
+        if (onNotificationsUpdate) {
+          onNotificationsUpdate();
+        }
       }
 
       // Chuyển hướng dựa trên loại thông báo
@@ -145,7 +150,16 @@ const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onC
           <Button 
             color="primary" 
             size="small" 
-            onClick={() => NotificationService.markAllAsRead().then(fetchNotifications)}
+            onClick={() => {
+              NotificationService.markAllAsRead()
+                .then(() => {
+                  fetchNotifications();
+                  // Notify parent component to refresh notifications
+                  if (onNotificationsUpdate) {
+                    onNotificationsUpdate();
+                  }
+                });
+            }}
           >
             Đánh dấu đã đọc
           </Button>

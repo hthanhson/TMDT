@@ -17,13 +17,17 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import OrderService from '../services/OrderService';
+import NotificationService from '../services/NotificationService';
+import { refreshHeaderNotifications } from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { Order } from '../types/order';
 
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { refreshNotifications } = useNotification();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +59,33 @@ const OrderDetail: React.FC = () => {
     try {
       if (!id) return;
       
+      // First, cancel the order
       await OrderService.cancelOrder(Number(id));
+      
+      // After successful order cancellation, use multiple approaches to refresh notifications
+      console.log("Order cancelled successfully, refreshing notifications...");
+      
+      // 1. Call the global refresh function from Header component
+      refreshHeaderNotifications();
+      
+      // 2. Call the context refresh function (most reliable approach)
+      await refreshNotifications();
+      
+      // 3. Direct service call with small delay as a fallback
+      setTimeout(() => {
+        try {
+          NotificationService.getNotifications()
+            .then(response => {
+              console.log("Manually fetched notifications after cancel:", response.data.length);
+            })
+            .catch(error => {
+              console.error("Error manually fetching notifications:", error);
+            });
+        } catch (err) {
+          console.error('Failed manual notification refresh:', err);
+        }
+      }, 300);
+      
       // Refresh order data
       const response = await OrderService.getOrderById(id);
       setOrder(response.data);

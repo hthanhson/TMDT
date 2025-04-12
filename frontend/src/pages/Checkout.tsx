@@ -34,6 +34,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import OrderService from '../services/OrderService';
 import CouponService from '../services/CouponService';
+import NotificationService from '../services/NotificationService';
 import {
   Payment as PaymentIcon,
   LocalShipping as ShippingIcon,
@@ -42,6 +43,8 @@ import {
   LocalOffer as CouponIcon,
   Check as CheckIcon
 } from '@mui/icons-material';
+import { refreshHeaderNotifications } from '../components/Header';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface DeliveryInfo {
   fullName: string;
@@ -88,6 +91,7 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, clearCart } = useCart();
+  const { refreshNotifications } = useNotification();
   const theme = useTheme();
   
   const [activeStep, setActiveStep] = useState(0);
@@ -334,7 +338,32 @@ const Checkout: React.FC = () => {
         total: getFinalTotal() // Include the final total with discount
       };
       
+      // Place the order
       const response = await OrderService.createOrder(orderData);
+      
+      // After successful order placement, use multiple approaches to refresh notifications
+      console.log("Order placed successfully, refreshing notifications...");
+      
+      // 1. Call the global refresh function from Header component
+      refreshHeaderNotifications();
+      
+      // 2. Call the context refresh function (most reliable approach)
+      await refreshNotifications();
+      
+      // 3. Direct service call with small delay as a fallback
+      setTimeout(() => {
+        try {
+          NotificationService.getNotifications()
+            .then(response => {
+              console.log("Manually fetched notifications after order placement:", response.data.length);
+            })
+            .catch(error => {
+              console.error("Error manually fetching notifications:", error);
+            });
+        } catch (err) {
+          console.error('Failed manual notification refresh:', err);
+        }
+      }, 300);
       
       // Order successful - clear cart and navigate to success page
       clearCart();

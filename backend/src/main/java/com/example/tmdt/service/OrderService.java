@@ -14,7 +14,9 @@ import javax.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.example.tmdt.payload.request.OrderItemRequest;
 import com.example.tmdt.payload.request.OrderRequest;
@@ -26,12 +28,18 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductService productService;
     private final CouponService couponService;
+    private final NotificationService notificationService;
     
     @Autowired
-    public OrderService(OrderRepository orderRepository, ProductService productService, CouponService couponService) {
+    public OrderService(
+            OrderRepository orderRepository, 
+            ProductService productService, 
+            CouponService couponService,
+            NotificationService notificationService) {
         this.orderRepository = orderRepository;
         this.productService = productService;
         this.couponService = couponService;
+        this.notificationService = notificationService;
     }
     
     public List<Order> getAllOrders() {
@@ -132,7 +140,26 @@ public class OrderService {
             order.calculateTotal();
         }
         
-        return orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+        
+        // Create notification for order success
+        String title = "Đặt hàng thành công";
+        String message = String.format("Đơn hàng #%d của bạn đã được đặt thành công. Tổng tiền: %.2f VND. Cảm ơn bạn đã mua sắm!", 
+                savedOrder.getId(), savedOrder.getTotalAmount().doubleValue());
+        
+        Map<String, Object> additionalData = new HashMap<>();
+        additionalData.put("orderId", savedOrder.getId());
+        additionalData.put("totalAmount", savedOrder.getTotalAmount().doubleValue());
+        
+        notificationService.createNotificationForUser(
+            user, 
+            title, 
+            message, 
+            "ORDER_STATUS_CHANGE", 
+            additionalData
+        );
+        
+        return savedOrder;
     }
     
     @Transactional
@@ -149,6 +176,22 @@ public class OrderService {
                 product.setStock(product.getStock() + item.getQuantity());
                 productService.updateProduct(product.getId(), product);
             }
+            
+            // Create notification for order cancellation
+            String title = "Đơn hàng đã bị hủy";
+            String message = String.format("Đơn hàng #%d của bạn đã bị hủy.", orderId);
+            
+            Map<String, Object> additionalData = new HashMap<>();
+            additionalData.put("orderId", orderId);
+            additionalData.put("reason", "Đơn hàng đã được hủy với trạng thái: " + status);
+            
+            notificationService.createNotificationForUser(
+                order.getUser(), 
+                title, 
+                message, 
+                "ORDER_STATUS_CHANGE", 
+                additionalData
+            );
         }
         
         return orderRepository.save(order);

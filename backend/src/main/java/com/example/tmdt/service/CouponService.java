@@ -69,10 +69,64 @@ public class CouponService {
         Coupon savedCoupon = couponRepository.save(coupon);
         
         // Gửi thông báo cho user về coupon mới
-        notificationService.createProductNotification(
-                user, 
-                null, 
-                "You have received a new coupon: " + description + ". Use code: " + coupon.getCode());
+        String title = "Bạn đã nhận được mã giảm giá";
+        String message = String.format("Bạn đã nhận được mã giảm giá %s. %s. Hãy sử dụng mã này khi thanh toán để nhận ưu đãi!", 
+                coupon.getCode(), description);
+        
+        // Create additional data for notification
+        java.util.Map<String, Object> additionalData = new java.util.HashMap<>();
+        additionalData.put("couponCode", coupon.getCode());
+        additionalData.put("discountValue", discountAmount);
+        additionalData.put("type", type);
+        additionalData.put("expiryDate", expiryDate.toString());
+        
+        notificationService.createNotificationForUser(
+            user, 
+            title, 
+            message, 
+            "PROMOTION", 
+            additionalData
+        );
+        
+        return savedCoupon;
+    }
+    
+    @Transactional
+    public Coupon createGeneralCoupon(double discountAmount, double minOrderValue, 
+            LocalDateTime expiryDate, String type, String description) {
+        
+        Coupon coupon = new Coupon();
+        coupon.setUser(null); // General coupon, not assigned to a specific user
+        coupon.setCode(generateRandomCouponCode());
+        coupon.setDiscountValue(BigDecimal.valueOf(discountAmount));
+        coupon.setMinPurchaseAmount(BigDecimal.valueOf(minOrderValue));
+        coupon.setExpiryDate(expiryDate);
+        coupon.setIsActive(true);
+        coupon.setType(type);
+        coupon.setDescription(description);
+        
+        Coupon savedCoupon = couponRepository.save(coupon);
+        
+        // Create notification for broadcast to all users
+        String title = "Mã giảm giá mới";
+        String message = String.format("Mã giảm giá mới: %s - %s. Hãy sử dụng mã này khi thanh toán để nhận ưu đãi!", 
+                coupon.getCode(), description);
+        
+        // Create additional data for notification
+        java.util.Map<String, Object> additionalData = new java.util.HashMap<>();
+        additionalData.put("couponCode", coupon.getCode());
+        additionalData.put("discountValue", discountAmount);
+        additionalData.put("type", type);
+        additionalData.put("expiryDate", expiryDate.toString());
+        additionalData.put("description", description);
+        
+        // Broadcast notification to all users
+        notificationService.createBroadcastNotification(
+            title, 
+            message, 
+            "PROMOTION", 
+            additionalData
+        );
         
         return savedCoupon;
     }
