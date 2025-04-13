@@ -32,7 +32,6 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
     @Column(length = 100)
     private String title;
 
@@ -41,7 +40,6 @@ public class Review {
     @Max(5)
     private Double rating;
 
-    @NotBlank
     @Column(length = 500)
     private String comment;
 
@@ -52,8 +50,11 @@ public class Review {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties("reviews")
+    @JsonIgnoreProperties({"reviews", "hibernateLazyInitializer", "handler"})
     private User user;
+
+    @Column(name = "anonymous", nullable = false)
+    private Boolean anonymous = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -69,6 +70,34 @@ public class Review {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = createdAt;
+        
+        if (title == null || title.trim().isEmpty()) {
+            if (rating != null) {
+                if (rating >= 4) {
+                    title = "Đánh giá tích cực";
+                } else if (rating >= 2) {
+                    title = "Đánh giá trung bình";
+                } else {
+                    title = "Đánh giá tiêu cực";
+                }
+            } else {
+                title = "Đánh giá sản phẩm";
+            }
+        }
+        
+        if (comment == null || comment.trim().isEmpty()) {
+            if (rating != null) {
+                if (rating >= 4) {
+                    comment = "Tôi rất hài lòng với sản phẩm này.";
+                } else if (rating >= 2) {
+                    comment = "Sản phẩm này khá ổn.";
+                } else {
+                    comment = "Tôi không hài lòng với sản phẩm này.";
+                }
+            } else {
+                comment = "Không có nhận xét.";
+            }
+        }
     }
     
     @PreUpdate

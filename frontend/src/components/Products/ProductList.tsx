@@ -27,16 +27,27 @@ import ProductService from '../../services/productService';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 
+interface PriceRange {
+  min: number;
+  max: number;
+}
+
 interface ProductListProps {
   categoryFilter?: string;
   searchTerm?: string;
   sortBy?: string;
+  priceRange?: PriceRange;
+  ratingFilter?: number | null;
+  inStockOnly?: boolean;
 }
 
 const ProductList: React.FC<ProductListProps> = ({ 
   categoryFilter = 'all', 
   searchTerm = '', 
-  sortBy = 'newest' 
+  sortBy = 'newest',
+  priceRange = { min: 0, max: 100000000 },
+  ratingFilter = null,
+  inStockOnly = false
 }) => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
@@ -56,7 +67,11 @@ const ProductList: React.FC<ProductListProps> = ({
         const response = await ProductService.getAllProducts({
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           search: searchTerm || undefined,
-          sort: sortBy || undefined
+          sort: sortBy || undefined,
+          minPrice: priceRange.min,
+          maxPrice: priceRange.max,
+          rating: ratingFilter || undefined,
+          inStock: inStockOnly || undefined
         });
         setProducts(response.data);
       } catch (err) {
@@ -70,7 +85,7 @@ const ProductList: React.FC<ProductListProps> = ({
     };
 
     fetchProducts();
-  }, [categoryFilter, searchTerm, sortBy]);
+  }, [categoryFilter, searchTerm, sortBy, priceRange, ratingFilter, inStockOnly]);
 
   useEffect(() => {
     // Load favorites if user is authenticated

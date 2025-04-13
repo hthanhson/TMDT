@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { SnackbarProvider } from 'notistack';
+import { Toaster } from 'react-hot-toast';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -67,6 +68,7 @@ const App: React.FC = () => {
           <SnackbarProvider maxSnack={3}>
             <Router>
               <ToastContainer position="top-right" autoClose={3000} />
+              <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
               <NavigationGuard>
                 <Routes>
                   {/* Public Routes */}

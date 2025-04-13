@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -19,7 +19,11 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-  useTheme
+  useTheme,
+  Paper,
+  Popper,
+  ClickAwayListener,
+  CircularProgress
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -39,6 +43,27 @@ import SearchBar from './SearchBar';
 import NotificationService from '../services/NotificationService';
 import { Notification } from '../types/notification';
 import NotificationMenu from './NotificationMenu';
+import ProductService from '../services/productService';
+
+// Custom debounce function to eliminate lodash dependency
+function useDebounce<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  const timer = useRef<NodeJS.Timeout | null>(null);
+
+  return useCallback(
+    (...args: Parameters<T>) => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+      }
+      timer.current = setTimeout(() => {
+        func(...args);
+      }, delay);
+    },
+    [func, delay]
+  );
+}
 
 const NOTIFICATION_UPDATE_EVENT = 'notification-update-event';
 
@@ -70,6 +95,12 @@ const Header: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationLoading, setNotificationLoading] = useState(false);
+  
+  // Search suggestions state
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   
   // Debug authentication state và đảm bảo component re-render khi trạng thái xác thực thay đổi
   useEffect(() => {
@@ -144,11 +175,50 @@ const Header: React.FC = () => {
     navigate('/notifications');
   };
 
+  // Function to fetch search suggestions
+  const fetchSuggestionsImpl = async (query: string) => {
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    try {
+      setLoadingSuggestions(true);
+      const response = await ProductService.getSearchSuggestions(query);
+      setSuggestions(response.data || []);
+    } catch (error) {
+      console.error('Error fetching search suggestions:', error);
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Use our custom debounce hook
+  const fetchSearchSuggestions = useDebounce(fetchSuggestionsImpl, 300);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setShowSuggestions(false);
       navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
     }
+  };
+  
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      setShowSuggestions(true);
+      fetchSearchSuggestions(query);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: any) => {
+    setShowSuggestions(false);
+    navigate(`/products/${suggestion.id}`);
   };
   
   useEffect(() => {
@@ -214,7 +284,7 @@ const Header: React.FC = () => {
           setNotificationLoading(false);
         });
     }
-  }, [isAuthenticated, user, isNotificationRead]); // Add dependencies
+  }, [isAuthenticated, user]); // Add dependencies
 
   // Listen for the custom notification refresh event
   useEffect(() => {
@@ -231,6 +301,10 @@ const Header: React.FC = () => {
       window.removeEventListener(NOTIFICATION_UPDATE_EVENT, handleNotificationRefresh);
     };
   }, [fetchLatestNotifications]); // Add fetchLatestNotifications as dependency
+
+  const handleClickAway = () => {
+    setShowSuggestions(false);
+  };
 
   const unreadCount = notifications.filter(n => !isNotificationRead(n)).length;
   console.log("Total notifications:", notifications.length, "Unread notifications:", unreadCount);
@@ -250,12 +324,96 @@ const Header: React.FC = () => {
           
           {/* Chỉ hiển thị search bar khi không phải admin */}
           {!isAdmin && (
-            <SearchBar
-              sx={{ flexGrow: 1, maxWidth: '50%', mx: 'auto' }}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              handleSearch={handleSearch}
-            />
+            <ClickAwayListener onClickAway={handleClickAway}>
+              <Box ref={searchContainerRef} sx={{ position: 'relative', flexGrow: 1, maxWidth: '50%', mx: 'auto' }}>
+                <SearchBar
+                  searchQuery={searchQuery}
+                  setSearchQuery={handleSearchChange}
+                  handleSearch={handleSearch}
+                />
+                
+                {showSuggestions && searchQuery.trim().length > 1 && (
+                  <Paper
+                    elevation={3}
+                    sx={{
+                      position: 'absolute',
+                      zIndex: 1,
+                      width: '100%',
+                      maxHeight: '300px',
+                      overflow: 'auto',
+                      mt: 0.5
+                    }}
+                  >
+                    {loadingSuggestions ? (
+                      <Box display="flex" justifyContent="center" p={2}>
+                        <CircularProgress size={24} />
+                      </Box>
+                    ) : suggestions.length > 0 ? (
+                      <List dense>
+                        {suggestions.map((suggestion, index) => (
+                          <ListItem
+                            button
+                            key={suggestion.id || index}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              '&:hover': {
+                                backgroundColor: theme.palette.action.hover,
+                              },
+                            }}
+                          >
+                            {suggestion.imageUrl && (
+                              <Box
+                                component="img"
+                                src={suggestion.imageUrl}
+                                alt={suggestion.name}
+                                sx={{
+                                  width: 40,
+                                  height: 40,
+                                  objectFit: 'cover',
+                                  mr: 1,
+                                  borderRadius: 1
+                                }}
+                              />
+                            )}
+                            <Box>
+                              <Typography variant="body2">{suggestion.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {suggestion.price && `${suggestion.price.toLocaleString('vi-VN')}đ`}
+                              </Typography>
+                            </Box>
+                          </ListItem>
+                        ))}
+                        <Divider />
+                        <ListItem
+                          button
+                          onClick={() => {
+                            setShowSuggestions(false);
+                            navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
+                          }}
+                          sx={{
+                            justifyContent: 'center',
+                            color: theme.palette.primary.main,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          <Typography variant="body2">
+                            Xem tất cả kết quả cho "{searchQuery}"
+                          </Typography>
+                        </ListItem>
+                      </List>
+                    ) : (
+                      <Box p={2}>
+                        <Typography variant="body2" color="text.secondary">
+                          Không tìm thấy sản phẩm phù hợp
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                )}
+              </Box>
+            </ClickAwayListener>
           )}
           
           <Box sx={{ display: 'flex', ml: 'auto' }}>

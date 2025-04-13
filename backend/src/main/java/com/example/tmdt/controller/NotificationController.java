@@ -8,15 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.example.tmdt.model.Notification;
 import com.example.tmdt.model.User;
@@ -25,6 +17,13 @@ import com.example.tmdt.payload.response.MessageResponse;
 import com.example.tmdt.service.NotificationService;
 import com.example.tmdt.service.UserService;
 import com.example.tmdt.service.OrderService;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.example.tmdt.repository.UserRepository;
+import com.example.tmdt.security.services.UserDetailsImpl;
 
 @RestController
 @RequestMapping("/notifications")
@@ -38,6 +37,12 @@ public class NotificationController {
     
     @Autowired
     private OrderService orderService;
+    
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private UserRepository userRepository;
     
     // Lấy tất cả thông báo của người dùng
     @GetMapping
@@ -219,5 +224,52 @@ public class NotificationController {
         notificationService.createBroadcastNotification(title, message, "PROMOTION", additionalData);
         
         return ResponseEntity.ok(new MessageResponse("Coupon broadcast notification created"));
+    }
+
+    @MessageMapping("/notification")
+    public void sendNotification(@Payload Notification notification) {
+        // Send to specific user
+        if (notification.getUser() != null) {
+            messagingTemplate.convertAndSendToUser(
+                    notification.getUser().getId().toString(),
+                    "/queue/notifications", 
+                    notification);
+        }
+    }
+
+    @GetMapping("/api/notifications")
+    public ResponseEntity<List<Notification>> getUserNotifications() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        List<Notification> notifications = notificationService.getNotificationsByUser(user);
+        return ResponseEntity.ok(notifications);
+    }
+
+    @GetMapping("/api/notifications/unread-count")
+    public ResponseEntity<Map<String, Integer>> getUnreadCount() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        int count = notificationService.countUnreadNotifications(user);
+        return ResponseEntity.ok(Map.of("count", count));
+    }
+
+    @PutMapping("/api/notifications/mark-read/{id}")
+    public ResponseEntity<Map<String, Boolean>> markAsRead(@PathVariable Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        notificationService.markAsRead(id, user);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PutMapping("/api/notifications/mark-all-read")
+    public ResponseEntity<Map<String, Boolean>> markAllAsRead() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        notificationService.markAllAsRead(user);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 } 

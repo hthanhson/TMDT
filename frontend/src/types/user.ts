@@ -21,3 +21,13 @@ export interface AuthContextType {
   loading: boolean;
   error: string | null;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  email?: string;
+  fullName?: string;
+  roles?: string[];
+  token?: string;
+  profileImageUrl?: string;
+}

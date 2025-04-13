@@ -32,7 +32,6 @@ com\example\tmdt\payload\request\LoginRequest.class
 com\example\tmdt\controller\CategoryController.class
 com\example\tmdt\controller\LoggingDemoController.class
 com\example\tmdt\model\UserPoints.class
-com\example\tmdt\repository\ReviewMediaRepository.class
 com\example\tmdt\config\WebConfig.class
 com\example\tmdt\model\Category.class
 com\example\tmdt\security\jwt\AuthEntryPointJwt.class
@@ -55,6 +54,7 @@ com\example\tmdt\controller\OrderController.class
 com\example\tmdt\service\UserPointsService.class
 com\example\tmdt\controller\TestController.class
 com\example\tmdt\payload\request\ReviewRequest.class
+com\example\tmdt\config\WebSocketConfig.class
 com\example\tmdt\config\SecurityConfig$1.class
 com\example\tmdt\model\RecommendationType.class
 com\example\tmdt\exception\ErrorResponse$ErrorResponseBuilder.class
@@ -88,14 +88,12 @@ com\example\tmdt\security\jwt\AuthTokenFilter.class
 com\example\tmdt\security\services\UserDetailsImpl.class
 com\example\tmdt\service\UserBalanceService.class
 com\example\tmdt\controller\WishlistController.class
-com\example\tmdt\model\ReviewMedia.class
 com\example\tmdt\payload\request\CouponVerifyRequest.class
 com\example\tmdt\config\WebMvcConfig$CurrentUserArgumentResolver.class
 com\example\tmdt\controller\AdminController.class
 com\example\tmdt\model\Product.class
 com\example\tmdt\model\Role$ERole.class
 com\example\tmdt\payload\response\JwtResponse.class
-com\example\tmdt\model\ReviewMedia$MediaType.class
 com\example\tmdt\model\Notification.class
 com\example\tmdt\model\ProductImage.class
 com\example\tmdt\model\Coupon.class

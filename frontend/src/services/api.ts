@@ -33,6 +33,12 @@ instance.interceptors.request.use(
       } else {
         console.log('No token available for request:', config.url);
       }
+
+      // Nếu user đang đăng nhập, thêm userId vào params
+      if (user?.id) {
+        config.params = config.params || {};
+        config.params.currentUserId = user.id;
+      }
     } catch (error) {
       console.error('Error setting auth token:', error);
     }
@@ -48,6 +54,30 @@ instance.interceptors.request.use(
 // Response interceptor to handle token expired cases
 instance.interceptors.response.use(
   (res: AxiosResponse) => {
+    // Đảm bảo thông tin user trong response luôn nhất quán
+    if (res.data && typeof res.data === 'object') {
+      // Nếu response chứa reviews, xử lý userId cho mỗi review
+      if (res.data.reviews && Array.isArray(res.data.reviews)) {
+        const userStr = localStorage.getItem('user');
+        const currentUser = userStr ? JSON.parse(userStr) : null;
+        
+        res.data.reviews = res.data.reviews.map((review: any) => {
+          // Đối với review không có userId nhưng thuộc current user
+          if (!review.userId && currentUser && review.user 
+              && review.user.username === currentUser.username) {
+            return {
+              ...review,
+              userId: currentUser.id,
+              user: {
+                ...review.user,
+                id: currentUser.id
+              }
+            };
+          }
+          return review;
+        });
+      }
+    }
     return res;
   },
   async (err) => {

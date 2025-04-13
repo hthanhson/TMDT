@@ -38,4 +38,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     
     @Query("SELECT r FROM Review r WHERE r.product = :product ORDER BY SIZE(r.reviewHelpfuls) DESC")
     List<Review> findMostHelpfulReviews(@Param("product") Product product, Pageable pageable);
+    
+    /**
+     * Tìm tất cả các đánh giá của một người dùng cho một sản phẩm cụ thể, sắp xếp theo thời gian tạo giảm dần
+     */
+    List<Review> findByUserAndProductOrderByCreatedAtDesc(User user, Product product);
 } 

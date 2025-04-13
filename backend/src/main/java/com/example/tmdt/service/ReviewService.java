@@ -15,11 +15,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.example.tmdt.model.Product;
 import com.example.tmdt.model.Review;
 import com.example.tmdt.model.ReviewHelpful;
-import com.example.tmdt.model.ReviewMedia;
 import com.example.tmdt.model.User;
 import com.example.tmdt.repository.ProductRepository;
 import com.example.tmdt.repository.ReviewHelpfulRepository;
-import com.example.tmdt.repository.ReviewMediaRepository;
 import com.example.tmdt.repository.ReviewRepository;
 
 @Service
@@ -27,9 +25,6 @@ public class ReviewService {
 
     @Autowired
     private ReviewRepository reviewRepository;
-    
-    @Autowired
-    private ReviewMediaRepository reviewMediaRepository;
     
     @Autowired
     private ReviewHelpfulRepository reviewHelpfulRepository;
@@ -44,7 +39,24 @@ public class ReviewService {
     private NotificationService notificationService;
     
     public Page<Review> getProductReviews(Product product, Pageable pageable) {
-        return reviewRepository.findByProductOrderByCreatedAtDesc(product, pageable);
+        Page<Review> reviews = reviewRepository.findByProductOrderByCreatedAtDesc(product, pageable);
+        
+        // Đảm bảo mỗi review đều có thông tin user đầy đủ
+        for (Review review : reviews.getContent()) {
+            if (review.getUser() != null) {
+                // Force initialize user để tránh lỗi lazy loading
+                User user = review.getUser();
+                user.getId(); // Gọi getter để đảm bảo dữ liệu được load
+                if (user.getUsername() != null) {
+                    user.getUsername(); // Gọi getter để đảm bảo dữ liệu được load
+                }
+                if (user.getFullName() != null) {
+                    user.getFullName(); // Gọi getter để đảm bảo dữ liệu được load
+                }
+            }
+        }
+        
+        return reviews;
     }
     
     public List<Review> getUserReviews(User user) {
@@ -69,19 +81,34 @@ public class ReviewService {
     }
     
     @Transactional
-    public Review createReview(Review review, List<MultipartFile> mediaFiles) {
-        // Kiểm tra xem user đã review sản phẩm này chưa
-        if (reviewRepository.existsByUserAndProduct(review.getUser(), review.getProduct())) {
-            throw new RuntimeException("You have already reviewed this product");
+    public Review createReview(Review review) {
+        // Đảm bảo user được set đúng
+        if (review.getUser() == null) {
+            throw new RuntimeException("User is required for review");
+        }
+        
+        // Đảm bảo product được set đúng
+        if (review.getProduct() == null) {
+            throw new RuntimeException("Product is required for review");
+        }
+        
+        // Đảm bảo dữ liệu review hợp lệ
+        if (review.getRating() == null || review.getRating() < 1 || review.getRating() > 5) {
+            throw new RuntimeException("Valid rating (1-5) is required");
         }
         
         // Lưu review
         review.setCreatedAt(LocalDateTime.now());
         Review savedReview = reviewRepository.save(review);
         
-        // Xử lý media files nếu có
-        if (mediaFiles != null && !mediaFiles.isEmpty()) {
-            saveReviewMedia(savedReview, mediaFiles);
+        // Đảm bảo rằng tham chiếu user trong review đã được load đầy đủ
+        if (savedReview.getUser() != null) {
+            // Force initialize user để tránh lỗi lazy loading
+            savedReview.getUser().getId();
+            savedReview.getUser().getUsername();
+            if (savedReview.getUser().getFullName() != null) {
+                savedReview.getUser().getFullName();
+            }
         }
         
         // Cập nhật rating của sản phẩm
@@ -91,7 +118,7 @@ public class ReviewService {
     }
     
     @Transactional
-    public Review updateReview(Long id, Review updatedReview, List<MultipartFile> newMediaFiles) {
+    public Review updateReview(Long id, Review updatedReview) {
         Review existingReview = reviewRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Review not found with id: " + id));
         
@@ -106,15 +133,6 @@ public class ReviewService {
         existingReview.setRating(updatedReview.getRating());
         existingReview.setUpdatedAt(LocalDateTime.now());
         
-        // Xử lý media files mới nếu có
-        if (newMediaFiles != null && !newMediaFiles.isEmpty()) {
-            // Xóa media cũ
-            reviewMediaRepository.deleteByReview(existingReview);
-            
-            // Lưu media mới
-            saveReviewMedia(existingReview, newMediaFiles);
-        }
-        
         // Cập nhật rating của sản phẩm
         updateProductRating(existingReview.getProduct());
         
@@ -127,54 +145,38 @@ public class ReviewService {
                 .orElseThrow(() -> new RuntimeException("Review not found with id: " + id));
         
         // Kiểm tra xem user có phải là người tạo review không
-        if (!review.getUser().equals(user)) {
+        if (!review.getUser().equals(user) && !isAdmin(user)) {
             throw new RuntimeException("You are not authorized to delete this review");
         }
         
-        // Xóa tất cả media liên quan đến review
-        reviewMediaRepository.deleteByReview(review);
+        Product product = review.getProduct();
         
-        // Xóa tất cả helpful votes
-        reviewHelpfulRepository.deleteAll(reviewHelpfulRepository.findByReview(review));
-        
-        // Xóa review
-        reviewRepository.delete(review);
-        
-        // Cập nhật rating của sản phẩm
-        updateProductRating(review.getProduct());
+        try {
+            // Xóa tất cả helpful votes
+            reviewHelpfulRepository.deleteAll(reviewHelpfulRepository.findByReview(review));
+            
+            // Xóa review
+            reviewRepository.delete(review);
+            
+            // Cập nhật rating của sản phẩm
+            updateProductRating(product);
+            
+            System.out.println("Review with ID " + id + " was successfully deleted by user " + user.getUsername());
+        } catch (Exception e) {
+            System.err.println("Error deleting review: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to delete review: " + e.getMessage());
+        }
     }
     
-    private void saveReviewMedia(Review review, List<MultipartFile> mediaFiles) {
-        List<ReviewMedia> mediaList = new ArrayList<>();
-        
-        for (MultipartFile file : mediaFiles) {
-            try {
-                String fileName = fileStorageService.storeFile(file, "reviews");
-                
-                ReviewMedia media = new ReviewMedia();
-                media.setReview(review);
-                media.setFileUrl(fileName);
-                
-                // Xác định loại media (image hoặc video)
-                if (file.getContentType().startsWith("image")) {
-                    media.setType("IMAGE");
-                } else if (file.getContentType().startsWith("video")) {
-                    media.setType("VIDEO");
-                } else {
-                    media.setType("OTHER");
-                }
-                
-                mediaList.add(media);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to store review media files", e);
-            }
-        }
-        
-        reviewMediaRepository.saveAll(mediaList);
+    private boolean isAdmin(User user) {
+        return user.getRoles().stream()
+                .anyMatch(role -> role.getName().name().equals("ROLE_ADMIN"));
     }
     
     private void updateProductRating(Product product) {
-        double avgRating = reviewRepository.calculateAverageRating(product);
+        Double avgRatingObj = reviewRepository.calculateAverageRating(product);
+        double avgRating = avgRatingObj != null ? avgRatingObj : 0.0;
         int reviewCount = (int) reviewRepository.countByProduct(product);
         
         product.setAverageRating(avgRating);
@@ -222,14 +224,38 @@ public class ReviewService {
     }
     
     public List<Review> getMostHelpfulReviews(Product product, int limit) {
-        return reviewRepository.findMostHelpfulReviews(product, PageRequest.of(0, limit));
+        List<Review> reviews = reviewRepository.findMostHelpfulReviews(product, PageRequest.of(0, limit));
+        
+        // Đảm bảo mỗi review đều có thông tin user đầy đủ
+        for (Review review : reviews) {
+            if (review.getUser() != null) {
+                // Force initialize user để tránh lỗi lazy loading
+                User user = review.getUser();
+                user.getId();
+                if (user.getUsername() != null) {
+                    user.getUsername();
+                }
+                if (user.getFullName() != null) {
+                    user.getFullName();
+                }
+            }
+        }
+        
+        return reviews;
     }
     
     public boolean hasUserReviewed(User user, Product product) {
         return reviewRepository.existsByUserAndProduct(user, product);
     }
     
-    public List<ReviewMedia> getReviewMedia(Review review) {
-        return reviewMediaRepository.findByReview(review);
+    /**
+     * Lấy tất cả các đánh giá của một người dùng cho một sản phẩm cụ thể
+     * 
+     * @param user Người dùng cần lấy đánh giá
+     * @param product Sản phẩm cần lấy đánh giá
+     * @return Danh sách các đánh giá của người dùng cho sản phẩm
+     */
+    public List<Review> getUserReviewsForProduct(User user, Product product) {
+        return reviewRepository.findByUserAndProductOrderByCreatedAtDesc(user, product);
     }
 } 

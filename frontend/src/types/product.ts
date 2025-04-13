@@ -17,6 +17,15 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
+  anonymous?: boolean;
+  isAnonymous?: boolean;
+  createdAt?: string;
+  fullName?: string;
+  user?: {
+    id: string | number;
+    username: string;
+    fullName?: string;
+  };
 }
 
 export interface CartItem {
