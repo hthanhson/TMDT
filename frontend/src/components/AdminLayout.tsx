@@ -28,9 +28,11 @@ import {
   Star as ReviewsIcon,
   BarChart as ReportsIcon,
   Logout as LogoutIcon,
-  LocalOffer as CouponIcon
+  LocalOffer as CouponIcon,
+  SupportAgent
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import AdminChat from './admin/AdminChat';
 
 const drawerWidth = 240;
 
@@ -64,9 +66,9 @@ const AdminLayout: React.FC = () => {
     { text: 'Quản lý đơn hàng', icon: <OrdersIcon />, path: '/admin/orders' },
     { text: 'Quản lý người dùng', icon: <UsersIcon />, path: '/admin/users' },
     { text: 'Mã giảm giá', icon: <CouponIcon />, path: '/admin/coupons' },
-    { text: 'Thông báo', icon: <NotificationsIcon />, path: '/admin/notifications' },
     { text: 'Đánh giá sản phẩm', icon: <ReviewsIcon />, path: '/admin/reviews' },
     { text: 'Báo cáo thống kê', icon: <ReportsIcon />, path: '/admin/reports' },
+    // { text: 'Hỗ trợ khách hàng', icon: <SupportAgent />, path: '/admin/chat' },
   ];
   
   const drawer = (
@@ -156,11 +158,7 @@ const AdminLayout: React.FC = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {menuItems.find(item => item.path === location.pathname)?.text || 'Quản lý hệ thống'}
           </Typography>
-          <IconButton color="inherit">
-            <Badge badgeContent={4} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
+          
         </Toolbar>
       </AppBar>
       
@@ -207,6 +205,9 @@ const AdminLayout: React.FC = () => {
           <Outlet />
         </Container>
       </Box>
+      
+      {/* Admin Chat Component */}
+
     </Box>
   );
 };

@@ -99,7 +99,14 @@ public class SecurityConfig {
                 .antMatchers("/api/reviews/**").permitAll()
                 .antMatchers("/api/files/**").permitAll()
                 .antMatchers("/api/public/**").permitAll()
+                .antMatchers("/api/chat/sessions/**").permitAll()
+                .antMatchers("/api/chat/messages/**").permitAll()
                 .antMatchers("/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                .antMatchers("/ws/**").permitAll()
+                .antMatchers("/chat/**").permitAll()
+                .antMatchers("/topic/**").permitAll()
+                .antMatchers("/app/**").permitAll()
+                .antMatchers("/user/**").permitAll()
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             );
@@ -112,9 +119,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Auth-Token"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Auth-Token", "*"));
         configuration.setExposedHeaders(Arrays.asList("X-Auth-Token"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

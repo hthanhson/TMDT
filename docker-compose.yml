@@ -40,8 +40,10 @@ services:
       APP_JWT_SECRET: ${JWT_SECRET:-tmdt123456789tmdtsecretkey987654321}
       APP_JWT_EXPIRATION_MS: ${JWT_EXPIRATION:-86400000}
       FILE_UPLOAD_DIR: /app/uploads
+      WEBSOCKET_PORT: 8088
     ports:
       - "8080:8080"
+      - "8088:8088"
     volumes:
       - ./backend/uploads:/app/uploads
     networks:

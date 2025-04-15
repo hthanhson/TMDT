@@ -16,25 +16,41 @@ public class CorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         
-        // Chỉ cho phép origin từ frontend
-        config.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        // Cho phép các origin khác nhau
+        config.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",
+            "http://localhost:3001"
+            // Thêm các origin khác nếu cần
+        ));
         
-        // Cho phép các HTTP method cụ thể
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // Cho phép các header
+        config.setAllowedHeaders(Arrays.asList(
+            "Origin", 
+            "Content-Type", 
+            "Accept", 
+            "Authorization",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers",
+            "Access-Control-Allow-Credentials"
+        ));
         
-        // Cho phép các header cụ thể
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Auth-Token"));
+        // Cho phép các phương thức
+        config.setAllowedMethods(Arrays.asList(
+            "GET", 
+            "POST", 
+            "PUT", 
+            "DELETE", 
+            "OPTIONS"
+        ));
         
-        // Expose headers
-        config.setExposedHeaders(Arrays.asList("X-Auth-Token"));
-        
-        // Cho phép credentials
+        // Cho phép sử dụng cookie
         config.setAllowCredentials(true);
         
-        // Cấu hình tối đa age cho preflight
+        // Thời gian cache của preflight requests
         config.setMaxAge(3600L);
         
-        // Áp dụng cấu hình cho mọi đường dẫn
+        // Áp dụng cấu hình cho tất cả endpoints
         source.registerCorsConfiguration("/**", config);
         
         return new CorsFilter(source);

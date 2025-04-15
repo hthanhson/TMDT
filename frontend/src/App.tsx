@@ -10,7 +10,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import ChatBot from './components/Chat/ChatBot';
+import AdminChat from './components/admin/AdminChat';
 import AdminRoute from './components/AdminRoute';
+import AdminChatButton from './components/admin/AdminChatButton';
 
 // Pages
 import Home from './pages/Home';
@@ -58,6 +60,29 @@ const NavigationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }, [isAuthenticated, isAdmin, navigate, location.pathname]);
 
   return <>{children}</>;
+};
+
+// ChatBot Conditional Component
+const ConditionalChatBot: React.FC = () => {
+  const { user } = useAuth();
+  
+  // Ẩn ChatBot nếu người dùng có vai trò admin
+  if (user && user.roles && user.roles.includes('ROLE_ADMIN')) {
+    return null;
+  }
+  
+  return <ChatBot />;
+};
+
+// Admin Chat Component - hiển thị cho người dùng admin
+const AdminChatComponent: React.FC = () => {
+  const { user } = useAuth();
+  
+  if (user && user.roles && user.roles.includes('ROLE_ADMIN')) {
+    return <AdminChatButton />;
+  }
+  
+  return null;
 };
 
 const App: React.FC = () => {
@@ -142,8 +167,11 @@ const App: React.FC = () => {
                 </Routes>
               </NavigationGuard>
               
-              {/* Chatbot - visible on all pages */}
-              <ChatBot />
+              {/* Chatbot - visible on all pages except for admin users */}
+              <ConditionalChatBot />
+              
+              {/* Admin Chat - only visible for admin users */}
+              <AdminChatComponent />
             </Router>
           </SnackbarProvider>
         </NotificationProvider>

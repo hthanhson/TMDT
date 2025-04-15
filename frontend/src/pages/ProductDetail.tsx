@@ -1114,16 +1114,16 @@ const ProductDetail: React.FC = () => {
             processedReviews.map((review, index) => (
               <Paper key={review.id || index} elevation={1} sx={{ p: 2, mb: 2 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Box>
+            <Box>
                     <Typography variant="subtitle1" fontWeight="bold">
                       {review.displayName || review.user?.name || 'Người dùng ẩn danh'}
-                    </Typography>
+                      </Typography>
                     <Box display="flex" alignItems="center">
                       <Rating value={review.rating} readOnly size="small" />
                       <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                         {review.displayDate}
-                      </Typography>
-                    </Box>
+                    </Typography>
+            </Box>
                   </Box>
                   <Box>
                     <Button

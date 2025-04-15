@@ -1,4 +1,5 @@
 import api from './api';
+import { API_URL } from '../config';
 
 interface Product {
   id: string;
@@ -55,179 +56,338 @@ interface Page<T> {
   number: number;
 }
 
-const AdminService = {
-  // Products
-  getAllProducts(params?: any) {
-    return api.get<Page<Product>>('/admin/products', { params });
-  },
+class AdminService {
+  // Dashboard
+  async getDashboardSummary() {
+    try {
+      console.log('Fetching admin dashboard summary');
+      const response = await api.get('/admin/dashboard');
+      console.log('Admin dashboard response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching admin dashboard:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
 
-  getProduct(id: string) {
-    return api.get<Product>(`/admin/products/${id}`);
-  },
+  async getDashboardStats() {
+    try {
+      return await api.get('/admin/dashboard/stats');
+    } catch (error: any) {
+      console.error('Error fetching dashboard stats:', error.message);
+      throw error;
+    }
+  }
 
-  createProduct(productData: FormData) {
-    return api.post('/admin/products', productData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-  },
+  async getSalesData(period: string = 'week') {
+    try {
+      return await api.get('/admin/dashboard/sales', { params: { period } });
+    } catch (error: any) {
+      console.error('Error fetching sales data:', error.message);
+      throw error;
+    }
+  }
 
-  updateProduct(id: string, productData: FormData) {
-    return api.put(`/admin/products/${id}`, productData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-  },
+  async getTopProducts(limit: number = 5) {
+    try {
+      return await api.get('/admin/dashboard/top-products', { params: { limit } });
+    } catch (error: any) {
+      console.error('Error fetching top products:', error.message);
+      throw error;
+    }
+  }
 
-  deleteProduct(id: string) {
-    return api.delete(`/admin/products/${id}`);
-  },
-
-  // Categories
-  getAllCategories(params?: any) {
-    return api.get<string[]>('/categories', { params });
-  },
-
-  getCategories(params?: any) {
-    return api.get<string[]>('/categories', { params });
-  },
-
-  getCategory(id: string) {
-    return api.get<Category>(`/admin/categories/${id}`);
-  },
-
-  createCategory(categoryData: any) {
-    return api.post('/admin/categories', categoryData);
-  },
-
-  updateCategory(id: string, categoryData: any) {
-    return api.put(`/admin/categories/${id}`, categoryData);
-  },
-
-  deleteCategory(id: string) {
-    return api.delete(`/admin/categories/${id}`);
-  },
+  async getRecentOrders(limit: number = 5) {
+    try {
+      return await api.get('/admin/dashboard/recent-orders', { params: { limit } });
+    } catch (error: any) {
+      console.error('Error fetching recent orders:', error.message);
+      throw error;
+    }
+  }
 
   // Users
-  getAllUsers(params?: any) {
-    return api.get<Page<User>>('/admin/users', { params });
-  },
+  async getAllUsers(params?: any) {
+    try {
+      console.log('Fetching all users for admin');
+      const response = await api.get('/admin/users', { params });
+      console.log('Admin users response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching admin users:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
 
-  getUser(id: string) {
-    return api.get<User>(`/admin/users/${id}`);
-  },
+  async getUser(id: string) {
+    try {
+      return await api.get<User>(`/admin/users/${id}`);
+    } catch (error: any) {
+      console.error(`Error fetching user ${id}:`, error.message);
+      throw error;
+    }
+  }
 
-  updateUser(id: string, userData: any) {
-    return api.put(`/admin/users/${id}`, userData);
-  },
+  async updateUser(id: string, userData: any) {
+    try {
+      return await api.put(`/admin/users/${id}`, userData);
+    } catch (error: any) {
+      console.error(`Error updating user ${id}:`, error.message);
+      throw error;
+    }
+  }
 
-  deleteUser(id: string) {
-    return api.delete(`/admin/users/${id}`);
-  },
+  async deleteUser(id: string) {
+    try {
+      return await api.delete(`/admin/users/${id}`);
+    } catch (error: any) {
+      console.error(`Error deleting user ${id}:`, error.message);
+      throw error;
+    }
+  }
 
-  updateUserStatus(id: string, enabled: boolean) {
-    return api.put(`/admin/users/${id}/status`, { enabled });
-  },
+  async updateUserStatus(id: string, enabled: boolean) {
+    try {
+      return await api.put(`/admin/users/${id}/status`, { enabled });
+    } catch (error: any) {
+      console.error(`Error updating user ${id} status:`, error.message);
+      throw error;
+    }
+  }
+
+  async assignCouponToUser(userId: string | number, couponCode: string) {
+    try {
+      console.log(`Assigning coupon ${couponCode} to user ${userId}`);
+      const response = await api.put(`/admin/users/${userId}/coupons`, { couponCode });
+      console.log('Assign coupon response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error assigning coupon:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
+
+  // Products
+  async getAllProducts(params?: any) {
+    try {
+      console.log('Fetching all products for admin');
+      const response = await api.get('/admin/products', { params });
+      console.log('Admin products response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching admin products:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
+
+  async getProduct(id: string) {
+    try {
+      return await api.get<Product>(`/admin/products/${id}`);
+    } catch (error: any) {
+      console.error(`Error fetching product ${id}:`, error.message);
+      throw error;
+    }
+  }
+
+  async createProduct(productData: FormData) {
+    try {
+      return await api.post('/admin/products', productData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    } catch (error: any) {
+      console.error('Error creating product:', error.message);
+      throw error;
+    }
+  }
+
+  async updateProduct(id: string, productData: FormData) {
+    try {
+      return await api.put(`/admin/products/${id}`, productData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    } catch (error: any) {
+      console.error(`Error updating product ${id}:`, error.message);
+      throw error;
+    }
+  }
+
+  async deleteProduct(id: string | number) {
+    try {
+      console.log(`Deleting product ${id}`);
+      const response = await api.delete(`/admin/products/${id}`);
+      console.log('Delete product response:', response);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error deleting product:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
+
+  // Categories
+  async getAllCategories(params?: any) {
+    try {
+      return await api.get<string[]>('/categories', { params });
+    } catch (error: any) {
+      console.error('Error fetching categories:', error.message);
+      throw error;
+    }
+  }
+
+  async getCategories(params?: any) {
+    try {
+      return await api.get<string[]>('/categories', { params });
+    } catch (error: any) {
+      console.error('Error fetching categories:', error.message);
+      throw error;
+    }
+  }
+
+  async getCategory(id: string) {
+    try {
+      return await api.get<Category>(`/admin/categories/${id}`);
+    } catch (error: any) {
+      console.error(`Error fetching category ${id}:`, error.message);
+      throw error;
+    }
+  }
+
+  async createCategory(categoryData: any) {
+    try {
+      return await api.post('/admin/categories', categoryData);
+    } catch (error: any) {
+      console.error('Error creating category:', error.message);
+      throw error;
+    }
+  }
+
+  async updateCategory(id: string, categoryData: any) {
+    try {
+      return await api.put(`/admin/categories/${id}`, categoryData);
+    } catch (error: any) {
+      console.error(`Error updating category ${id}:`, error.message);
+      throw error;
+    }
+  }
+
+  async deleteCategory(id: string) {
+    try {
+      return await api.delete(`/admin/categories/${id}`);
+    } catch (error: any) {
+      console.error(`Error deleting category ${id}:`, error.message);
+      throw error;
+    }
+  }
 
   // Orders
-  getAllOrders(params?: any) {
-    return api.get<Page<Order>>('/admin/orders', { params });
-  },
+  async getAllOrders(params?: any) {
+    try {
+      console.log('Fetching all orders for admin');
+      const response = await api.get('/admin/orders', { params });
+      console.log('Admin orders response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching admin orders:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
 
-  getOrder(id: string) {
-    return api.get<Order>(`/admin/orders/${id}`);
-  },
+  async getOrder(id: string) {
+    try {
+      return await api.get<Order>(`/admin/orders/${id}`);
+    } catch (error: any) {
+      console.error(`Error fetching order ${id}:`, error.message);
+      throw error;
+    }
+  }
 
-  updateOrderStatus(id: string, status: string) {
-    return api.put(`/admin/orders/${id}/status?status=${status}`, {});
-  },
-
-  // Dashboard statistics
-  getDashboardStats() {
-    return api.get('/admin/dashboard/stats');
-  },
-
-  getSalesData(period: string = 'week') {
-    return api.get('/admin/dashboard/sales', { params: { period } });
-  },
-
-  getTopProducts(limit: number = 5) {
-    return api.get('/admin/dashboard/top-products', { params: { limit } });
-  },
-
-  getRecentOrders(limit: number = 5) {
-    return api.get('/admin/dashboard/recent-orders', { params: { limit } });
-  },
+  async updateOrderStatus(id: string | number, status: string) {
+    try {
+      console.log(`Updating order ${id} status to ${status}`);
+      const response = await api.put(`/admin/orders/${id}/status?status=${status}`);
+      console.log('Update order status response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error updating order status:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
 
   // Reviews
-  getAllReviews(params?: any) {
+  async getAllReviews(params?: any) {
     return api.get('/admin/reviews', { params });
-  },
+  }
 
-  getReview(id: string) {
+  async getReview(id: string) {
     return api.get(`/admin/reviews/${id}`);
-  },
+  }
 
-  updateReviewStatus(id: string, status: string) {
+  async updateReviewStatus(id: string, status: string) {
     return api.put(`/admin/reviews/${id}/status`, { status });
-  },
+  }
 
-  deleteReview(id: string) {
+  async deleteReview(id: string) {
     return api.delete(`/admin/reviews/${id}`);
-  },
+  }
 
   // Notifications
-  getAllNotifications(params?: any) {
+  async getAllNotifications(params?: any) {
     return api.get('/admin/notifications', { params });
-  },
+  }
 
-  createNotification(notificationData: any) {
+  async createNotification(notificationData: any) {
     return api.post('/admin/notifications', notificationData);
-  },
+  }
 
-  updateNotification(id: string, notificationData: any) {
+  async updateNotification(id: string, notificationData: any) {
     return api.put(`/admin/notifications/${id}`, notificationData);
-  },
+  }
 
-  deleteNotification(id: string) {
+  async deleteNotification(id: string) {
     return api.delete(`/admin/notifications/${id}`);
-  },
+  }
 
   // Coupons
-  assignCouponToUser(userId: string, couponCode: string) {
-    return api.put(`/admin/users/${userId}/coupons`, { couponCode });
-  },
-
-  getActiveCoupons() {
+  async getActiveCoupons() {
     return api.get('/coupons/active');
-  },
+  }
 
   // Reports
-  getSalesReport(params?: any) {
+  async getSalesReport(params?: any) {
     return api.get('/admin/reports/sales', { params });
-  },
+  }
 
-  getProductsReport(params?: any) {
+  async getProductsReport(params?: any) {
     return api.get('/admin/reports/products', { params });
-  },
+  }
 
-  getUsersReport(params?: any) {
+  async getUsersReport(params?: any) {
     return api.get('/admin/reports/users', { params });
-  },
+  }
 
-  getOrdersReport(params?: any) {
+  async getOrdersReport(params?: any) {
     return api.get('/admin/reports/orders', { params });
-  },
+  }
 
-  exportReport(reportType: string, params?: any) {
+  async exportReport(reportType: string, params?: any) {
     return api.get(`/api/admin/reports/export/${reportType}`, { 
       params, 
       responseType: 'blob' 
     });
-  },
+  }
+}
 
-};
-
-export default AdminService;
+export default new AdminService();

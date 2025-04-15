@@ -12,22 +12,34 @@ const AuthService = {
       password,
     });
     
-    // Kiểm tra nếu API trả về token thay vì accessToken
-    if (response.data.token && !response.data.accessToken) {
-      // Chuyển đổi token thành accessToken để phù hợp với UserData interface
-      response.data.accessToken = response.data.token;
-      // Xóa trường token nếu không cần thiết
-      delete response.data.token;
+    // Kiểm tra và thống nhất format token
+    if (response.data) {
+      // Đảm bảo dữ liệu có accessToken
+      if (response.data.token && !response.data.accessToken) {
+        response.data.accessToken = response.data.token;
+        // Xóa trường token nếu không cần thiết
+        delete response.data.token;
+      }
+      
+      // Lưu user vào localStorage
+      if (response.data.accessToken) {
+        // Log để debug
+        console.log('Saving user with token to localStorage');
+        console.log('Token format valid:', response.data.accessToken.startsWith('ey'));
+        console.log('Token length:', response.data.accessToken.length);
+        
+        localStorage.setItem('user', JSON.stringify(response.data));
+      } else {
+        console.error('Login response missing token:', response.data);
+      }
     }
     
-    if (response.data.accessToken) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-    }
     return response.data;
   },
 
   logout(): void {
     localStorage.removeItem('user');
+    console.log('User logged out, localStorage cleared');
   },
 
   async register(username: string, email: string, password: string, fullName?: string, phoneNumber?: string, address?: string): Promise<void> {
@@ -61,13 +73,18 @@ const AuthService = {
 
   getAuthHeader(): { Authorization: string } | {} {
     const user = this.getCurrentUser();
-    // Kiểm tra cả accessToken và token
+    // Kiểm tra token
     if (user) {
-      if (user.accessToken) {
-        return { Authorization: `Bearer ${user.accessToken}` };
-      } else if ((user as any).token) {
-        return { Authorization: `Bearer ${(user as any).token}` };
+      const token = user.accessToken || (user as any).token;
+      if (token) {
+        // Log để debug
+        console.log('Using token for auth header. Format valid:', token.startsWith('ey'));
+        return { Authorization: `Bearer ${token}` };
+      } else {
+        console.error('No token found in user object:', user);
       }
+    } else {
+      console.log('No user found in localStorage for auth header');
     }
     return {};
   },

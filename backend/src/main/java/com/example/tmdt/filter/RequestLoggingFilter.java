@@ -2,6 +2,7 @@ package com.example.tmdt.filter;
 
 import com.example.tmdt.utils.LoggerUtil;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 /**
  * Filter để ghi log tất cả các HTTP request và response
@@ -23,60 +26,40 @@ import java.io.UnsupportedEncodingException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestLoggingFilter extends OncePerRequestFilter {
 
-    private static final Logger logger = LoggerUtil.getLogger(RequestLoggingFilter.class);
+    private static final Logger logger = LoggerFactory.getLogger(RequestLoggingFilter.class);
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
-                                   FilterChain filterChain) throws ServletException, IOException {
-        if (request.getContentType() != null && request.getContentType().contains("application/json")) {
-            // Đây là request JSON, cần đặc biệt cẩn thận khi xử lý body
-            logger.debug("Processing JSON request to {}", request.getRequestURI());
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        
+        // Log request
+        logger.info("REQUEST: {} {}", request.getMethod(), request.getRequestURI());
+        logger.info("HEADERS: {}", Collections.list(request.getHeaderNames())
+                .stream()
+                .map(headerName -> headerName + "=" + request.getHeader(headerName))
+                .collect(Collectors.joining(", ")));
+        
+        // Xử lý các CORS preflight request đặc biệt
+        if (request.getMethod().equals("OPTIONS")) {
+            response.setHeader("Access-Control-Allow-Origin", 
+                request.getHeader("Origin") != null ? request.getHeader("Origin") : "*");
+            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            response.setHeader("Access-Control-Allow-Headers", 
+                "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token");
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+            response.setHeader("Access-Control-Max-Age", "3600");
+            response.setStatus(HttpServletResponse.SC_OK);
             
-            // Thiết lập context cho request
-            LoggerUtil.configureRequestContext(request);
-            
-            // Wrap request để có thể đọc nhiều lần
-            ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
-            ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
-            
-            try {
-                // Chuyển tiếp request mà không log trước khi xử lý
-                filterChain.doFilter(requestWrapper, responseWrapper);
-                
-                // Sau khi xử lý, thì mới log để không ảnh hưởng đến body
-                logRequestAfterProcessing(requestWrapper);
-                logResponse(responseWrapper, 0);
-            } finally {
-                LoggerUtil.clearRequestContext();
-                responseWrapper.copyBodyToResponse();
-            }
+            // Log response cho OPTIONS request
+            logger.info("RESPONSE: Status=200 (OK - CORS Preflight)");
         } else {
-            // Xử lý bình thường cho các request không phải JSON
+            // Xử lý request không phải OPTIONS như bình thường
             long startTime = System.currentTimeMillis();
+            filterChain.doFilter(request, response);
+            long duration = System.currentTimeMillis() - startTime;
             
-            // Thiết lập context cho request
-            LoggerUtil.configureRequestContext(request);
-            
-            // Wrap request và response để có thể đọc nhiều lần
-            ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
-            ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
-
-            try {
-                // Log trước khi xử lý request
-                logRequest(requestWrapper);
-                
-                // Xử lý request
-                filterChain.doFilter(requestWrapper, responseWrapper);
-                
-                // Log sau khi xử lý request
-                logResponse(responseWrapper, System.currentTimeMillis() - startTime);
-            } finally {
-                // Xóa context
-                LoggerUtil.clearRequestContext();
-                
-                // Copy nội dung response đã bị tiêu thụ khi đọc
-                responseWrapper.copyBodyToResponse();
-            }
+            // Log response
+            logger.info("RESPONSE: Status={}, Time={}ms", response.getStatus(), duration);
         }
     }
 
@@ -175,26 +158,5 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
         
         return "[Empty]";
-    }
-
-    // Thêm phương thức mới để log request sau khi xử lý
-    private void logRequestAfterProcessing(ContentCachingRequestWrapper request) {
-        if (logger.isInfoEnabled()) {
-            logger.info("REQUEST: {} {}", request.getMethod(), request.getRequestURI());
-            logger.info("HEADERS: {}", getRequestHeaders(request));
-            
-            // Log body cho các request POST, PUT, PATCH
-            String method = request.getMethod();
-            if (("POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)) 
-                    && request.getContentLength() > 0) {
-                // Không log body cho URLs nhạy cảm như login, register
-                String uri = request.getRequestURI();
-                if (!uri.contains("/login") && !uri.contains("/register") && !uri.contains("/password")) {
-                    logger.debug("REQUEST BODY: {}", getRequestBody(request));
-                } else {
-                    logger.debug("REQUEST BODY: [Sensitive data hidden]");
-                }
-            }
-        }
     }
 } 
