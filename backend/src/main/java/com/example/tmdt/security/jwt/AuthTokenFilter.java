@@ -79,6 +79,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     }
 
     private String parseJwt(HttpServletRequest request) {
+        // First check Authorization header
         String headerAuth = request.getHeader("Authorization");
         logger.debug("Authorization header: {}", headerAuth);
 
@@ -87,7 +88,14 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             return headerAuth.substring(7);
         }
 
-        logger.debug("No Authorization header found in request");
+        // If no Authorization header, check for token in URL parameters (for WebSocket)
+        String token = request.getParameter("token");
+        if (StringUtils.hasText(token)) {
+            logger.debug("Found token in URL parameter: {}", token);
+            return token;
+        }
+
+        logger.debug("No Authorization header or token parameter found in request");
         return null;
     }
 } 

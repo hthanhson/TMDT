@@ -247,24 +247,30 @@ const ChatBot: React.FC = () => {
             timestamp: new Date(),
           };
           setMessages(prev => [...prev, sessionErrorMessage]);
-          
-          // Don't proceed with WebSocket connection
-          return;
+          return; // Dừng thực thi hàm
         }
       } catch (err) {
-        console.warn(`Error verifying session ${currentSessionId} existence:`, err);
-        // Proceed anyway, server will reject if session is invalid
+        console.error('Error verifying session before WebSocket connection:', err);
+        // Continue despite error - server will validate session
       }
-
-      // Close any existing connection first
+      
+      // Close any existing socket
       if (socket && socket.readyState !== WebSocket.CLOSED) {
         socket.close();
       }
 
+      // Lấy token từ localStorage để xác thực với WebSocket
+      const token = localStorage.getItem('user') ? 
+        JSON.parse(localStorage.getItem('user')!).accessToken : null;
+
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
       const port = host === 'localhost' ? ':8089' : ''; // Only use port in development
-      const wsUrl = `${wsProtocol}//${host}${port}/chat`;
+      
+      // Thêm token vào URL để xác thực
+      const wsUrl = token 
+        ? `${wsProtocol}//${host}${port}/chat?token=${encodeURIComponent(token)}`
+        : `${wsProtocol}//${host}${port}/chat`;
       
       console.log('Connecting to WebSocket at:', wsUrl);
       
@@ -303,6 +309,10 @@ const ChatBot: React.FC = () => {
         if (currentSessionId) {
           setChatWithAdmin(true); // Always set chat with admin to true when connected
           
+          // Thêm thông tin xác thực trong tin nhắn connect
+          const token = localStorage.getItem('user') ? 
+            JSON.parse(localStorage.getItem('user')!).accessToken : null;
+          
           const connectMsg = {
             type: 'USER_CONNECT',
             userId: isAuthenticated && user?.id ? user.id.toString() : anonymousUserId,
@@ -311,7 +321,8 @@ const ChatBot: React.FC = () => {
             sessionId: currentSessionId,
             timestamp: new Date().getTime(),
             senderType: 'USER',
-            sender: 'user'
+            sender: 'user',
+            token: token // Thêm token vào tin nhắn kết nối
           };
           
           newSocket.send(JSON.stringify(connectMsg));

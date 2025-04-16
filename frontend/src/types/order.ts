@@ -33,6 +33,8 @@ export interface OrderData {
   }>;
   shippingAddress: string;
   paymentMethod: string;
+  phoneNumber: string;
+  recipientName: string;
   couponCode?: string;
   total?: number;
 }

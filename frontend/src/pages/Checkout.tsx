@@ -332,6 +332,8 @@ const Checkout: React.FC = (): JSX.Element => {
       const orderData = {
         shippingAddress: getFullShippingAddress(),
         paymentMethod,
+        phoneNumber: deliveryInfo.phone,
+        recipientName: deliveryInfo.fullName,
         items: items.map(item => ({
           productId: item.id,
           quantity: item.quantity

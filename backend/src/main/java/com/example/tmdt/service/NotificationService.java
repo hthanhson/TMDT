@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.tmdt.model.Notification;
+import com.example.tmdt.model.Notification.NotificationType;
 import com.example.tmdt.model.User;
 import com.example.tmdt.repository.NotificationRepository;
 import com.example.tmdt.repository.UserRepository;
@@ -164,5 +165,23 @@ public class NotificationService {
         for (User user : allUsers) {
             createNotificationForUser(user, title, message, type, additionalData);
         }
+    }
+
+    /**
+     * Send order status notification to user
+     */
+    @Transactional
+    public Notification sendOrderStatusNotification(Long userId, String message, String title) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        
+        Notification notification = new Notification();
+        notification.setUser(user);
+        notification.setMessage(message);
+        notification.setTitle(title);
+        notification.setType(NotificationType.ORDER_STATUS_CHANGE);
+        notification.setCreatedAt(LocalDateTime.now());
+        
+        return notificationRepository.save(notification);
     }
 } 

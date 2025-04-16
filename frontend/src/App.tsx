@@ -9,9 +9,11 @@ import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
+import ShipperLayout from './components/ShipperLayout';
 import ChatBot from './components/Chat/ChatBot';
 import AdminChat from './components/admin/AdminChat';
 import AdminRoute from './components/AdminRoute';
+import ShipperRoute from './components/ShipperRoute';
 import AdminChatButton from './components/admin/AdminChatButton';
 
 // Pages
@@ -41,14 +43,17 @@ import Wishlist from './pages/Wishlist';
 import ProductForm from './pages/admin/ProductForm';
 import AdminCoupons from './pages/admin/Coupons';
 
+// Shipper Pages - Tạm thời nhập từ components đến khi tạo các pages riêng
+import ShipperDashboard from './components/ShipperDashboard';
+
 // Contexts
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 
-// Thêm component mới để chuyển hướng người dùng admin
+// Thêm component mới để chuyển hướng người dùng dựa trên vai trò
 const NavigationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -56,8 +61,19 @@ const NavigationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) 
     // Nếu đã đăng nhập với vai trò admin và không đang ở trang admin
     if (isAuthenticated && isAdmin && !location.pathname.startsWith('/admin')) {
       navigate('/admin/dashboard');
+      return;
     }
-  }, [isAuthenticated, isAdmin, navigate, location.pathname]);
+
+    // Nếu đã đăng nhập với vai trò shipper và không đang ở trang shipper hoặc admin
+    if (isAuthenticated && user && user.roles && 
+        user.roles.includes('ROLE_SHIPPER') && 
+        !user.roles.includes('ROLE_ADMIN') && 
+        !location.pathname.startsWith('/shipper') && 
+        !location.pathname.startsWith('/admin')) {
+      navigate('/shipper/dashboard');
+      return;
+    }
+  }, [isAuthenticated, isAdmin, user, navigate, location.pathname]);
 
   return <>{children}</>;
 };
@@ -66,8 +82,8 @@ const NavigationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const ConditionalChatBot: React.FC = () => {
   const { user } = useAuth();
   
-  // Ẩn ChatBot nếu người dùng có vai trò admin
-  if (user && user.roles && user.roles.includes('ROLE_ADMIN')) {
+  // Ẩn ChatBot nếu người dùng có vai trò admin hoặc shipper
+  if (user && user.roles && (user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_SHIPPER'))) {
     return null;
   }
   
@@ -160,6 +176,16 @@ const App: React.FC = () => {
                     <Route path="coupons" element={<AdminCoupons />} />
                     <Route path="notifications" element={<AdminNotifications />} />
                     <Route path="reports" element={<AdminReports />} />
+                  </Route>
+                  
+                  {/* Shipper Routes */}
+                  <Route 
+                    path="/shipper" 
+                    element={<ShipperRoute><ShipperLayout /></ShipperRoute>}
+                  >
+                    <Route path="dashboard" element={<ShipperDashboard />} />
+                    <Route path="available-orders" element={<ShipperDashboard />} />
+                    <Route path="my-orders" element={<ShipperDashboard />} />
                   </Route>
                   
                   {/* 404 Route */}

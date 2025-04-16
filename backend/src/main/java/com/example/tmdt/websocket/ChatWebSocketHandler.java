@@ -115,12 +115,20 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     handleAdminConnect(session, jsonNode);
                     break;
                     
+                case "ADMIN_LOGOUT":
+                    handleAdminLogout(session, jsonNode);
+                    break;
+                    
                 case "DISCONNECT":
                     handleDisconnect(session);
                     break;
                     
                 case "END_CHAT":
                     handleEndChat(session, jsonNode);
+                    break;
+                    
+                case "SESSION_DELETED":
+                    handleSessionDeleted(session, jsonNode);
                     break;
                     
                 default:
@@ -606,6 +614,46 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
     
+    private void handleAdminLogout(WebSocketSession session, JsonNode jsonNode) throws IOException {
+        String adminId = getSafeNodeValue(jsonNode, "adminId", null);
+        
+        if (adminId == null) {
+            // Try to find adminId from the session
+            adminId = findAdminIdBySession(session);
+            if (adminId == null) {
+                logger.warn("Could not identify admin for logout message");
+                return;
+            }
+        }
+        
+        logger.info("Admin {} logged out, closing WebSocket connection", adminId);
+        
+        // Remove admin from connected admins map
+        adminSessions.remove(adminId);
+        
+        // Send confirmation to admin before closing
+        ObjectNode logoutConfirmation = objectMapper.createObjectNode();
+        logoutConfirmation.put("type", "ADMIN_LOGOUT_CONFIRMED");
+        logoutConfirmation.put("adminId", adminId);
+        logoutConfirmation.put("message", "Logged out successfully");
+        logoutConfirmation.put("timestamp", System.currentTimeMillis());
+        
+        try {
+            session.sendMessage(new TextMessage(logoutConfirmation.toString()));
+            logger.info("Sent logout confirmation to admin: {}", adminId);
+        } catch (IOException e) {
+            logger.error("Error sending logout confirmation to admin {}: {}", adminId, e.getMessage());
+        }
+        
+        // Close the session
+        try {
+            session.close(CloseStatus.NORMAL);
+            logger.info("Closed WebSocket session for admin: {}", adminId);
+        } catch (IOException e) {
+            logger.error("Error closing WebSocket session for admin {}: {}", adminId, e.getMessage());
+        }
+    }
+    
     private void handleDisconnect(WebSocketSession session) {
         // This method is now deprecated - using afterConnectionClosed instead
         String userId = findUserIdBySession(session);
@@ -961,6 +1009,55 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             } catch (IOException e) {
                 logger.error("Error sending session deleted notification to user: {}", e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Handle session deleted message from clients
+     * 
+     * @param session WebSocket session of the client that sent the message
+     * @param jsonNode Message data
+     */
+    private void handleSessionDeleted(WebSocketSession session, JsonNode jsonNode) throws IOException {
+        String sessionId = getSafeNodeValue(jsonNode, "sessionId", null);
+        
+        if (sessionId == null) {
+            logger.error("Missing required field 'sessionId' in SESSION_DELETED message");
+            ObjectNode errorMsg = objectMapper.createObjectNode();
+            errorMsg.put("type", "ERROR");
+            errorMsg.put("message", "Missing required field 'sessionId' in SESSION_DELETED message");
+            session.sendMessage(new TextMessage(errorMsg.toString()));
+            return;
+        }
+        
+        logger.info("Received SESSION_DELETED message for session: {}", sessionId);
+        
+        // Verify if the session exists and delete it if needed
+        try {
+            boolean deleted = chatService.deleteChatSession(sessionId);
+            if (deleted) {
+                logger.info("Session {} deleted successfully via WebSocket request", sessionId);
+            } else {
+                logger.warn("Session {} was not found or already deleted", sessionId);
+            }
+            
+            // Regardless of whether the session was actually deleted, send notifications
+            // to all clients about the deletion
+            notifyAdminsSessionDeleted(sessionId);
+            
+            // Send confirmation to the sender
+            ObjectNode confirmationMsg = objectMapper.createObjectNode();
+            confirmationMsg.put("type", "SESSION_DELETED_CONFIRMED");
+            confirmationMsg.put("sessionId", sessionId);
+            confirmationMsg.put("timestamp", System.currentTimeMillis());
+            session.sendMessage(new TextMessage(confirmationMsg.toString()));
+            
+        } catch (Exception e) {
+            logger.error("Error handling SESSION_DELETED message for session {}: {}", sessionId, e.getMessage(), e);
+            ObjectNode errorMsg = objectMapper.createObjectNode();
+            errorMsg.put("type", "ERROR");
+            errorMsg.put("message", "Error processing session deletion: " + e.getMessage());
+            session.sendMessage(new TextMessage(errorMsg.toString()));
         }
     }
 } 

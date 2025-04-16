@@ -131,11 +131,42 @@ const Orders: React.FC = () => {
     return format(new Date(dateStr), 'dd MMM yyyy, HH:mm');
   };
   
+  const getStatusTranslation = (status: string): string => {
+    switch (status) {
+      case 'PENDING':
+        return 'Chờ xác nhận';
+      case 'CONFIRMED':
+        return 'Đã xác nhận';
+      case 'PROCESSING':
+        return 'Sẵn sàng giao hàng';
+      case 'READY_TO_SHIP':
+        return 'Sẵn sàng giao hàng';
+      case 'SHIPPED':
+        return 'Đang giao hàng';
+      case 'IN_TRANSIT':
+        return 'Đang vận chuyển';
+      case 'ARRIVED_AT_STATION':
+        return 'Đã đến trạm';
+      case 'OUT_FOR_DELIVERY':
+        return 'Đang giao hàng';
+      case 'DELIVERED':
+        return 'Đã giao hàng';
+      case 'COMPLETED':
+        return 'Hoàn tất';
+      case 'CANCELLED':
+        return 'Đã hủy';
+      case 'RETURNED':
+        return 'Đã trả hàng';
+      default:
+        return status;
+    }
+  };
+  
   const renderOrderTimeline = (order: Order) => {
     const steps = [
       { status: 'PENDING', label: 'Đơn hàng đã đặt', completed: true },
-      { status: 'PROCESSING', label: 'Đang xử lý', completed: ['PROCESSING', 'SHIPPED', 'DELIVERED'].includes(order.status) },
-      { status: 'SHIPPED', label: 'Đang giao hàng', completed: ['SHIPPED', 'DELIVERED'].includes(order.status) },
+      { status: 'PROCESSING', label: 'Sẵn sàng giao hàng', completed: ['READY_TO_SHIP', 'DELIVERED','OUT_FOR_DELIVERY'].includes(order.status) },
+      { status: 'SHIPPED', label: 'Đang giao hàng', completed: ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) },
       { status: 'DELIVERED', label: 'Đã giao hàng', completed: order.status === 'DELIVERED' }
     ];
     
@@ -229,7 +260,7 @@ const Orders: React.FC = () => {
                     Đơn hàng #{order.id}
                   </Typography>
                   <Chip
-                    label={order.status}
+                    label={getStatusTranslation(order.status)}
                     color={getStatusColor(order.status)}
                     size="small"
                   />

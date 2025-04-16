@@ -187,7 +187,7 @@ public class OrderController {
             
             // Check if order can be cancelled (only PENDING or PROCESSING orders)
             if (order.getStatus() != Order.OrderStatus.PENDING && 
-                order.getStatus() != Order.OrderStatus.PROCESSING) {
+                order.getStatus() != Order.OrderStatus.PROCESSING && order.getStatus() != Order.OrderStatus.READY_TO_SHIP) {
                 return ResponseEntity.badRequest()
                     .body(null); // Cannot cancel orders that are already shipped, delivered or cancelled
             }

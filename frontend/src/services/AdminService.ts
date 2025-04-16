@@ -114,7 +114,7 @@ class AdminService {
       console.log('Fetching all users for admin');
       const response = await api.get('/admin/users', { params });
       console.log('Admin users response:', response.data);
-      return response.data;
+      return { data: response.data };
     } catch (error: any) {
       console.error('Error fetching admin users:', error.message);
       console.error('Response status:', error.response?.status);
@@ -294,7 +294,7 @@ class AdminService {
       console.log('Fetching all orders for admin');
       const response = await api.get('/admin/orders', { params });
       console.log('Admin orders response:', response.data);
-      return response.data;
+      return { data: response.data };
     } catch (error: any) {
       console.error('Error fetching admin orders:', error.message);
       console.error('Response status:', error.response?.status);

@@ -72,7 +72,7 @@ public class ProductRecommendationService {
      */
     public List<Product> getPersonalizedRecommendations(User user, int limit) {
         // Lấy danh sách sản phẩm đã mua của user
-        List<Order> userOrders = orderRepository.findByUser(user);
+        List<Order> userOrders = orderRepository.findByUserId(user.getId());
         List<Product> purchasedProducts = new ArrayList<>();
         
         for (Order order : userOrders) {

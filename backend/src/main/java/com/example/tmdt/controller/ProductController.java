@@ -155,9 +155,10 @@ public class ProductController {
     }
 
     @GetMapping("/top")
-    public ResponseEntity<List<Product>> getTopProducts() {
+    public ResponseEntity<List<Product>> getTopProducts(@RequestParam(defaultValue = "4") int limit) {
         List<Product> products = productRepository.findTop10ByOrderByAverageRatingDesc();
-        return new ResponseEntity<>(products, HttpStatus.OK);
+        int actualLimit = Math.min(limit, products.size());
+        return new ResponseEntity<>(products.subList(0, actualLimit), HttpStatus.OK);
     }
 
     @PostMapping

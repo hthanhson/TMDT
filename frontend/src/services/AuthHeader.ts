@@ -1,4 +1,4 @@
-export default function authHeader() {
+export default function authHeader(): Record<string, string> {
   const userStr = localStorage.getItem('user');
   let user = null;
   
@@ -12,9 +12,13 @@ export default function authHeader() {
     }
   }
   
-  if (user && user.accessToken) {
-    return { Authorization: 'Bearer ' + user.accessToken };
-  } else {
-    return {};
+  if (user) {
+    // Kiểm tra cả hai trường token và accessToken
+    const token = user.accessToken || user.token;
+    if (token) {
+      return { Authorization: 'Bearer ' + token };
+    }
   }
+  
+  return {};
 } 

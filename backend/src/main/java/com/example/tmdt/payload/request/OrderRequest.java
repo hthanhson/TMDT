@@ -18,6 +18,12 @@ public class OrderRequest {
     @NotBlank(message = "Payment method is required")
     private String paymentMethod;
     
+    @NotBlank(message = "Phone number is required")
+    private String phoneNumber;
+    
+    @NotBlank(message = "Recipient name is required")
+    private String recipientName;
+    
     private String couponCode;
     
     private Double total;

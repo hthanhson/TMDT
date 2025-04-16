@@ -6,6 +6,7 @@ com\example\tmdt\repository\OrderRepository.class
 com\example\tmdt\repository\ReviewHelpfulRepository.class
 com\example\tmdt\payload\response\ProductResponse.class
 com\example\tmdt\service\ProductService.class
+com\example\tmdt\payload\response\PagedResponse.class
 com\example\tmdt\repository\NotificationRepository.class
 com\example\tmdt\model\User.class
 com\example\tmdt\model\Review.class
@@ -13,7 +14,9 @@ com\example\tmdt\model\Role.class
 com\example\tmdt\service\CategoryService.class
 com\example\tmdt\repository\UserPointsTransactionRepository.class
 com\example\tmdt\payload\request\CouponCreateRequest.class
+com\example\tmdt\service\ShipmentTrackingService.class
 com\example\tmdt\controller\ReviewController.class
+com\example\tmdt\util\OrderStatusConverter.class
 com\example\tmdt\repository\UserPointsRepository.class
 com\example\tmdt\controller\ChatController.class
 com\example\tmdt\model\Wishlist.class
@@ -32,6 +35,7 @@ com\example\tmdt\model\LoyaltyTier.class
 com\example\tmdt\exception\GlobalExceptionHandler.class
 com\example\tmdt\payload\request\LoginRequest.class
 com\example\tmdt\controller\CategoryController.class
+com\example\tmdt\controller\ShipperController.class
 com\example\tmdt\controller\LoggingDemoController.class
 com\example\tmdt\model\UserPoints.class
 com\example\tmdt\config\WebConfig.class
@@ -43,10 +47,12 @@ com\example\tmdt\service\WishlistService.class
 com\example\tmdt\config\JacksonConfig.class
 com\example\tmdt\service\LoyaltyTierService.class
 com\example\tmdt\controller\NotificationController.class
+com\example\tmdt\repository\ShipmentTrackingRepository.class
 com\example\tmdt\config\WebMvcConfig.class
 com\example\tmdt\model\ProductRecommendation.class
 com\example\tmdt\payload\request\OrderItemRequest.class
 com\example\tmdt\repository\ReviewRepository.class
+com\example\tmdt\model\OrderStatus.class
 com\example\tmdt\model\UserPoints$LoyaltyTier.class
 com\example\tmdt\config\SecurityConfig.class
 com\example\tmdt\config\websocket\CustomWebSocketServer.class
@@ -64,16 +70,19 @@ com\example\tmdt\config\WebSocketConfig.class
 com\example\tmdt\config\SecurityConfig$1.class
 com\example\tmdt\model\RecommendationType.class
 com\example\tmdt\repository\ChatMessageRepository.class
+com\example\tmdt\service\impl\ShipmentTrackingServiceImpl.class
 com\example\tmdt\exception\ErrorResponse$ErrorResponseBuilder.class
 com\example\tmdt\TmdtApplication.class
 com\example\tmdt\model\Coupon$DiscountType.class
 com\example\tmdt\model\ChatMessage$SenderType.class
 com\example\tmdt\repository\BalanceTransactionRepository.class
+com\example\tmdt\service\ShipmentService.class
 com\example\tmdt\repository\ProductRecommendationRepository.class
 com\example\tmdt\model\Notification$NotificationType.class
 com\example\tmdt\service\FileStorageService.class
 com\example\tmdt\model\BalanceTransaction.class
 com\example\tmdt\model\UserPointsTransaction.class
+com\example\tmdt\controller\ShipmentController.class
 com\example\tmdt\model\Order$OrderStatus.class
 com\example\tmdt\payload\request\DepositRequest.class
 com\example\tmdt\model\UserBalance.class
@@ -82,6 +91,7 @@ com\example\tmdt\service\UserService.class
 com\example\tmdt\repository\CategoryRepository.class
 com\example\tmdt\model\Order.class
 com\example\tmdt\security\jwt\JwtUtils.class
+com\example\tmdt\exception\ResourceNotFoundException.class
 com\example\tmdt\controller\UserBalanceController.class
 com\example\tmdt\payload\response\FileResponse.class
 com\example\tmdt\controller\ProductController.class
@@ -92,6 +102,8 @@ com\example\tmdt\repository\UserRepository.class
 com\example\tmdt\config\DataInitializer.class
 com\example\tmdt\aspect\LoggingAspect.class
 com\example\tmdt\exception\ErrorResponse.class
+com\example\tmdt\service\impl\ShipmentServiceImpl$1.class
+com\example\tmdt\service\impl\ShipmentServiceImpl.class
 com\example\tmdt\security\jwt\AuthTokenFilter.class
 com\example\tmdt\security\services\UserDetailsImpl.class
 com\example\tmdt\service\UserBalanceService.class
@@ -102,9 +114,12 @@ com\example\tmdt\controller\AdminController.class
 com\example\tmdt\model\Product.class
 com\example\tmdt\model\Role$ERole.class
 com\example\tmdt\payload\response\JwtResponse.class
+com\example\tmdt\model\ShipmentTracking.class
 com\example\tmdt\websocket\ChatWebSocketHandler.class
+com\example\tmdt\exception\OperationNotAllowedException.class
 com\example\tmdt\model\Notification.class
 com\example\tmdt\model\ProductImage.class
+com\example\tmdt\security\WebSecurityConfig.class
 com\example\tmdt\model\Coupon.class
 com\example\tmdt\utils\LoggerUtil.class
 com\example\tmdt\model\ChatSession$ChatSessionBuilder.class
@@ -116,3 +131,4 @@ com\example\tmdt\controller\UserPointsController.class
 com\example\tmdt\repository\LoyaltyTierRepository.class
 com\example\tmdt\service\ReviewService.class
 com\example\tmdt\controller\CouponController.class
+com\example\tmdt\payload\request\StatusUpdateRequest.class

@@ -40,6 +40,8 @@ interface Order {
   createdAt: string;
   updatedAt: string;
   items: any[];
+  user: any;
+  totalAmount: number;
 }
 
 interface Page<T> {
@@ -65,23 +67,52 @@ const AdminOrders: React.FC = () => {
     try {
       setLoading(true);
       const response = await AdminService.getAllOrders();
-      console.log('Orders API response:', response);
+      
+      console.log('Raw response from AdminService:', response);
+      
+      // Process any response format
+      let processedOrders: any[] = [];
       
       if (response && response.data) {
-        if (response.data.content) {
-          // Dữ liệu trả về theo dạng phân trang
-          console.log('Setting orders from paginated data:', response.data.content);
-          setOrders(response.data.content);
-        } else if (Array.isArray(response.data)) {
-          // Dữ liệu trả về trực tiếp là mảng
-          console.log('Setting orders from array data:', response.data);
-          setOrders(response.data);
-        } else {
-          console.error('Unexpected data format:', response.data);
-          setOrders([]);
+        // Case 1: Array of orders
+        if (Array.isArray(response.data)) {
+          processedOrders = response.data;
+        } 
+        // Case 2: Paginated response
+        else if (response.data.content && Array.isArray(response.data.content)) {
+          processedOrders = response.data.content;
         }
+        // Case 3: Single object response (could be the last item in array)
+        else if (response.data.id) {
+          processedOrders = [response.data];
+        }
+        
+        console.log('Processed orders before normalization:', processedOrders);
+        
+        // Normalize each order object to have consistent properties
+        const normalizedOrders = processedOrders.map((order: any) => {
+          // Make a copy to avoid modifying the original
+          const normalizedOrder = { ...order };
+          
+          // Handle case where user is a number rather than an object
+          if (typeof normalizedOrder.user === 'number' && !normalizedOrder.userId) {
+            normalizedOrder.userId = normalizedOrder.user;
+          }
+          
+          // Ensure required fields have values
+          if (!normalizedOrder.id) normalizedOrder.id = '';
+          if (!normalizedOrder.status) normalizedOrder.status = 'UNKNOWN';
+          if (!normalizedOrder.totalAmount) normalizedOrder.totalAmount = 0;
+          if (!normalizedOrder.createdAt) normalizedOrder.createdAt = '';
+          if (!normalizedOrder.updatedAt) normalizedOrder.updatedAt = '';
+          
+          return normalizedOrder;
+        });
+        
+        console.log('Normalized orders:', normalizedOrders);
+        setOrders(normalizedOrders);
       } else {
-        console.error('Invalid response format:', response);
+        console.warn('No data in response:', response);
         setOrders([]);
       }
       
@@ -97,12 +128,19 @@ const AdminOrders: React.FC = () => {
 
   const isValidStatusTransition = (currentStatus: string, newStatus: string): boolean => {
     const validTransitions: { [key: string]: string[] } = {
-      'PENDING': ['PROCESSING', 'CANCELLED', 'ON_HOLD'],
-      'PROCESSING': ['SHIPPED', 'CANCELLED', 'ON_HOLD'],
-      'SHIPPED': ['DELIVERED', 'CANCELLED'],
-      'DELIVERED': ['REFUNDED'],
+      'PENDING': ['PROCESSING', 'CANCELLED', 'ON_HOLD', 'CONFIRMED'],
+      'CONFIRMED': ['PROCESSING', 'READY_TO_SHIP', 'CANCELLED', 'ON_HOLD'],
+      'PROCESSING': ['READY_TO_SHIP', 'SHIPPED', 'IN_TRANSIT', 'CANCELLED', 'ON_HOLD'],
+      'READY_TO_SHIP': ['IN_TRANSIT', 'CANCELLED'],
+      'SHIPPED': ['IN_TRANSIT', 'ARRIVED_AT_STATION', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
+      'IN_TRANSIT': ['ARRIVED_AT_STATION', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
+      'ARRIVED_AT_STATION': ['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'CANCELLED'],
+      'OUT_FOR_DELIVERY': ['DELIVERED', 'RETURNED', 'CANCELLED'],
+      'DELIVERED': ['COMPLETED', 'RETURNED', 'REFUNDED'],
+      'COMPLETED': ['RETURNED', 'REFUNDED'],
       'ON_HOLD': ['PROCESSING', 'CANCELLED'],
       'CANCELLED': ['REFUNDED'],
+      'RETURNED': ['REFUNDED'],
       'REFUNDED': []
     };
     return validTransitions[currentStatus]?.includes(newStatus) || false;
@@ -190,8 +228,12 @@ const AdminOrders: React.FC = () => {
                   <TableCell>
                     {order.createdAt && format(new Date(order.createdAt), 'MMM d, yyyy')}
                   </TableCell>
-                  <TableCell>{order.user?.fullName || order.user?.username || 'Unknown'}</TableCell>
-                  <TableCell>${order.totalAmount ? parseFloat(order.totalAmount).toFixed(2) : '0.00'}</TableCell>
+                  <TableCell>
+                    {typeof order.user === 'object' && order.user 
+                      ? (order.user?.fullName || order.user?.username || 'Unknown') 
+                      : `User ID: ${order.userId || (typeof order.user === 'number' ? order.user : 'Unknown')}`}
+                  </TableCell>
+                  <TableCell>{formatCurrency(Number(order.totalAmount) || 0)}</TableCell>
                   <TableCell>
                     <Chip
                       label={order.status}
@@ -208,14 +250,21 @@ const AdminOrders: React.FC = () => {
                           value={order.status || ''}
                           label="Status"
                           onChange={(e) => handleStatusChange(order.id, e.target.value, order.status)}
-                          disabled={order.status === 'DELIVERED' || order.status === 'CANCELLED'}
+                          disabled={order.status === 'DELIVERED' || order.status === 'CANCELLED' || order.status === 'RETURNED'}
                         >
                           <MenuItem value="PENDING" disabled={!isValidStatusTransition(order.status, 'PENDING')}>Pending</MenuItem>
+                          <MenuItem value="CONFIRMED" disabled={!isValidStatusTransition(order.status, 'CONFIRMED')}>Confirmed</MenuItem>
                           <MenuItem value="PROCESSING" disabled={!isValidStatusTransition(order.status, 'PROCESSING')}>Processing</MenuItem>
+                          <MenuItem value="READY_TO_SHIP" disabled={!isValidStatusTransition(order.status, 'READY_TO_SHIP')}>Ready to Ship</MenuItem>
                           <MenuItem value="SHIPPED" disabled={!isValidStatusTransition(order.status, 'SHIPPED')}>Shipped</MenuItem>
+                          <MenuItem value="IN_TRANSIT" disabled={!isValidStatusTransition(order.status, 'IN_TRANSIT')}>In Transit</MenuItem>
+                          <MenuItem value="ARRIVED_AT_STATION" disabled={!isValidStatusTransition(order.status, 'ARRIVED_AT_STATION')}>Arrived at Station</MenuItem>
+                          <MenuItem value="OUT_FOR_DELIVERY" disabled={!isValidStatusTransition(order.status, 'OUT_FOR_DELIVERY')}>Out for Delivery</MenuItem>
                           <MenuItem value="DELIVERED" disabled={!isValidStatusTransition(order.status, 'DELIVERED')}>Delivered</MenuItem>
+                          <MenuItem value="COMPLETED" disabled={!isValidStatusTransition(order.status, 'COMPLETED')}>Completed</MenuItem>
                           <MenuItem value="CANCELLED" disabled={!isValidStatusTransition(order.status, 'CANCELLED')}>Cancelled</MenuItem>
-                          <MenuItem value="REFUNDED" disabled={!isValidStatusTransition(order.status, 'REFUNDED')}>Refunded</MenuItem>
+                          <MenuItem value="RETURNED" disabled={!isValidStatusTransition(order.status, 'RETURNED')}>Returned</MenuItem>
+
                           <MenuItem value="ON_HOLD" disabled={!isValidStatusTransition(order.status, 'ON_HOLD')}>On Hold</MenuItem>
                         </Select>
                       </FormControl>
@@ -264,10 +313,18 @@ const AdminOrders: React.FC = () => {
                     <strong>Date:</strong> {selectedOrder.createdAt && format(new Date(selectedOrder.createdAt), 'PPP')}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Customer:</strong> {selectedOrder.user?.fullName || selectedOrder.user?.username}
+                    <strong>Customer:</strong> {
+                      typeof selectedOrder.user === 'object' && selectedOrder.user
+                        ? (selectedOrder.user?.fullName || selectedOrder.user?.username || 'Unknown')
+                        : `User ID: ${selectedOrder.userId || (typeof selectedOrder.user === 'number' ? selectedOrder.user : 'Unknown')}`
+                    }
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Email:</strong> {selectedOrder.user?.email}
+                    <strong>Email:</strong> {
+                      typeof selectedOrder.user === 'object' && selectedOrder.user
+                        ? selectedOrder.user?.email || 'N/A'
+                        : 'N/A'
+                    }
                   </Typography>
                   <Typography variant="body2">
                     <strong>Payment Method:</strong> {selectedOrder.paymentMethod}
@@ -309,7 +366,7 @@ const AdminOrders: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="h6">Total:</Typography>
                       <Typography variant="h6">
-                        {formatCurrency(parseFloat(selectedOrder.totalAmount))}
+                        {formatCurrency(Number(selectedOrder.totalAmount) || 0)}
                       </Typography>
                     </Box>
                   </Box>
@@ -318,7 +375,7 @@ const AdminOrders: React.FC = () => {
             </DialogContent>
             <DialogActions>
               <Button onClick={handleCloseDialog}>Close</Button>
-              {selectedOrder.status !== 'DELIVERED' && selectedOrder.status !== 'CANCELLED' && (
+              {selectedOrder.status !== 'DELIVERED' && selectedOrder.status !== 'CANCELLED' && selectedOrder.status !== 'RETURNED' && (
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                   <InputLabel id="status-update-label">Update Status</InputLabel>
                   <Select
@@ -331,10 +388,19 @@ const AdminOrders: React.FC = () => {
                     }}
                   >
                     <MenuItem value="PENDING">Pending</MenuItem>
+                    <MenuItem value="CONFIRMED">Confirmed</MenuItem>
                     <MenuItem value="PROCESSING">Processing</MenuItem>
+                    <MenuItem value="READY_TO_SHIP">Ready to Ship</MenuItem>
                     <MenuItem value="SHIPPED">Shipped</MenuItem>
+                    <MenuItem value="IN_TRANSIT">In Transit</MenuItem>
+                    <MenuItem value="ARRIVED_AT_STATION">Arrived at Station</MenuItem>
+                    <MenuItem value="OUT_FOR_DELIVERY">Out for Delivery</MenuItem>
                     <MenuItem value="DELIVERED">Delivered</MenuItem>
+                    <MenuItem value="COMPLETED">Completed</MenuItem>
                     <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                    <MenuItem value="RETURNED">Returned</MenuItem>
+                    <MenuItem value="REFUNDED">Refunded</MenuItem>
+                    <MenuItem value="ON_HOLD">On Hold</MenuItem>
                   </Select>
                 </FormControl>
               )}

@@ -97,9 +97,6 @@ public class UserBalanceService {
         return userBalance;
     }
 
-    /**
-     * Withdraw funds from user balance
-     */
     @Transactional
     public UserBalance withdraw(User user, BigDecimal amount, String description) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -128,9 +125,7 @@ public class UserBalanceService {
         return userBalance;
     }
 
-    /**
-     * Process payment for an order using balance
-     */
+
     @Transactional
     public UserBalance processOrderPayment(User user, BigDecimal amount, Long orderId) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -152,7 +147,7 @@ public class UserBalanceService {
         transaction.setUser(user);
         transaction.setAmount(amount.negate()); // Negative amount for payment
         transaction.setType(BalanceTransaction.TransactionType.ORDER_PAYMENT);
-        transaction.setDescription("Payment for order #" + orderId);
+        transaction.setDescription("Payment for order " );
         transaction.setReferenceId(orderId);
         transaction.setReferenceType("ORDER");
         transaction.setBalanceAfter(userBalance.getBalance());

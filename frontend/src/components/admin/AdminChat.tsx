@@ -33,6 +33,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from 'notistack';
 import MessagesList from './MessagesList';
+import { useNavigate } from 'react-router-dom';
 
 // Định nghĩa các interface
 interface Message {
@@ -78,8 +79,18 @@ const AdminChat: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loggedOutRef = useRef<boolean>(false);
   const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
+
+  // Reset loggedOut flag when component mounts or when user changes
+  useEffect(() => {
+    if (user && user.id) {
+      loggedOutRef.current = false;
+    }
+  }, [user]);
 
   // Tải danh sách sessions khi mới vào trang
   useEffect(() => {
@@ -97,16 +108,18 @@ const AdminChat: React.FC = () => {
 
   // Kết nối WebSocket
   useEffect(() => {
-    connectToWebSocket();
+    // Only connect if user is logged in
+    if (user && user.id && localStorage.getItem('user')) {
+      console.log('User is authenticated, connecting to WebSocket');
+      connectToWebSocket();
+    } else {
+      console.log('User is not authenticated, not connecting to WebSocket');
+      // If there's an existing connection, disconnect it
+      disconnectWebSocket();
+    }
     
     return () => {
-      if (socket) {
-        console.log('Closing WebSocket connection on cleanup');
-        socket.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      disconnectWebSocket();
     };
   }, [user]);
 
@@ -146,72 +159,224 @@ const AdminChat: React.FC = () => {
     }
   }, [socket, selectedSession, activeSessions, messages]);
 
-  const connectToWebSocket = () => {
-    // Nếu đã có kết nối, đóng kết nối cũ
-    if (socket && socket.readyState !== WebSocket.CLOSED) {
-      console.log('Closing existing WebSocket connection');
+  // Listen for admin logout events and user-logged-out events
+  useEffect(() => {
+    const handleAdminLogout = (event: CustomEvent) => {
+      console.log('Admin logout event detected, disconnecting WebSocket');
+      // Mark as logged out and disconnect
+      loggedOutRef.current = true;
+      disconnectWebSocket();
+    };
+
+    const handleUserLogout = (event: CustomEvent) => {
+      console.log('User logged out event detected, disconnecting WebSocket');
+      // Mark as logged out and disconnect
+      loggedOutRef.current = true;
+      disconnectWebSocket();
+    };
+
+    // Add event listeners
+    window.addEventListener('admin-logout', handleAdminLogout as EventListener);
+    window.addEventListener('user-logged-out', handleUserLogout as EventListener);
+    
+    // Also listen for storage events (logout from another tab)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'user' && !event.newValue) {
+        console.log('User data removed from localStorage, disconnecting WebSocket');
+        // Mark as logged out to prevent reconnection
+        loggedOutRef.current = true;
+        disconnectWebSocket();
+      } else if (event.key === 'user' && event.newValue) {
+        // User logged in in another tab
+        try {
+          const userData = JSON.parse(event.newValue);
+          if (userData && userData.id) {
+            loggedOutRef.current = false;
+          }
+        } catch (e) {
+          console.error('Error parsing user data from storage event:', e);
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('admin-logout', handleAdminLogout as EventListener);
+      window.removeEventListener('user-logged-out', handleUserLogout as EventListener);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Function to safely disconnect WebSocket
+  const disconnectWebSocket = () => {
+    // Mark as logged out to prevent further connection attempts
+    loggedOutRef.current = true;
+    
+    if (socket) {
+      // Send logout message before closing
+      if (socket.readyState === WebSocket.OPEN) {
+        try {
+          // Get user ID from localStorage to avoid null references
+          const userJson = localStorage.getItem('user');
+          if (userJson) {
+            const userData = JSON.parse(userJson);
+            if (userData && userData.id) {
+              const logoutMsg = {
+                type: 'ADMIN_LOGOUT',
+                adminId: userData.id.toString(),
+                timestamp: new Date().getTime(),
+              };
+              socket.send(JSON.stringify(logoutMsg));
+              console.log('Sent ADMIN_LOGOUT message');
+            }
+          }
+        } catch (err) {
+          console.error('Error sending logout message:', err);
+        }
+      }
+      
+      console.log('Closing WebSocket connection');
       socket.close();
+      setSocket(null);
+      setConnected(false);
     }
     
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const port = host === 'localhost' ? ':8089' : '';
-    const wsUrl = `${wsProtocol}//${host}${port}/chat?role=ADMIN&userId=${user?.id}`;
-    console.log('Connecting to WebSocket:', wsUrl);
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  };
+
+  const connectToWebSocket = () => {
+    // Don't connect if marked as logged out
+    if (loggedOutRef.current) {
+      console.log('Not connecting: user has been logged out');
+      return;
+    }
     
-    const newSocket = new WebSocket(wsUrl);
-
-    // Set connection timeout
-    const connectionTimeout = setTimeout(() => {
-      if (newSocket.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket connection timeout');
-        setConnected(false);
-        enqueueSnackbar('Connection timeout. Reconnecting...', { variant: 'error' });
-        reconnectTimeoutRef.current = setTimeout(connectToWebSocket, 3000);
-      }
-    }, 5000);
-
-    newSocket.onopen = () => {
-      console.log('WebSocket connected successfully');
-      clearTimeout(connectionTimeout);
-      setConnected(true);
-      setSocket(newSocket);
+    // Double check user auth status before connecting
+    const userInStorage = localStorage.getItem('user');
+    if (!userInStorage) {
+      console.error('No user found in localStorage');
+      return;
+    }
+    
+    try {
+      const userData = JSON.parse(userInStorage);
+      const token = userData.accessToken || userData.token;
+      const userId = userData.id;
+      const username = userData.username;
       
-      // Gửi tin nhắn kết nối
-      const connectMsg = {
-        type: 'ADMIN_CONNECT',
-        adminId: user?.id?.toString() || 'admin',
-        adminName: user?.username || 'Admin',
-        timestamp: new Date().getTime(),
+      if (!token || !userId) {
+        console.error('No token or userId found in user data');
+        return;
+      }
+      
+      // Clear any existing reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Close existing socket if any
+      if (socket && socket.readyState !== WebSocket.CLOSED) {
+        socket.close();
+      }
+      
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      const port = host === 'localhost' ? ':8089' : '';
+      
+      // Only use token in the URL (match the format in ChatBot.tsx)
+      const wsUrl = `${wsProtocol}//${host}${port}/chat?token=${encodeURIComponent(token)}`;
+      console.log('Connecting to WebSocket with token in URL');
+      
+      const newSocket = new WebSocket(wsUrl);
+      
+      // Lưu trữ token trong biến đóng để có thể truy cập khi cần
+      const authToken = token;
+      
+      // Set connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (newSocket.readyState !== WebSocket.OPEN) {
+          console.error('WebSocket connection timeout');
+          setConnected(false);
+          
+          // Check if user is still authenticated before reconnecting
+          if (localStorage.getItem('user') && !loggedOutRef.current) {
+            enqueueSnackbar('Connection timeout. Reconnecting...', { variant: 'error' });
+            reconnectTimeoutRef.current = setTimeout(connectToWebSocket, 3000);
+          } else {
+            console.log('Not reconnecting: user has logged out');
+          }
+        }
+      }, 5000);
+      
+      // Override onopen để gửi token ngay khi kết nối được thiết lập
+      newSocket.onopen = (event) => {
+        console.log('WebSocket connected successfully, sending auth token');
+        clearTimeout(connectionTimeout);
+        setConnected(true);
+        setSocket(newSocket);
+        
+        // Send admin connect message with role and token information
+        const connectMsg = {
+          type: 'ADMIN_CONNECT',
+          adminId: userId.toString(),
+          adminName: username || 'Admin',
+          timestamp: new Date().getTime(),
+          role: 'ADMIN',
+          token: token,  // Include token for authentication with each message
+          senderType: 'ADMIN'
+        };
+        newSocket.send(JSON.stringify(connectMsg));
+        console.log('Sent ADMIN_CONNECT message');
+        
+        // Tải lại danh sách sessions sau khi kết nối
+        loadActiveSessions();
       };
-      newSocket.send(JSON.stringify(connectMsg));
-      console.log('Sent ADMIN_CONNECT message');
-      
-      // Tải lại danh sách sessions sau khi kết nối
-      loadActiveSessions();
-    };
 
-    newSocket.onclose = (event) => {
-      console.log('WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-      clearTimeout(connectionTimeout);
-      setConnected(false);
-      setSocket(null);
-      
-      if (event.wasClean) {
-        console.log('WebSocket closed cleanly');
-      } else {
-        console.error('WebSocket connection died');
-        enqueueSnackbar('Connection lost. Reconnecting...', { variant: 'warning' });
-      }
-      
-      // Automatically reconnect
-      reconnectTimeoutRef.current = setTimeout(connectToWebSocket, 3000);
-    };
+      newSocket.onclose = (event) => {
+        console.log('WebSocket closed. Code:', event.code, 'Reason:', event.reason);
+        clearTimeout(connectionTimeout);
+        setConnected(false);
+        setSocket(null);
+        
+        if (event.wasClean) {
+          console.log('WebSocket closed cleanly');
+        } else {
+          console.error('WebSocket connection died');
+          
+          // Check if user is still authenticated before reconnecting
+          const userStillLoggedIn = localStorage.getItem('user') !== null && !loggedOutRef.current;
+          
+          if (userStillLoggedIn) {
+            console.log('User still authenticated, attempting to reconnect');
+            enqueueSnackbar('Connection lost. Reconnecting...', { variant: 'warning' });
+            
+            // Automatically reconnect after delay
+            reconnectTimeoutRef.current = setTimeout(() => {
+              // Double check auth state again before reconnect attempt
+              if (localStorage.getItem('user') !== null && !loggedOutRef.current) {
+                connectToWebSocket();
+              } else {
+                console.log('Reconnection canceled: user logged out during wait period');
+              }
+            }, 3000);
+          } else {
+            console.log('Not reconnecting WebSocket because user is logged out');
+          }
+        }
+      };
 
-    newSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      enqueueSnackbar('WebSocket error occurred', { variant: 'error' });
-    };
+      newSocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        enqueueSnackbar('WebSocket error occurred', { variant: 'error' });
+      };
+    } catch (error) {
+      console.error('Error parsing user data from localStorage:', error);
+    }
   };
 
   // Tải danh sách sessions
@@ -244,16 +409,24 @@ const AdminChat: React.FC = () => {
 
   const loadSessionMessages = async (session: ChatSession) => {
     try {
+      console.log('Loading messages for session:', session.id);
       setLoading(true);
       
-      // Đánh dấu session đang chọn và làm mới unreadCount
+      // Explicitly clear messages first to avoid showing previous session's messages
+      setMessages([]);
+      
+      // Set the selected session immediately to update the UI
       setSelectedSession(session);
+      
+      // Đánh dấu session đang chọn và làm mới unreadCount
       setActiveSessions(prev => 
         prev.map(s => s.id === session.id ? { ...s, unreadCount: 0 } : s)
       );
       
-      // Tải tin nhắn từ API chỉ khi ban đầu chọn session
+      // Tải tin nhắn từ API
       const chatMessages = await ChatService.getMessagesByChatSession(session.id);
+      console.log(`Loaded ${chatMessages.length} messages for session ${session.id}`);
+      
       const formattedMessages: Message[] = chatMessages.map((msg) => ({
         id: msg.id?.toString() || uuidv4(),
         content: msg.content,
@@ -266,6 +439,9 @@ const AdminChat: React.FC = () => {
       
       // Đánh dấu session đã đọc
       await ChatService.markSessionAsRead(session.id);
+      
+      // Log the current state for debugging
+      console.log('After loading messages, selectedSession:', session.id);
     } catch (err) {
       console.error('Error loading session messages:', err);
       enqueueSnackbar('Failed to load session messages', { variant: 'error' });
@@ -300,7 +476,14 @@ const AdminChat: React.FC = () => {
 
     // 3. Kiểm tra session
     const sessionExists = activeSessions.some(s => s.id === data.sessionId);
-    const isCurrentSession = selectedSession?.id === data.sessionId;
+    const isCurrentSession = selectedSession && selectedSession.id === data.sessionId;
+
+    console.log('Session check:', { 
+      sessionId: data.sessionId, 
+      sessionExists, 
+      currentSessionId: selectedSession?.id, 
+      isCurrentSession 
+    });
 
     // 4. Trường hợp 1: Session đang được chọn - thêm tin nhắn vào messages
     if (isCurrentSession) {
@@ -366,6 +549,13 @@ const AdminChat: React.FC = () => {
     if (sessionExists && !isCurrentSession) {
       console.log('Cập nhật session có sẵn:', data.sessionId);
       
+      // Tìm session trong danh sách
+      const session = activeSessions.find(s => s.id === data.sessionId);
+      if (!session) {
+        console.error('Session not found in activeSessions despite sessionExists being true');
+        return;
+      }
+      
       // Cập nhật lastMessage và tăng unreadCount
       setActiveSessions(prev => 
         prev.map(s => s.id === data.sessionId 
@@ -386,8 +576,7 @@ const AdminChat: React.FC = () => {
           variant: 'info',
           action: (key) => (
             <Button color="inherit" size="small" onClick={() => {
-              const session = activeSessions.find(s => s.id === data.sessionId);
-              if (session) loadSessionMessages(session);
+              loadSessionMessages(session);
             }}>
               Xem
             </Button>
@@ -427,9 +616,16 @@ const AdminChat: React.FC = () => {
             return;
           }
 
-          // Kiểm tra xem session có trong danh sách active sessions không
+          // Check if session exists and whether it's the current session
           const sessionExists = activeSessions.some(s => s.id === data.sessionId);
-          const isCurrentSession = selectedSession?.id === data.sessionId;
+          const isCurrentSession = selectedSession && selectedSession.id === data.sessionId;
+          
+          console.log('Session status in handleWebSocketMessage:', {
+            sessionExists, 
+            isCurrentSession,
+            sessionId: data.sessionId,
+            currentSessionId: selectedSession?.id
+          });
           
           // Nếu session chưa có trong danh sách, tải thông tin session và thêm vào activeSessions
           if (!sessionExists && sender === 'USER') {
@@ -467,7 +663,7 @@ const AdminChat: React.FC = () => {
                 action: (key) => (
                   <Button color="inherit" size="small" onClick={() => {
                     // Tìm session trong danh sách đã tải lại
-                    const session = activeSessions.find(s => s.id === sessionId);
+                    const session = activeSessions.find(s => s.id === sessionId) || tempSession;
                     if (session) {
                       loadSessionMessages(session);
                     }
@@ -540,7 +736,7 @@ const AdminChat: React.FC = () => {
                   userName: data.username || 'User',
                   status: 'ACTIVE',
                   startedAt: new Date().toISOString(),
-                lastMessage: data.content,
+                  lastMessage: data.content,
                   unreadCount: 1
                 } as ChatSession
               ];
@@ -666,14 +862,25 @@ const AdminChat: React.FC = () => {
   // Gửi tin nhắn
   const sendMessage = async () => {
     if (!input.trim() || !selectedSession || !socket || socket.readyState !== WebSocket.OPEN) return;
+    
+    // Get user data from localStorage to avoid null issues
+    const userJson = localStorage.getItem('user');
+    if (!userJson) {
+      console.error('Cannot send message: No user data in localStorage');
+      return;
+    }
+    
+    const userData = JSON.parse(userJson);
+    const userId = userData.id?.toString() || 'admin';
+    const username = userData.username || 'Admin';
 
     const messageText = input.trim();
     const messageId = uuidv4();
     const adminMessage: Message = {
       id: messageId,
       content: messageText,
-      senderId: user?.id?.toString() || 'admin',
-      senderName: user?.username || 'Admin',
+      senderId: userId,
+      senderName: username,
       senderType: 'ADMIN',
       timestamp: new Date(),
     };
@@ -686,8 +893,8 @@ const AdminChat: React.FC = () => {
       // Lưu vào database trước
       const savedMessage = await ChatService.sendMessage({
         content: messageText,
-        senderId: user?.id?.toString() || 'admin',
-        senderName: user?.username || 'Admin',
+        senderId: userId,
+        senderName: username,
         senderType: 'ADMIN',
         chatSessionId: selectedSession.id,
       });
@@ -696,8 +903,8 @@ const AdminChat: React.FC = () => {
       // Gửi qua WebSocket kèm messageId và đánh dấu là đã lưu
       const wsMessage = {
         type: 'CHAT_MESSAGE',
-        userId: user?.id?.toString() || 'admin',
-        username: user?.username || 'Admin',
+        userId: userId,
+        username: username,
         content: messageText,
         sessionId: selectedSession.id,
         timestamp: Date.now(),
@@ -800,6 +1007,18 @@ const AdminChat: React.FC = () => {
     );
   };
 
+  // Event handlers
+  const handleLogout = () => {
+    loggedOutRef.current = true;
+    console.log('Admin logging out, disconnecting WebSocket');
+    
+    // Remove user from localStorage
+    localStorage.removeItem('user');
+    
+    // Navigate to admin login page
+    navigate('/admin/login');
+  };
+
   // Giao diện chính
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fdfdfb' }}>
@@ -807,7 +1026,7 @@ const AdminChat: React.FC = () => {
         <Typography variant="h6">Admin Chat Support</Typography>
         <Typography variant="caption">
           {connected ? 'Connected' : 'Disconnected'} • {loading ? ' Loading...' : ` ${activeSessions.length} active sessions`}
-                    </Typography>
+        </Typography>
       </Box>
       <Box sx={{ display: 'flex', height: 'calc(100% - 64px)' }}>
         {/* Danh sách sessions */}
@@ -824,11 +1043,11 @@ const AdminChat: React.FC = () => {
             <List>
               {(tabValue === 0 ? activeSessions : historySessions).map((session) => (
                 <React.Fragment key={session.id}>
-                    <ListItem
-                      button
+                  <ListItem
+                    button
                     selected={selectedSession?.id === session.id}
                     onClick={() => loadSessionMessages(session)}
-                      sx={{
+                    sx={{
                       py: 1.5,
                       px: 2,
                       bgcolor: selectedSession?.id === session.id ? 'action.selected' : 'transparent',
@@ -854,17 +1073,17 @@ const AdminChat: React.FC = () => {
                               sx={{ ml: 1, height: 20 }}
                             />
                           ) : null}
-                          </Typography>
+                        </Typography>
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary" noWrap>
                           {tabValue === 0
                             ? session.lastMessage || 'New session'
                             : `Ended ${format(new Date(session.endedAt!), 'dd/MM/yyyy HH:mm')}`}
-                            </Typography>
+                        </Typography>
                       }
                     />
-                    </ListItem>
+                  </ListItem>
                   <Divider />
                 </React.Fragment>
               ))}
@@ -876,18 +1095,18 @@ const AdminChat: React.FC = () => {
                 </Box>
               )}
             </List>
-              )}
-            </Box>
+          )}
+        </Box>
         {/* Khu vực chat */}
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', bgcolor: '#fdfdfb' }}>
           {selectedSession ? (
             <>
-            <Box
-              sx={{
+              <Box
+                sx={{
                   p: 2,
                   borderBottom: 1,
                   borderColor: 'divider',
-                          display: 'flex',
+                  display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                 }}
@@ -895,14 +1114,14 @@ const AdminChat: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Avatar sx={{ width: 32, height: 32 }}>
                     {selectedSession.userName.charAt(0).toUpperCase()}
-                        </Avatar>
+                  </Avatar>
                   <Box>
                     <Typography variant="subtitle1">{selectedSession.userName}</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Session started: {format(new Date(selectedSession.startedAt), 'dd/MM/yyyy HH:mm')}
-                          </Typography>
-                        </Box>
-                      </Box>
+                    </Typography>
+                  </Box>
+                </Box>
                 <Button
                   variant="outlined"
                   color="error"
@@ -944,7 +1163,7 @@ const AdminChat: React.FC = () => {
                     </IconButton>
                   </Grid>
                 </Grid>
-            </Box>
+              </Box>
             </>
           ) : (
             <Box
@@ -965,9 +1184,9 @@ const AdminChat: React.FC = () => {
             </Box>
           )}
         </Box>
-            </Box>
-          </Box>
+      </Box>
+    </Box>
   );
 };
 
-export default AdminChat; 
+export default AdminChat;

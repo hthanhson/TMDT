@@ -168,6 +168,37 @@ const OrderDetail: React.FC = () => {
     }
   };
 
+  const getStatusTranslation = (status: string): string => {
+    switch (status) {
+      case 'PENDING':
+        return 'Chờ xác nhận';
+      case 'CONFIRMED':
+        return 'Đã xác nhận';
+      case 'PROCESSING':
+        return 'Sẵn sàng giao hàng';
+      case 'READY_TO_SHIP':
+        return 'Sẵn sàng giao hàng';
+      case 'SHIPPED':
+        return 'Đang giao hàng';
+      case 'IN_TRANSIT':
+        return 'Đang vận chuyển';
+      case 'ARRIVED_AT_STATION':
+        return 'Đã đến trạm';
+      case 'OUT_FOR_DELIVERY':
+        return 'Đang giao hàng';
+      case 'DELIVERED':
+        return 'Đã giao hàng';
+      case 'COMPLETED':
+        return 'Hoàn tất';
+      case 'CANCELLED':
+        return 'Đã hủy';
+      case 'RETURNED':
+        return 'Đã trả hàng';
+      default:
+        return status;
+    }
+  };
+
   return (
     <Box my={4}>
       {refundSuccess && (
@@ -179,7 +210,7 @@ const OrderDetail: React.FC = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Đơn hàng #{order.id}</Typography>
         <Chip
-          label={order.status}
+          label={getStatusTranslation(order.status)}
           color={getStatusColor(order.status)}
           variant="outlined"
         />
@@ -206,7 +237,7 @@ const OrderDetail: React.FC = () => {
             </List>
           </Paper>
 
-          {order.status === 'PENDING' && (
+          {(order.status === 'PENDING' || order.status === 'READY_TO_SHIP') && (
             <Box display="flex" justifyContent="flex-end" mt={2}>
               <Button
                 variant="contained"

@@ -332,8 +332,22 @@ INSERT INTO loyalty_tier (name, minimum_points, discount_percentage, special_per
 ('Gold', 5000, 5.00, 'Free expedited shipping, Priority customer service'),
 ('Platinum', 10000, 10.00, 'Free priority shipping, VIP customer service, Early access to promotions');
 
-INSERT INTO users (username, email, password, full_name) 
-VALUES ('admin', 'admin@example.com', '$2a$10$sDvAoNtvnvCYWBXP2M4gOOnBqGxD1NKDHWmbIWGDxCyDH8vDt9YGO', 'Administrator');
 
-INSERT INTO user_roles (user_id, role_id) 
-VALUES (1, 3);
+
+CREATE TABLE order_status (
+    code VARCHAR(50) PRIMARY KEY,
+    display_name VARCHAR(255) NOT NULL
+);
+INSERT INTO order_status (code, display_name) VALUES
+('PENDING', 'Chờ xác nhận'),
+('CONFIRMED', 'Đã xác nhận'),
+('PROCESSING', 'Đang xử lý'),
+('READY_TO_SHIP', 'Sẵn sàng giao hàng'),
+('PICKED_UP', 'Đã lấy hàng'),
+('IN_TRANSIT', 'Đang vận chuyển'),
+('ARRIVED_AT_STATION', 'Đến trạm trung chuyển'),
+('OUT_FOR_DELIVERY', 'Đang giao hàng'),
+('DELIVERED', 'Đã giao hàng'),
+('COMPLETED', 'Hoàn tất'),
+('CANCELLED', 'Đã hủy'),
+('RETURNED', 'Hoàn trả');

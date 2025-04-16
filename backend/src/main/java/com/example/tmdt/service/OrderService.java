@@ -63,9 +63,11 @@ public class OrderService {
         // Create new order
         Order order = new Order();
         order.setUser(user);
-        order.setStatus(Order.OrderStatus.PENDING);
+        order.setStatus(Order.OrderStatus.PENDING); // Initially set as PENDING
         order.setShippingAddress(orderRequest.getShippingAddress());
         order.setPaymentMethod(orderRequest.getPaymentMethod());
+        order.setPhoneNumber(orderRequest.getPhoneNumber());
+        order.setRecipientName(orderRequest.getRecipientName());
         
         // Calculate total and add items
         List<OrderItem> orderItems = new ArrayList<>();
@@ -157,19 +159,25 @@ public class OrderService {
             }
         } else {
             // For other payment methods, just set status as pending
-            order.setPaymentStatus("PENDING");
+            order.setPaymentStatus("PROCESSING");
         }
         
+        // Save the order initially
         Order savedOrder = orderRepository.save(order);
+        
+        // Update the status to CONFIRMED after successful order creation
+        savedOrder.setStatus(Order.OrderStatus.READY_TO_SHIP);
+        savedOrder = orderRepository.save(savedOrder);
         
         // Create notification for order success
         String title = "Đặt hàng thành công";
-        String message = String.format("Đơn hàng #%d của bạn đã được đặt thành công. Tổng tiền: %.2f VND. Cảm ơn bạn đã mua sắm!", 
+        String message = String.format("Đơn hàng #%d của bạn đã được xác nhận. Tổng tiền: %.2f VND. Cảm ơn bạn đã mua sắm!", 
                 savedOrder.getId(), savedOrder.getTotalAmount().doubleValue());
         
         Map<String, Object> additionalData = new HashMap<>();
         additionalData.put("orderId", savedOrder.getId());
         additionalData.put("totalAmount", savedOrder.getTotalAmount().doubleValue());
+        additionalData.put("status", Order.OrderStatus.CONFIRMED.name());
         
         notificationService.createNotificationForUser(
             user, 
@@ -330,5 +338,53 @@ public class OrderService {
         );
         
         return savedOrder;
+    }
+    
+    /**
+     * Get orders assigned to a specific shipper
+     */
+    public List<Order> getOrdersByShipperId(Long shipperId) {
+        return orderRepository.findByShipperId(shipperId);
+    }
+    
+    /**
+     * Get orders for a shipper filtered by status
+     */
+    public List<Order> getOrdersByShipperAndStatus(Long shipperId, Order.OrderStatus status) {
+        return orderRepository.findByShipperIdAndStatus(shipperId, status);
+    }
+    
+    /**
+     * Get orders that are ready for shipment (not assigned to any shipper)
+     */
+    public List<Order> getOrdersReadyForShipment() {
+        return orderRepository.findExpandedOrdersReadyToShip();
+    }
+    
+    /**
+     * Assign an order to a shipper
+     */
+    @Transactional
+    public Order assignOrderToShipper(Long orderId, Long shipperId) {
+        Order order = getOrderById(orderId);
+        
+        // Check if order is in a state that can be assigned to a shipper
+        if (order.getStatus() != Order.OrderStatus.PROCESSING) {
+            throw new RuntimeException("Only orders with status PROCESSING can be assigned to shippers");
+        }
+        
+        // Check if order is already assigned to another shipper
+        if (order.getShipperId() != null && order.getShipperId() != 0 && !order.getShipperId().equals(shipperId)) {
+            throw new RuntimeException("Order already assigned to another shipper");
+        }
+        
+        // Assign shipper
+        order.assignShipper(shipperId);
+        
+        // Update status to IN_TRANSIT
+        order.updateStatus(Order.OrderStatus.IN_TRANSIT);
+        
+        // Save and return the updated order
+        return orderRepository.save(order);
     }
 } 

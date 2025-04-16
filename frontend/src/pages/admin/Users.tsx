@@ -29,13 +29,21 @@ import { Edit as EditIcon, Delete as DeleteIcon, Block as BlockIcon, CheckCircle
 import AdminService from '../../services/AdminService';
 import { toast } from 'react-toastify';
 
+interface Role {
+  id: number;
+  name: string;
+}
+
 interface User {
   id: string;
   username: string;
   email: string;
-  roles: string[];
+  roles: Role[] | string[];
   enabled: boolean;
   createdAt: string;
+  fullName: string;
+  address: string;
+  phoneNumber: string;
 }
 
 interface Page<T> {
@@ -47,11 +55,11 @@ interface Page<T> {
 }
 
 const AdminUsers: React.FC = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -79,27 +87,68 @@ const AdminUsers: React.FC = () => {
     }
   };
 
+  // Hàm để chuẩn hóa danh sách vai trò từ nhiều định dạng khác nhau
+  const normalizeRoles = (roleData: any): string[] => {
+    if (!roleData) return [];
+    
+    // Trường hợp 1: Mảng các đối tượng Role { id, name }
+    if (Array.isArray(roleData) && roleData.length > 0 && typeof roleData[0] === 'object' && roleData[0].name) {
+      return roleData.map(role => role.name);
+    }
+    
+    // Trường hợp 2: Mảng các chuỗi
+    if (Array.isArray(roleData) && roleData.length > 0 && typeof roleData[0] === 'string') {
+      return roleData;
+    }
+    
+    // Mặc định trả về mảng rỗng
+    return [];
+  };
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const response = await AdminService.getAllUsers();
-      console.log('User API response:', response);
+      console.log('Raw user API response:', response);
+      
+      // Xử lý dữ liệu người dùng từ nhiều định dạng khác nhau
+      let processedUsers: User[] = [];
       
       if (response && response.data) {
-        if (response.data.content) {
-          // Dữ liệu trả về theo dạng phân trang
-          console.log('Setting users from paginated data:', response.data.content);
-          setUsers(response.data.content);
-        } else if (Array.isArray(response.data)) {
-          // Dữ liệu trả về trực tiếp là mảng
-          console.log('Setting users from array data:', response.data);
-          setUsers(response.data);
-        } else {
-          console.error('Unexpected data format:', response.data);
-          setUsers([]);
+        // Trường hợp 1: Dữ liệu phân trang
+        if (response.data.content && Array.isArray(response.data.content)) {
+          processedUsers = response.data.content;
+        } 
+        // Trường hợp 2: Mảng trực tiếp
+        else if (Array.isArray(response.data)) {
+          processedUsers = response.data;
         }
+        
+        // Chuẩn hóa dữ liệu người dùng
+        const normalizedUsers = processedUsers.map(user => {
+          // Chuẩn hóa vai trò của người dùng
+          const normalizedRoles = normalizeRoles(user.roles);
+          
+          return {
+            ...user,
+            // Đảm bảo mọi trường đều có giá trị
+            id: user.id?.toString() || '',
+            username: user.username || '',
+            email: user.email || '',
+            fullName: user.fullName || '',
+            address: user.address || '',
+            phoneNumber: user.phoneNumber || '',
+            enabled: user.enabled !== undefined ? user.enabled : true,
+            roles: normalizedRoles,
+            // Lưu trữ dữ liệu vai trò gốc để sử dụng khi cần thiết
+            _originalRoles: user.roles
+          };
+        });
+        
+        console.log('Normalized users:', normalizedUsers);
+        setUsers(normalizedUsers);
       } else {
-        console.error('Invalid response format:', response);
+        console.warn('No data in response:', response);
         setUsers([]);
       }
       
@@ -113,7 +162,7 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  const handleOpenDialog = (user: any) => {
+  const handleOpenDialog = (user: User) => {
     setCurrentUser(user);
     setFormData({
       username: user.username,
@@ -121,7 +170,7 @@ const AdminUsers: React.FC = () => {
       fullName: user.fullName || '',
       address: user.address || '',
       phoneNumber: user.phoneNumber || '',
-      roles: user.roles || [],
+      roles: normalizeRoles(user.roles),
       enabled: user.enabled || false,
     });
     setOpenDialog(true);
@@ -149,6 +198,8 @@ const AdminUsers: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!currentUser) return;
+    
     try {
       await AdminService.updateUser(currentUser.id, formData);
       fetchUsers();
@@ -173,8 +224,14 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string, roles: string[]) => {
-    if (roles.includes('ROLE_ADMIN')) {
+  const handleDeleteUser = async (userId: string, roles: any[]) => {
+    // Kiểm tra nếu người dùng là admin
+    const isAdmin = Array.isArray(roles) && roles.some(role => 
+      (typeof role === 'string' && role.includes('ADMIN')) || 
+      (typeof role === 'object' && role.name && role.name.includes('ADMIN'))
+    );
+    
+    if (isAdmin) {
       setError('Admin users cannot be deleted');
       return;
     }
@@ -200,6 +257,37 @@ const AdminUsers: React.FC = () => {
       console.error('Lỗi khi tặng mã:', err);
       toast.error(err.response?.data?.message || 'Lỗi khi tặng mã giảm giá');
     }
+  };
+
+  // Hàm để lấy tên vai trò hiển thị
+  const getRoleDisplayName = (role: any): string => {
+    if (typeof role === 'string') {
+      return role.replace('ROLE_', '');
+    }
+    
+    if (typeof role === 'object' && role.name) {
+      return role.name.replace('ROLE_', '');
+    }
+    
+    return String(role).replace('ROLE_', '');
+  };
+  
+  // Hàm để kiểm tra xem người dùng có vai trò admin không
+  const hasAdminRole = (roles: any[]): boolean => {
+    if (!Array.isArray(roles)) return false;
+    
+    return roles.some(role => 
+      (typeof role === 'string' && role.includes('ADMIN')) ||
+      (typeof role === 'object' && role.name && role.name.includes('ADMIN'))
+    );
+  };
+  const hasShiperRole = (roles: any[]): boolean => {
+    if (!Array.isArray(roles)) return false;
+    
+    return roles.some(role => 
+      (typeof role === 'string' && role.includes('SHIPPER')) ||
+      (typeof role === 'object' && role.name && role.name.includes('SHIPPER'))
+    );
   };
 
   if (loading && users.length === 0) {
@@ -238,18 +326,20 @@ const AdminUsers: React.FC = () => {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.fullName || '-'}</TableCell>
                   <TableCell>
-                    {Array.isArray(user.roles) && user.roles.map((role: any) => {
-                      const roleStr = typeof role === 'string' ? role : String(role);
-                      return (
-                        <Chip
-                          key={roleStr}
-                          label={roleStr.replace('ROLE_', '')}
-                          color={roleStr.includes('ADMIN') ? 'primary' : 'default'}
-                          size="small"
-                          sx={{ mr: 0.5, mb: 0.5 }}
-                        />
-                      );
-                    })}
+                    {Array.isArray(user.roles) && user.roles.map((role: any, index) => (
+                      <Chip
+                        key={index}
+                        label={getRoleDisplayName(role)}
+                        color={
+                          (typeof role === 'string' && role.includes('ADMIN')) || 
+                          (typeof role === 'object' && role.name && role.name.includes('ADMIN')) 
+                            ? 'primary' 
+                            : 'default'
+                        }
+                        size="small"
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
                   </TableCell>
                   <TableCell>
                     <IconButton onClick={() => handleOpenDialog(user)}>
@@ -258,21 +348,22 @@ const AdminUsers: React.FC = () => {
                     <IconButton
                       onClick={() => handleDeleteUser(user.id, user.roles)}
                       color="error"
-                      disabled={Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')}
-                      title={user.roles.includes('ROLE_ADMIN') ? 'Admin users cannot be deleted' : 'Delete user'}
+                      disabled={hasAdminRole(user.roles)}
+                      title={hasAdminRole(user.roles) ? 'Admin users cannot be deleted' : 'Delete user'}
                     >
                       <DeleteIcon />
                     </IconButton>
                     <IconButton
                       onClick={() => handleToggleUserStatus(user.id, !user.enabled)}
                       color={user.enabled ? "error" : "success"}
-                      disabled={Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')}
+                      disabled={hasAdminRole(user.roles)}
                     >
                       {user.enabled ? <BlockIcon /> : <CheckCircleIcon />}
                     </IconButton>
                   </TableCell>
-                  <TableCell>
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                  {!(hasShiperRole(user.roles) || hasAdminRole(user.roles)) && (
+                  <TableCell >
+                    <FormControl size="small" sx={{ minWidth: 120 }} disabled={hasShiperRole(user.roles) || hasAdminRole(user.roles)}>
                       <InputLabel>Mã giảm giá</InputLabel>
                       <Select
                         value={''}
@@ -281,17 +372,18 @@ const AdminUsers: React.FC = () => {
                       >
                         {coupons.map((coupon) => (
                           <MenuItem key={coupon.code} value={coupon.code}>
-                            {coupon.code} ({coupon.discount}% giảm)
+                            {coupon.code} ({coupon.discountValue}% giảm)
                           </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
                   </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   No users found
                 </TableCell>
               </TableRow>
@@ -301,97 +393,102 @@ const AdminUsers: React.FC = () => {
       </TableContainer>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Edit User: {currentUser?.username}</DialogTitle>
-        <form onSubmit={handleSubmit}>
-          <DialogContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Username"
-                  name="username"
-                  value={formData.username}
-                  InputProps={{ readOnly: true }}
-                  disabled
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  InputProps={{ readOnly: true }}
-                  disabled
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Full Name"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Phone Number"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  multiline
-                  rows={3}
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel id="roles-label">Roles</InputLabel>
-                  <Select
-                    labelId="roles-label"
-                    multiple
-                    value={formData.roles}
-                    onChange={handleRolesChange}
-                    label="Roles"
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(selected as string[]).map((value) => (
-                          <Chip key={value} label={value.replace('ROLE_', '')} size="small" />
-                        ))}
-                      </Box>
-                    )}
-                  >
-                    <MenuItem value="ROLE_USER">User</MenuItem>
-                    <MenuItem value="ROLE_ADMIN">Admin</MenuItem>
-                    <MenuItem value="ROLE_MODERATOR">Moderator</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              Save Changes
-            </Button>
-          </DialogActions>
-        </form>
+        {currentUser && (
+          <>
+            <DialogTitle>Edit User: {currentUser.username}</DialogTitle>
+            <form onSubmit={handleSubmit}>
+              <DialogContent>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Username"
+                      name="username"
+                      value={formData.username}
+                      InputProps={{ readOnly: true }}
+                      disabled
+                      margin="normal"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      InputProps={{ readOnly: true }}
+                      disabled
+                      margin="normal"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Full Name"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      margin="normal"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Phone Number"
+                      name="phoneNumber"
+                      value={formData.phoneNumber}
+                      onChange={handleInputChange}
+                      margin="normal"
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Address"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      multiline
+                      rows={3}
+                      margin="normal"
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth margin="normal">
+                      <InputLabel id="roles-label">Roles</InputLabel>
+                      <Select
+                        labelId="roles-label"
+                        multiple
+                        value={formData.roles}
+                        onChange={handleRolesChange}
+                        label="Roles"
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(selected as string[]).map((value) => (
+                              <Chip key={value} label={value.replace('ROLE_', '')} size="small" />
+                            ))}
+                          </Box>
+                        )}
+                      >
+                        <MenuItem value="ROLE_USER">User</MenuItem>
+                        <MenuItem value="ROLE_ADMIN">Admin</MenuItem>
+                        
+                        <MenuItem value="ROLE_SHIPPER">Shipper</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCloseDialog}>Cancel</Button>
+                <Button type="submit" variant="contained">
+                  Save Changes
+                </Button>
+              </DialogActions>
+            </form>
+          </>
+        )}
       </Dialog>
     </Box>
   );

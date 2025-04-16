@@ -13,7 +13,7 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,51 +31,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
   
-  const login = async (username: string, password: string): Promise<UserData> => {
+  // Thêm phương thức đăng nhập mới, hỗ trợ cả userData từ auth.service.ts
+  const login = (userData: UserData) => {
+    if (userData) {
+      // Ensure roles is always an array
+      if (!userData.roles) {
+        userData.roles = [];
+      } else if (typeof userData.roles === 'string') {
+        // If roles is a string, convert to array
+        userData.roles = [userData.roles];
+      }
+      
+      // Make sure role strings are consistent
+      userData.roles = userData.roles.map((role: string) => {
+        // If roles don't have ROLE_ prefix, add it
+        if (role && !role.startsWith('ROLE_')) {
+          return `ROLE_${role.toUpperCase()}`;
+        }
+        return role.toUpperCase(); // Ensure consistent casing
+      });
+      
+      console.log('Saving user with normalized roles:', userData.roles);
+      setUser(userData);
+      
+      // Log more details for debugging
+      console.log('User authenticated:', userData);
+      console.log('User roles:', userData.roles);
+      console.log('Is admin role present?', userData.roles.includes('ROLE_ADMIN'));
+      console.log('Is shipper role present?', userData.roles.includes('ROLE_SHIPPER'));
+    }
+    setError(null);
+    return userData;
+  };
+  
+  // Phương thức đăng nhập cũ để đảm bảo tương thích
+  const loginWithCredentials = async (username: string, password: string): Promise<UserData> => {
     try {
       const userData = await authService.login(username, password);
-      // Đảm bảo userData và token được lưu trữ đúng cách
-      if (userData) {
-        // Kiểm tra nếu API trả về token thay vì accessToken
-        if (userData.token && !userData.accessToken) {
-          // Chuyển đổi token thành accessToken để phù hợp với UserData interface
-          userData.accessToken = userData.token;
-          // Xóa trường token nếu không cần thiết
-          delete (userData as any).token;
-        }
-        
-        if (userData.accessToken) {
-          // Ensure roles is always an array
-          if (!userData.roles) {
-            userData.roles = [];
-          } else if (typeof userData.roles === 'string') {
-            // If roles is a string, convert to array
-            userData.roles = [userData.roles];
-          }
-          
-          // Make sure role strings are consistent
-          userData.roles = userData.roles.map((role: string) => {
-            // If roles don't have ROLE_ prefix, add it
-            if (role && !role.startsWith('ROLE_')) {
-              return `ROLE_${role.toUpperCase()}`;
-            }
-            return role.toUpperCase(); // Ensure consistent casing
-          });
-          
-          console.log('Saving user with normalized roles:', userData.roles);
-          localStorage.setItem('user', JSON.stringify(userData));
-          setUser(userData);
-          
-          // Log more details for debugging
-          console.log('User authenticated:', userData);
-          console.log('User roles:', userData.roles);
-          console.log('Is admin role present?', userData.roles.includes('ROLE_ADMIN'));
-        } else {
-          console.warn('Login response missing token or user data');
-        }
-      }
-      setError(null);
-      return userData;
+      return login(userData);
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to login';
       setError(errorMessage);
@@ -95,8 +88,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const logout = () => {
-    authService.logout();
-    setUser(null);
+    // Emit a custom event before logging out to notify components to disconnect WebSocket
+    const logoutEvent = new CustomEvent('admin-logout', { 
+      detail: { userId: user?.id } 
+    });
+    window.dispatchEvent(logoutEvent);
+    console.log('Dispatched admin-logout event, waiting for components to process');
+    
+    // Wait a longer moment to allow components to process the event and disconnect websockets
+    setTimeout(() => {
+      console.log('Processing logout now, clearing localStorage');
+      authService.logout();
+      setUser(null);
+    }, 300);
   };
   
   // Kiểm tra xác thực dựa trên sự tồn tại của user và accessToken/token
@@ -106,14 +110,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                          (!!storedUser && (!!storedUser.accessToken || !!(storedUser as any)?.token));
   
   // Kiểm tra vai trò admin
-  const checkUserRoles = (userData: UserData | null) => {
+  const checkUserRoles = (userData: UserData | null, roleName: string) => {
     if (!userData) {
-      console.log('No user data available to check admin role');
+      console.log(`No user data available to check ${roleName} role`);
       return false;
     }
     
     // More detailed debug logging
-    console.log('Checking admin role for user:', userData.username);
+    console.log(`Checking ${roleName} role for user:`, userData.username);
     console.log('User roles data type:', typeof userData.roles);
     console.log('User roles value:', userData.roles);
     
@@ -129,26 +133,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (typeof userData.roles === 'string') {
         const roleArray = [userData.roles];
         console.log('Converted string role to array:', roleArray);
-        // Check if 'ADMIN' or 'ROLE_ADMIN' is in the converted array
-        return roleArray.some(role => role === 'ADMIN' || role === 'ROLE_ADMIN');
+        // Check if the role or ROLE_role is in the converted array
+        return roleArray.some(role => 
+          role === roleName || 
+          role === `ROLE_${roleName}` ||
+          String(role).toUpperCase() === roleName.toUpperCase() || 
+          String(role).toUpperCase() === `ROLE_${roleName.toUpperCase()}`
+        );
       }
       return false;
     }
     
-    // Check all variations of admin role
-    const hasAdminRole = userData.roles.some(role => 
-      role === 'ADMIN' || 
-      role === 'ROLE_ADMIN' || 
-      role.toUpperCase() === 'ADMIN' || 
-      role.toUpperCase() === 'ROLE_ADMIN'
+    // Check all variations of the role
+    const hasRole = userData.roles.some(role => 
+      role === roleName || 
+      role === `ROLE_${roleName}` || 
+      String(role).toUpperCase() === roleName.toUpperCase() || 
+      String(role).toUpperCase() === `ROLE_${roleName.toUpperCase()}`
     );
     
-    console.log('Is user admin based on roles check?', hasAdminRole);
-    return hasAdminRole;
+    console.log(`Is user ${roleName} based on roles check?`, hasRole);
+    return hasRole;
   };
   
   // Ưu tiên sử dụng user từ state, nếu không có thì kiểm tra storedUser
-  const isAdmin = checkUserRoles(user) || (storedUser && checkUserRoles(storedUser));
+  const isAdmin = checkUserRoles(user, 'ADMIN') || (storedUser && checkUserRoles(storedUser, 'ADMIN'));
+  
+  // Kiểm tra vai trò shipper
+  const isShipper = checkUserRoles(user, 'SHIPPER') || (storedUser && checkUserRoles(storedUser, 'SHIPPER'));
   
   // Force-check role and localStorage state when admin routes are accessed
   useEffect(() => {
@@ -159,13 +171,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('localStorage user:', storedUser);
       console.log('isAdmin computed value:', isAdmin);
     }
+    
+    // Check shipper role when accessing shipper routes
+    if (window.location.pathname.includes('/shipper')) {
+      console.log('SHIPPER route accessed, checking permissions');
+      console.log('Current user state:', user);
+      console.log('localStorage user:', storedUser);
+      console.log('isShipper computed value:', isShipper);
+    }
   }, [window.location.pathname]);
   
   const value = {
     user,
     isAuthenticated,
     isAdmin,
+    isShipper,
     login,
+    loginWithCredentials,
     register,
     logout,
     loading,

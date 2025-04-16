@@ -13,6 +13,8 @@ const instance: AxiosInstance = axios.create({
   timeout: 15000, // Add timeout to prevent hanging requests
 });
 
+console.log('API client created with baseURL:', API_URL);
+
 // Request interceptor for adding auth token
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {

@@ -1,7 +1,13 @@
 {
   "dependencies": {
+    "@types/bootstrap": "^5.2.10",
+    "@types/react": "^19.1.2",
+    "@types/react-bootstrap": "^0.32.37",
+    "bootstrap": "^5.3.5",
     "notistack": "^3.0.2",
-    "react-hot-toast": "^2.5.2"
+    "react-bootstrap": "^2.10.9",
+    "react-hot-toast": "^2.5.2",
+    "react-validation": "^3.0.7"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.16"
