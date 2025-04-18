@@ -26,6 +26,7 @@ import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import OrderSuccess from './pages/OrderSuccess';
+import PaySuccess from './pages/PaySuccess';
 import Profile from './pages/Profile';
 import Notifications from './pages/Notifications';
 import UserDashboard from './pages/UserDashboard';
@@ -129,6 +130,10 @@ const App: React.FC = () => {
                     <Route 
                       path="order-success" 
                       element={<ProtectedRoute adminOnly={false}><OrderSuccess /></ProtectedRoute>} 
+                    />
+                    <Route 
+                      path="pay-success" 
+                      element={<ProtectedRoute adminOnly={false}><PaySuccess /></ProtectedRoute>} 
                     />
                     <Route 
                       path="orders" 

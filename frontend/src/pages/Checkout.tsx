@@ -116,12 +116,10 @@ const Checkout: React.FC = (): JSX.Element => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   
-  // Coupon state
   const [couponCode, setCouponCode] = useState('');
   const [couponInfo, setCouponInfo] = useState<CouponInfo | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   
-  // Add user coupons state
   const [userCoupons, setUserCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<string>('');
   const [loadingCoupons, setLoadingCoupons] = useState(false);
@@ -131,13 +129,11 @@ const Checkout: React.FC = (): JSX.Element => {
       navigate('/cart');
     }
     
-    // Fetch user coupons when component mounts
     if (user) {
       fetchUserCoupons();
     }
   }, [navigate, items, user]);
 
-  // Add function to fetch user coupons
   const fetchUserCoupons = async () => {
     try {
       setLoadingCoupons(true);
@@ -155,7 +151,6 @@ const Checkout: React.FC = (): JSX.Element => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setDeliveryInfo(prev => ({ ...prev, [name]: value }));
-    // Clear error when field is modified
     if (errors[name as keyof ErrorState]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
@@ -178,7 +173,6 @@ const Checkout: React.FC = (): JSX.Element => {
     }
   };
 
-  // Add function to handle coupon selection from dropdown
   const handleCouponSelection = (e: any) => {
     const selectedValue = e.target.value as string;
     setSelectedCoupon(selectedValue);
@@ -189,7 +183,6 @@ const Checkout: React.FC = (): JSX.Element => {
       return;
     }
     
-    // Set the coupon code input to the selected coupon code
     setCouponCode(selectedValue);
   };
 
@@ -206,7 +199,6 @@ const Checkout: React.FC = (): JSX.Element => {
       const response = await CouponService.verifyCoupon(codeToVerify, calculateSubtotal());
       
       if (response.data.valid && response.data.coupon) {
-        // Calculate discount amount
         const coupon = response.data.coupon;
         let discountAmount = 0;
         
@@ -328,7 +320,6 @@ const Checkout: React.FC = (): JSX.Element => {
       setIsSubmitting(true);
       setOrderError(null);
       
-      // Chuẩn bị dữ liệu đơn hàng
       const orderData = {
         shippingAddress: getFullShippingAddress(),
         paymentMethod,
@@ -339,40 +330,26 @@ const Checkout: React.FC = (): JSX.Element => {
           quantity: item.quantity
         })),
         couponCode: couponInfo?.code,
-        total: getFinalTotal() // Include the final total with discount
+        total: getFinalTotal()
       };
       
-      // Place the order
-      const response = await OrderService.createOrder(orderData);
-      
-      // After successful order placement, use multiple approaches to refresh notifications
-      console.log("Order placed successfully, refreshing notifications...");
-      
-      // 1. Call the global refresh function from Header component
-      refreshHeaderNotifications();
-      
-      // 2. Call the context refresh function (most reliable approach)
-      await refreshNotifications();
-      
-      // 3. Direct service call with small delay as a fallback
-      setTimeout(() => {
+      if (paymentMethod === 'cod' || paymentMethod === 'account_balance') {
+        const response = await OrderService.createOrder(orderData);
+        console.log("refreshHeaderNotifications đang chạy...");
         try {
-          NotificationService.getNotifications()
-            .then(response => {
-              console.log("Manually fetched notifications after order placement:", response.data.length);
-            })
-            .catch(error => {
-              console.error("Error manually fetching notifications:", error);
-            });
+          refreshHeaderNotifications();
+          await refreshNotifications();
+          clearCart();
         } catch (err) {
-          console.error('Failed manual notification refresh:', err);
+          console.error('Lỗi khi refresh thông báo:', err);
         }
-      }, 300);
-      
-      // Order successful - clear cart and navigate to success page
-      clearCart();
-      navigate('/order-success', { state: { orderId: response.data.id } });
-      
+        navigate('/order-success', { state: { orderId: response.data.id } });
+      } else if (paymentMethod === 'credit') {
+        localStorage.setItem('pendingOrder', JSON.stringify(orderData));
+        const respon = await OrderService.createPay(orderData);
+        const paymentUrl = respon.data;
+        window.location.href = paymentUrl;
+      }
     } catch (err: any) {
       console.error('Error placing order:', err);
       setOrderError(err.response?.data?.message || 'Đã xảy ra lỗi khi đặt hàng. Vui lòng thử lại.');
@@ -559,7 +536,6 @@ const Checkout: React.FC = (): JSX.Element => {
               Mã giảm giá
             </Typography>
             <Paper sx={{ p: 2 }}>
-              {/* Add coupon dropdown selection */}
               {userCoupons.length > 0 && (
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <InputLabel id="coupon-select-label">Chọn mã giảm giá của bạn</InputLabel>
@@ -598,7 +574,6 @@ const Checkout: React.FC = (): JSX.Element => {
                 </FormControl>
               )}
               
-              {/* Manual coupon code input */}
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs>
                   <TextField

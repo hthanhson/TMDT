@@ -233,7 +233,7 @@ const ProductList: React.FC<ProductListProps> = ({
                     {product.price.toFixed(2)}đ
                   </Typography>
                   <Chip 
-                    label={product.stock > 0 ? 'In Stock' : 'Out of Stock'} 
+                    label={product.stock > 0 ? 'Còn Hàng' : 'Out of Stock'} 
                     color={product.stock > 0 ? 'success' : 'error'} 
                     size="small" 
                   />

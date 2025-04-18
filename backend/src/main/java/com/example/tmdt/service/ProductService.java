@@ -4,6 +4,7 @@ import com.example.tmdt.model.Product;
 import com.example.tmdt.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityNotFoundException;
@@ -33,7 +34,12 @@ public class ProductService {
     public Product getProduct(Long id) {
         return getProductById(id);
     }
-    
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public Product getProductByIdWithLock(Long id) {
+        return productRepository.findById(id)
+                .map(product -> productRepository.findByIdWithLock(id))
+                .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + id));
+    }
     public List<Product> getProductsByCategory(String category) {
         return productRepository.findByCategory(category);
     }

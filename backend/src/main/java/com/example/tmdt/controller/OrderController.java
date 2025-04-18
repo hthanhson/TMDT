@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.UnsupportedEncodingException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -32,14 +33,14 @@ public class OrderController {
         this.orderService = orderService;
         this.userService = userService;
     }
-
     @PostMapping
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public ResponseEntity<Order> createOrder(@RequestBody OrderRequest orderRequest) {
+    public ResponseEntity<Order> createOrder(@RequestBody OrderRequest orderRequest) throws UnsupportedEncodingException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userService.getUserByUsername(auth.getName());
         return ResponseEntity.ok(orderService.createOrder(user, orderRequest));
     }
+
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")

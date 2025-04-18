@@ -108,14 +108,14 @@ const ProductDetail: React.FC = () => {
   // Hàm bổ sung để khắc phục reviews thiếu userId
   const fixReviewsWithMissingUserId = (reviews: any[]) => {
     if (!isAuthenticated || !user) return;
-    
+
     console.log('Checking reviews for missing userId...');
     let fixedCount = 0;
-    
+
     // Tạo một map để lưu trữ thông tin về các reviews đã có userId
     const reviewsWithUserId = new Map();
     const userNameToUserIdMap = new Map();
-    
+
     // Bước 1: Thu thập thông tin từ reviews đã có userId
     reviews.forEach((review, index) => {
       if (review.userId) {
@@ -124,7 +124,7 @@ const ProductDetail: React.FC = () => {
           reviewsWithUserId.set(review.userId, []);
         }
         reviewsWithUserId.get(review.userId).push(review);
-        
+
         // Ánh xạ từ các loại tên hiển thị đến userId
         if (review.userName) {
           userNameToUserIdMap.set(review.userName.toLowerCase(), review.userId);
@@ -137,14 +137,14 @@ const ProductDetail: React.FC = () => {
         }
       }
     });
-    
+
     // Bước 2: Xử lý các reviews thiếu userId
     reviews.forEach((review, index) => {
       if (!review.userId) {
         let matchedUserId = null;
-        
+
         // Kiểm tra trước xem có phải review của user hiện tại không
-        const isCurrentUserReview = 
+        const isCurrentUserReview =
           // Kiểm tra theo username
           (review.user?.username && user.username && review.user.username === user.username) ||
           // Hoặc kiểm tra theo fullName nếu trùng khớp
@@ -152,7 +152,7 @@ const ProductDetail: React.FC = () => {
           // Hoặc kiểm tra theo userName
           (review.userName && user.fullName && review.userName === user.fullName) ||
           (review.userName && user.username && review.userName === user.username);
-        
+
         if (isCurrentUserReview) {
           console.log(`Review ${index}: Belongs to current user, setting userId to ${user.id}`);
           review.userId = user.id;
@@ -171,12 +171,12 @@ const ProductDetail: React.FC = () => {
           } else if (review.user?.username && userNameToUserIdMap.has(review.user.username.toLowerCase())) {
             matchedUserId = userNameToUserIdMap.get(review.user.username.toLowerCase());
           }
-          
+
           // Nếu vẫn không tìm thấy, thử tìm kiếm dựa trên thời gian tạo
           if (!matchedUserId && review.createdAt) {
             // Tìm reviews có thời gian tạo gần nhau (trong vòng 5 phút)
             const reviewTime = new Date(review.createdAt).getTime();
-            
+
             for (const [userId, userReviews] of Array.from(reviewsWithUserId.entries())) {
               for (const userReview of userReviews) {
                 if (userReview.createdAt) {
@@ -191,7 +191,7 @@ const ProductDetail: React.FC = () => {
               if (matchedUserId) break;
             }
           }
-          
+
           // Gán userId nếu tìm thấy match
           if (matchedUserId) {
             review.userId = matchedUserId;
@@ -203,7 +203,7 @@ const ProductDetail: React.FC = () => {
               // Nếu user không phải là object, tạo object mới
               console.log(`Review ${index}: Converting user from ${typeof review.user} to object with value`, review.user);
               const originalUserValue = review.user;
-              review.user = { 
+              review.user = {
                 id: matchedUserId,
                 originalValue: originalUserValue // giữ giá trị gốc để debug
               };
@@ -214,16 +214,16 @@ const ProductDetail: React.FC = () => {
         }
       }
     });
-    
+
     if (fixedCount > 0) {
       console.log(`Fixed ${fixedCount} reviews with missing userId`);
     }
   };
-  
+
   // Hàm chính để xử lý dữ liệu sản phẩm
   const processProduct = (product: any) => {
     console.log('Raw product data:', product);
-    
+
     if (product.reviews) {
       console.log(`Found ${product.reviews.length} reviews to process`);
       // Log chi tiết từng review để debug
@@ -231,16 +231,16 @@ const ProductDetail: React.FC = () => {
         console.log(`Raw review ${index}:`, JSON.stringify(review));
       });
     }
-    
+
     // Tạo map để nhóm thông tin người dùng theo userId
     const userInfoMap = new Map();
-    
+
     // Thêm map để lưu trữ các tên hiển thị và khớp với userIds
     const userNameToIdMap = new Map();
-    
+
     // Tạo map để lưu comment patterns cho mỗi user (dùng để nhận diện reviews của cùng một người)
     const commentPatternMap = new Map();
-    
+
     // Kiểm tra xem user hiện tại có tồn tại không để thêm vào map
     if (isAuthenticated && user) {
       userInfoMap.set(user.id.toString(), {
@@ -252,17 +252,17 @@ const ProductDetail: React.FC = () => {
       // Lưu các patterns có thể dùng để nhận diện user này
       if (user.username) userNameToIdMap.set(user.username.toLowerCase(), user.id.toString());
       if (user.fullName) userNameToIdMap.set(user.fullName.toLowerCase(), user.id.toString());
-      
+
       console.log(`Added current user to map: ${user.id}`);
     }
-    
+
     // First pass: Collect user information from all reviews
     product.reviews?.forEach((review: any, index: number) => {
       let userId = null;
       let userName = null;
-      
+
       console.log(`Extracting user info from review ${index}:`, review);
-      
+
       // Extract userId first - be very thorough
       if (review.user && review.user.id) {
         userId = review.user.id.toString();
@@ -275,13 +275,13 @@ const ProductDetail: React.FC = () => {
         userId = user.id.toString();
         console.log(`Review ${index}: Matched createdBy with current user: ${userId}`);
       }
-      
+
       // Extract user information
       if (review.user) {
         if (review.user.fullName) {
           userName = review.user.fullName;
           console.log(`Review ${index}: Found userName ${userName} from user.fullName`);
-          
+
           // Lưu mapping từ userName đến userId nếu có cả hai
           if (userId && userName) {
             userNameToIdMap.set(userName.toLowerCase(), userId);
@@ -289,7 +289,7 @@ const ProductDetail: React.FC = () => {
         } else if (review.user.username) {
           userName = review.user.username;
           console.log(`Review ${index}: Found userName ${userName} from user.username`);
-          
+
           // Lưu mapping từ userName đến userId nếu có cả hai
           if (userId && userName) {
             userNameToIdMap.set(userName.toLowerCase(), userId);
@@ -298,7 +298,7 @@ const ProductDetail: React.FC = () => {
       } else if (review.fullName) {
         userName = review.fullName;
         console.log(`Review ${index}: Found userName ${userName} from fullName field`);
-        
+
         // Lưu mapping từ userName đến userId nếu có cả hai
         if (userId && userName) {
           userNameToIdMap.set(userName.toLowerCase(), userId);
@@ -306,7 +306,7 @@ const ProductDetail: React.FC = () => {
       } else if (review.userName) {
         userName = review.userName;
         console.log(`Review ${index}: Found userName ${userName} from userName field`);
-        
+
         // Lưu mapping từ userName đến userId nếu có cả hai
         if (userId && userName) {
           userNameToIdMap.set(userName.toLowerCase(), userId);
@@ -314,13 +314,13 @@ const ProductDetail: React.FC = () => {
       } else if (review.username) {
         userName = review.username;
         console.log(`Review ${index}: Found userName ${userName} from username field`);
-        
+
         // Lưu mapping từ userName đến userId nếu có cả hai
         if (userId && userName) {
           userNameToIdMap.set(userName.toLowerCase(), userId);
         }
       }
-      
+
       // Lưu comment pattern nếu có userId
       if (userId && review.comment) {
         const commentKey = typeof review.comment === 'string' ? review.comment.trim() : JSON.stringify(review.comment);
@@ -333,26 +333,26 @@ const ProductDetail: React.FC = () => {
 
     console.log('User information collected:', Array.from(userInfoMap.entries()).map(([key, value]) => ({ userId: key, ...value })));
     console.log('User name to ID mappings:', Array.from(userNameToIdMap.entries()));
-    console.log('Comment patterns by user:', Array.from(commentPatternMap.entries()).map(([userId, patterns]) => 
+    console.log('Comment patterns by user:', Array.from(commentPatternMap.entries()).map(([userId, patterns]) =>
       ({ userId, patternCount: patterns.size })));
-    
+
     // Second pass: Try to match reviews without userId to existing users based on names or patterns
     product.reviews?.forEach((review: any, index: number) => {
       if (!review.userId && !review.user?.id) {
         // Tìm kiếm dựa trên userName hoặc username
         let matchedUserId = null;
-        
+
         // Kiểm tra từ localStorage xem đã có mapping nào trước đó không
         try {
           const storedMappings = localStorage.getItem('reviewUserMappings');
           if (storedMappings) {
             const mappings = JSON.parse(storedMappings);
-            
+
             // Tìm mapping dựa trên các trường khác nhau
             if (review.user?.username && mappings.username && mappings.username[review.user.username]) {
               matchedUserId = mappings.username[review.user.username];
               console.log(`Review ${index}: Matched by username from stored mapping: ${matchedUserId}`);
-            } 
+            }
             else if (review.user?.fullName && mappings.fullName && mappings.fullName[review.user.fullName]) {
               matchedUserId = mappings.fullName[review.user.fullName];
               console.log(`Review ${index}: Matched by fullName from stored mapping: ${matchedUserId}`);
@@ -365,7 +365,7 @@ const ProductDetail: React.FC = () => {
         } catch (e) {
           console.error('Error reading from localStorage:', e);
         }
-        
+
         // Nếu không tìm được từ localStorage, tiếp tục với phương pháp hiện tại
         if (!matchedUserId) {
           // Kiểm tra theo tên người dùng
@@ -386,59 +386,59 @@ const ProductDetail: React.FC = () => {
             console.log(`Review ${index}: Matched by username to userId ${matchedUserId}`);
           }
         }
-        
+
         // Nếu không tìm thấy qua tên, thử tìm qua nội dung comment
         if (!matchedUserId && review.comment) {
           const commentKey = typeof review.comment === 'string' ? review.comment.trim() : JSON.stringify(review.comment);
-          
+
           // Kiểm tra xem comment này có khớp với pattern của user nào không
           for (const userId of Array.from(commentPatternMap.keys())) {
             const patterns = commentPatternMap.get(userId);
-            if (patterns.has(commentKey) || 
-                // Thử kiểm tra nếu comment có chứa các pattern đã biết
-                (typeof commentKey === 'string' && Array.from(patterns).some(pattern => 
-                  typeof pattern === 'string' && (
-                    commentKey.includes(pattern) || 
-                    pattern.includes(commentKey)
-                  )
-                ))) {
+            if (patterns.has(commentKey) ||
+              // Thử kiểm tra nếu comment có chứa các pattern đã biết
+              (typeof commentKey === 'string' && Array.from(patterns).some(pattern =>
+                typeof pattern === 'string' && (
+                  commentKey.includes(pattern) ||
+                  pattern.includes(commentKey)
+                )
+              ))) {
               matchedUserId = userId;
               console.log(`Review ${index}: Matched by comment pattern to userId ${matchedUserId}`);
               break;
             }
           }
         }
-        
+
         // Nếu vẫn không tìm thấy userId, thử tìm kiếm dựa trên thời gian tạo
         if (!matchedUserId && review.createdAt) {
           // Tìm reviews cùng thời gian (trong vòng 10 phút)
           const createdAtTime = new Date(review.createdAt).getTime();
-          const potentialMatches = product.reviews.filter((r: any) => 
+          const potentialMatches = product.reviews.filter((r: any) =>
             r.userId && // Chỉ xem xét reviews đã có userId
             r.createdAt && // Cần có thời gian tạo để so sánh
             Math.abs(new Date(r.createdAt).getTime() - createdAtTime) < 1000 * 60 * 10 // Trong vòng 10 phút
           );
-          
+
           if (potentialMatches.length > 0) {
             // Lọc lần nữa dựa trên IP hoặc thông tin browser nếu có
-            const matchedByTime = potentialMatches.sort((a: any, b: any) => 
-              Math.abs(new Date(a.createdAt).getTime() - createdAtTime) - 
+            const matchedByTime = potentialMatches.sort((a: any, b: any) =>
+              Math.abs(new Date(a.createdAt).getTime() - createdAtTime) -
               Math.abs(new Date(b.createdAt).getTime() - createdAtTime)
             );
-            
+
             matchedUserId = matchedByTime[0].userId;
             console.log(`Review ${index}: Matched by creation time proximity to userId ${matchedUserId}`);
           }
         }
-        
+
         // FIX QUAN TRỌNG: Nếu vẫn không tìm được userId, tạo một userId ngẫu nhiên nhưng cố định
         // Điều này đảm bảo mỗi review luôn có userId và không bị thay đổi khi làm mới trang
         if (!matchedUserId) {
           // Tạo userId duy nhất và nhất quán cho mỗi review, dựa trên id hoặc nội dung của review
-          const reviewIdentifier = review.id || 
-              (review.createdAt ? new Date(review.createdAt).getTime() : '') || 
-              (review.comment ? review.comment.substring(0, 20) : '');
-          
+          const reviewIdentifier = review.id ||
+            (review.createdAt ? new Date(review.createdAt).getTime() : '') ||
+            (review.comment ? review.comment.substring(0, 20) : '');
+
           // Tạo một mã hash từ reviewIdentifier để đảm bảo tính nhất quán
           const hashCode = (str: string) => {
             let hash = 0;
@@ -448,16 +448,16 @@ const ProductDetail: React.FC = () => {
             }
             return Math.abs(hash).toString();
           };
-          
+
           // Tạo một userId cố định từ thông tin review có sẵn
           matchedUserId = `anonymous-${hashCode(reviewIdentifier.toString())}-${index}`;
           console.log(`Review ${index}: Generated fixed anonymous userId: ${matchedUserId}`);
-          
+
           // Đánh dấu review này là ẩn danh
           review.isAnonymous = true;
           review.anonymous = true;
         }
-        
+
         // Nếu tìm thấy match, gán userId và user object
         if (matchedUserId) {
           review.userId = matchedUserId;
@@ -469,12 +469,12 @@ const ProductDetail: React.FC = () => {
             // Nếu user không phải là object, tạo object mới
             console.log(`Review ${index}: Converting user from ${typeof review.user} to object with value`, review.user);
             const originalUserValue = review.user;
-            review.user = { 
+            review.user = {
               id: matchedUserId,
               originalValue: originalUserValue // giữ giá trị gốc để debug
             };
           }
-          
+
           // Nếu user info có trong map, sử dụng để bổ sung thông tin
           if (userInfoMap.has(matchedUserId)) {
             const userInfo = userInfoMap.get(matchedUserId);
@@ -484,43 +484,43 @@ const ProductDetail: React.FC = () => {
               if (!review.user.username) review.user.username = userInfo.username;
               if (!review.user.fullName) review.user.fullName = userInfo.fullName;
             }
-            
+
             // Lưu mapping vào localStorage để sử dụng cho lần sau
             try {
               const storedMappings = localStorage.getItem('reviewUserMappings') || '{}';
               const mappings = JSON.parse(storedMappings);
-              
+
               // Lưu theo các trường khác nhau
               if (!mappings.username) mappings.username = {};
               if (!mappings.fullName) mappings.fullName = {};
               if (!mappings.userName) mappings.userName = {};
-              
+
               if (review.user.username) mappings.username[review.user.username] = matchedUserId;
               if (review.user.fullName) mappings.fullName[review.user.fullName] = matchedUserId;
               if (review.userName) mappings.userName[review.userName] = matchedUserId;
-              
+
               localStorage.setItem('reviewUserMappings', JSON.stringify(mappings));
               console.log(`Saved mapping to localStorage for future use`);
             } catch (e) {
               console.error('Error writing to localStorage:', e);
             }
           }
-          
+
           console.log(`Review ${index}: Successfully assigned userId ${matchedUserId} and user info`);
         }
       }
     });
-    
+
     // Third pass: Process each review with consistent user information
     const processedReviews = product.reviews?.map((review: any, index: number) => {
       console.log(`Processing review ${index} with ID ${review.id}`);
-      
+
       // Extract user information
       let userId = null;
       let userInfo = null;
       let userName = null;
       let isAnonymous = review.anonymous || review.isAnonymous;
-      
+
       // Determine userId - be exhaustive
       if (review.user && review.user.id) {
         userId = review.user.id.toString();
@@ -529,7 +529,7 @@ const ProductDetail: React.FC = () => {
         userId = review.userId.toString();
         console.log(`Review ${index}: Using userId ${userId} from userId field`);
       }
-      
+
       // VERY IMPORTANT: Nếu review không có userId, nhưng chúng ta biết nó thuộc về ai đó
       if (!userId && isAuthenticated && user) {
         // Kiểm tra các trường khác để xác định owner
@@ -539,14 +539,14 @@ const ProductDetail: React.FC = () => {
         }
         // Thêm các kiểm tra khác nếu cần
       }
-      
+
       // FIX CRITICAL: Đảm bảo mỗi review luôn có userId
       if (!userId) {
         // Tạo một userId cố định cho review này nếu không tìm thấy
         const reviewId = review.id || index;
         userId = `fixed-anonymous-${reviewId}`;
         console.log(`Review ${index}: Assigned fixed userId ${userId} to ensure userId exists`);
-        
+
         // Cập nhật cả trong user object
         if (!review.user) {
           review.user = { id: userId };
@@ -556,16 +556,16 @@ const ProductDetail: React.FC = () => {
           // Nếu user không phải là object, tạo object mới
           console.log(`Review ${index}: Converting user from ${typeof review.user} to object with value`, review.user);
           const originalUserValue = review.user;
-          review.user = { 
+          review.user = {
             id: userId,
             originalValue: originalUserValue // giữ giá trị gốc để debug
           };
         }
-        
+
         // Đánh dấu là ẩn danh
         isAnonymous = true;
       }
-      
+
       // Get user info from our map if available
       if (userId && userInfoMap.has(userId)) {
         userInfo = userInfoMap.get(userId);
@@ -573,7 +573,7 @@ const ProductDetail: React.FC = () => {
       } else if (userId) {
         console.log(`Review ${index}: No user info in map for ${userId}`);
       }
-      
+
       // Determine userName
       if (isAnonymous) {
         userName = "Người dùng ẩn danh";
@@ -605,9 +605,9 @@ const ProductDetail: React.FC = () => {
         userName = isAnonymous ? "Người dùng ẩn danh" : `Người dùng ${userId.substring(0, 8)}`;
         console.log(`Review ${index}: Using generated name from userId: ${userName}`);
       }
-      
+
       console.log(`Review ${index} final: userName=${userName}, userId=${userId}`);
-      
+
       // Tạo review mới với thông tin được xử lý
       const processedReview = {
         ...review,
@@ -622,30 +622,30 @@ const ProductDetail: React.FC = () => {
         } : { id: userId, fullName: userName }, // Nếu user không phải object, tạo object mới
         isAnonymous: isAnonymous || false
       };
-      
+
       return processedReview;
     }) || [];
-    
+
     const processedProduct = {
       ...product,
       reviews: processedReviews,
-      category: typeof product.category === 'object' ? 
+      category: typeof product.category === 'object' ?
         (product.category ? (
-          typeof product.category === 'object' && product.category !== null && 'name' in product.category 
-            ? (product.category as {name: string}).name 
+          typeof product.category === 'object' && product.category !== null && 'name' in product.category
+            ? (product.category as { name: string }).name
             : JSON.stringify(product.category)
-        ) : '') : 
+        ) : '') :
         product.category,
-      description: typeof product.description === 'object' ? 
-        JSON.stringify(product.description) : 
+      description: typeof product.description === 'object' ?
+        JSON.stringify(product.description) :
         product.description
     };
-    
+
     console.log(`Processed ${processedReviews.length} reviews successfully`);
-    console.log('Review user names:', processedReviews.map((r: any) => ({ 
-      id: r.id, 
-      userName: r.userName, 
-      userId: r.userId 
+    console.log('Review user names:', processedReviews.map((r: any) => ({
+      id: r.id,
+      userName: r.userName,
+      userId: r.userId
     })));
     return processedProduct;
   };
@@ -657,24 +657,24 @@ const ProductDetail: React.FC = () => {
         setLoading(false);
         return;
       }
-      
+
       setLoading(true);
       console.log('Fetching product data for ID:', productId);
-      
+
       const response = await ProductService.getProductById(productId as string);
       console.log('Raw product data received:', response.data);
-      
+
       // Kiểm tra và sửa reviews thiếu userId trước khi xử lý
       if (response.data && response.data.reviews && Array.isArray(response.data.reviews)) {
         fixReviewsWithMissingUserId(response.data.reviews);
       }
-      
+
       // Process the product to handle any object fields
       const processedProduct = processProduct(response.data);
       console.log('Product data processed successfully with', processedProduct.reviews?.length || 0, 'reviews');
-      
+
       setProduct(processedProduct);
-      
+
       // Check if product is in wishlist
       if (isAuthenticated) {
         try {
@@ -687,7 +687,7 @@ const ProductDetail: React.FC = () => {
       } else {
         setInWishlist(false);
       }
-      
+
       setError(null);
     } catch (err: any) {
       console.error('Error fetching product:', err);
@@ -700,14 +700,14 @@ const ProductDetail: React.FC = () => {
   // Hàm lấy đánh giá của người dùng hiện tại cho sản phẩm này
   const fetchUserReviews = async () => {
     if (!isAuthenticated || !productId || !user?.id) return;
-    
+
     try {
       setLoadingUserReviews(true);
       console.log('Fetching user reviews for product:', productId);
-      
+
       const response = await ProductService.getUserReviewsForProduct(productId as string);
       console.log('User reviews data:', response.data);
-      
+
       if (Array.isArray(response.data)) {
         setUserReviews(response.data);
       }
@@ -717,7 +717,7 @@ const ProductDetail: React.FC = () => {
       setLoadingUserReviews(false);
     }
   };
-  
+
   // Thêm effect để lấy đánh giá người dùng khi sản phẩm hoặc user thay đổi
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -775,7 +775,7 @@ const ProductDetail: React.FC = () => {
       }, 1500);
       return;
     }
-    
+
     try {
       if (inWishlist) {
         await WishlistService.removeFromWishlist(productId as string);
@@ -807,25 +807,25 @@ const ProductDetail: React.FC = () => {
     // Tải lại reviews của người dùng
     fetchUserReviews();
   };
-  
+
   // Hàm xử lý xóa bình luận
   const handleDeleteReview = async (reviewId: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa đánh giá này không?')) {
       return;
     }
-    
+
     try {
       setSnackbarMessage('Đang xóa đánh giá...');
       setSnackbarSeverity('info');
       setSnackbarOpen(true);
-      
+
       console.log('Deleting review with ID:', reviewId);
-      
+
       const response = await ProductService.deleteReview(reviewId);
       console.log('Delete review response:', response);
-      
+
       showSnackbar('Đánh giá đã được xóa thành công', 'success');
-      
+
       // Reload the product data and user reviews after a short delay
       setTimeout(() => {
         fetchProduct();
@@ -833,19 +833,19 @@ const ProductDetail: React.FC = () => {
       }, 500);
     } catch (err: any) {
       console.error('Error deleting review:', err);
-      const errorMessage = err.response?.data?.message || 
-                          (err.message ? `Lỗi: ${err.message}` : 'Không thể xóa đánh giá');
+      const errorMessage = err.response?.data?.message ||
+        (err.message ? `Lỗi: ${err.message}` : 'Không thể xóa đánh giá');
       showSnackbar(errorMessage, 'error');
     }
   };
 
   const processReviews = useCallback((reviews: any[]) => {
     if (!reviews || !Array.isArray(reviews)) return [];
-    
+
     return reviews.map(review => {
       // Ensure we have a valid user object
       const reviewUser = review.user || {};
-      
+
       // Determine proper user name display
       let displayName = 'Người dùng ẩn danh';
       if (review.userName && review.userName !== 'Người dùng ẩn danh' && review.userName !== 'Không xác định') {
@@ -859,7 +859,7 @@ const ProductDetail: React.FC = () => {
       } else if (review.username) {
         displayName = review.username;
       }
-      
+
       // Create a safe date display value
       let displayDate = 'Ngày không xác định';
       if (typeof review.date === 'string' && review.date) {
@@ -867,7 +867,7 @@ const ProductDetail: React.FC = () => {
       } else if (typeof review.createdAt === 'string' && review.createdAt) {
         displayDate = new Date(review.createdAt).toLocaleDateString('vi-VN');
       }
-      
+
       return {
         ...review,
         user: {
@@ -889,10 +889,11 @@ const ProductDetail: React.FC = () => {
   // Handle marking a review as helpful or not helpful
   const handleMarkHelpful = async (reviewId: string, isHelpful: boolean) => {
     try {
-      await ProductService.markReviewHelpful(reviewId);
+      await ProductService.markReviewHelpful(reviewId, isHelpful);
       // Refresh the product data to update the helpful counts
       fetchProduct();
-      toast.success(`Đã đánh giá bài review là hữu ích`);
+      if (isHelpful) toast.success(`Đã đánh giá bài review là hữu ích`);
+      else toast.success(`Đã đánh giá bài review là không hữu ích`);
     } catch (error) {
       console.error('Error marking review as helpful:', error);
       toast.error('Không thể đánh giá bài review. Vui lòng thử lại sau.');
@@ -1015,14 +1016,14 @@ const ProductDetail: React.FC = () => {
 
             <Box display="flex" alignItems="center" mb={3}>
               <Box display="flex" alignItems="center" sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mr: 2 }}>
-                <IconButton 
-                  size="small" 
+                <IconButton
+                  size="small"
                   onClick={() => handleQuantityChange(Math.max(1, quantity - 1))}
                   disabled={product.stock === 0}
                 >
                   <RemoveIcon fontSize="small" />
                 </IconButton>
-                
+
                 <TextField
                   type="number"
                   value={quantity}
@@ -1030,22 +1031,22 @@ const ProductDetail: React.FC = () => {
                     const value = parseInt(e.target.value);
                     if (!isNaN(value)) handleQuantityChange(value);
                   }}
-                  InputProps={{ 
+                  InputProps={{
                     inputProps: { min: 1, max: product.stock },
                     disableUnderline: true,
                   }}
                   disabled={product.stock === 0}
                   variant="standard"
                   size="small"
-                  sx={{ 
-                    width: 50, 
+                  sx={{
+                    width: 50,
                     input: { textAlign: 'center' },
                     '& .MuiInputBase-input': { p: 0.5 }
                   }}
                 />
-                
-                <IconButton 
-                  size="small" 
+
+                <IconButton
+                  size="small"
                   onClick={() => handleQuantityChange(Math.min(product.stock, quantity + 1))}
                   disabled={product.stock === 0 || quantity >= product.stock}
                 >
@@ -1088,8 +1089,8 @@ const ProductDetail: React.FC = () => {
         </Box>
         <TabPanel value={tabValue} index={0}>
           <Typography variant="body1" paragraph>
-            {typeof product.description === 'object' ? 
-              JSON.stringify(product.description) : 
+            {typeof product.description === 'object' ?
+              JSON.stringify(product.description) :
               product.description}
           </Typography>
           <Typography variant="body1" paragraph>
@@ -1109,39 +1110,53 @@ const ProductDetail: React.FC = () => {
           <Typography variant="h6" gutterBottom>
             Đánh giá từ khách hàng
           </Typography>
-          
+
           {processedReviews.length > 0 ? (
             processedReviews.map((review, index) => (
+              // Trong phần hiển thị review, cập nhật đoạn code sau:
+
               <Paper key={review.id || index} elevation={1} sx={{ p: 2, mb: 2 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-            <Box>
+                  <Box>
                     <Typography variant="subtitle1" fontWeight="bold">
                       {review.displayName || review.user?.name || 'Người dùng ẩn danh'}
-                      </Typography>
+                    </Typography>
                     <Box display="flex" alignItems="center">
                       <Rating value={review.rating} readOnly size="small" />
                       <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                         {review.displayDate}
-                    </Typography>
-            </Box>
+                      </Typography>
+                    </Box>
                   </Box>
-                  <Box>
+                  <Box display="flex" alignItems="center">
                     <Button
                       size="small"
                       color={review.isHelpful ? "primary" : "inherit"}
                       startIcon={<ThumbUpIcon />}
                       onClick={() => handleMarkHelpful(review.id, true)}
+                      sx={{
+                        minWidth: 'auto',
+                        '& .MuiButton-startIcon': { margin: 0 }
+                      }}
                     >
-                      Hữu ích ({review.helpfulCount || 0})
+                      <Typography variant="body2" sx={{ ml: 0.5 }}>
+                        {review.helpfulCount || 0}
+                      </Typography>
                     </Button>
                     <Button
                       size="small"
                       color={review.isHelpful === false ? "primary" : "inherit"}
                       startIcon={<ThumbDownIcon />}
                       onClick={() => handleMarkHelpful(review.id, false)}
-                      sx={{ ml: 1 }}
+                      sx={{
+                        ml: 1,
+                        minWidth: 'auto',
+                        '& .MuiButton-startIcon': { margin: 0 }
+                      }}
                     >
-                      Không hữu ích ({review.notHelpfulCount || 0})
+                      <Typography variant="body2" sx={{ ml: 0.5 }}>
+                        {review.notHelpfulCount || 0}
+                      </Typography>
                     </Button>
                     {isAuthenticated && user && (review.userId === user.id?.toString() || review.user?.id === user.id?.toString()) && (
                       <IconButton
@@ -1159,6 +1174,11 @@ const ProductDetail: React.FC = () => {
                 <Typography variant="body1" paragraph sx={{ mt: 1 }}>
                   {review.comment || review.content}
                 </Typography>
+                <Box display="flex" alignItems="center" justifyContent="flex-end" sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {review.helpfulCount || 0} người thấy hữu ích • {review.notHelpfulCount || 0} người không thấy hữu ích
+                  </Typography>
+                </Box>
               </Paper>
             ))
           ) : (
@@ -1166,15 +1186,15 @@ const ProductDetail: React.FC = () => {
               Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá sản phẩm này!
             </Typography>
           )}
-          
+
           {/* Form đánh giá sản phẩm */}
           <Box mt={4}>
             <Divider sx={{ mb: 3 }} />
             <Typography variant="h6" gutterBottom>
               Viết đánh giá của bạn
             </Typography>
-            <ReviewForm 
-              productId={productId as string} 
+            <ReviewForm
+              productId={productId as string}
               onReviewSubmitted={handleReviewSubmitted}
               reviews={product.reviews}
               onDeleteReview={handleDeleteReview}

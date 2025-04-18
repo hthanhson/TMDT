@@ -209,7 +209,7 @@ public class ReviewService {
                 notificationService.createProductNotification(
                     review.getUser(),
                     review.getProduct().getId(),
-                    "Someone found your review helpful!"
+                    "Một người nào đó đã đánh giá bài review của bạn"
                 );
             }
         }
@@ -258,4 +258,5 @@ public class ReviewService {
     public List<Review> getUserReviewsForProduct(User user, Product product) {
         return reviewRepository.findByUserAndProductOrderByCreatedAtDesc(user, product);
     }
+
 } 

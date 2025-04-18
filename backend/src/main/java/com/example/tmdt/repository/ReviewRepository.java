@@ -43,4 +43,5 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * Tìm tất cả các đánh giá của một người dùng cho một sản phẩm cụ thể, sắp xếp theo thời gian tạo giảm dần
      */
     List<Review> findByUserAndProductOrderByCreatedAtDesc(User user, Product product);
+
 } 

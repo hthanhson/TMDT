@@ -90,8 +90,8 @@ const ProductService = {
   },
 
   // Phương thức đánh dấu đánh giá là hữu ích
-  markReviewHelpful(reviewId: string) {
-    return api.post(`${API_URL}/reviews/${reviewId}/helpful`);
+  markReviewHelpful(reviewId: string,isHelpful:boolean) {
+    return api.post(`${API_URL}/reviews/${reviewId}/helpful?isHelpful=${isHelpful}`);
   },
 
   getTopProducts(limit: number = 4) {

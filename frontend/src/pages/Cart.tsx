@@ -35,6 +35,7 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   
+  
   const handleQuantityChange = (id: string, quantity: number) => {
     updateQuantity(id, quantity);
   };

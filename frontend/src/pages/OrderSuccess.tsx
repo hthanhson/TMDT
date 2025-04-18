@@ -17,7 +17,7 @@ const OrderSuccess: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const orderId = location.state?.orderId;
-
+  localStorage.removeItem('pendingOrder');
   useEffect(() => {
     // Redirect to home if accessed directly without an orderId
     if (!orderId) {

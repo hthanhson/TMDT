@@ -7,10 +7,14 @@ import com.example.tmdt.model.User;
 import com.example.tmdt.model.Coupon;
 import com.example.tmdt.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.math.RoundingMode;
 import javax.persistence.EntityNotFoundException;
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -29,19 +33,20 @@ public class OrderService {
     private final ProductService productService;
     private final CouponService couponService;
     private final NotificationService notificationService;
+    private final VNPayService vnpayService;
     private final UserBalanceService userBalanceService;
-    
     @Autowired
     public OrderService(
-            OrderRepository orderRepository, 
-            ProductService productService, 
+            OrderRepository orderRepository,
+            ProductService productService,
             CouponService couponService,
-            NotificationService notificationService,
-            UserBalanceService userBalanceService) {
+            NotificationService notificationService, VNPayService vnPayService, UserBalanceService userBalanceService
+    ) {
         this.orderRepository = orderRepository;
         this.productService = productService;
         this.couponService = couponService;
         this.notificationService = notificationService;
+        this.vnpayService = vnPayService;
         this.userBalanceService = userBalanceService;
     }
     
@@ -57,9 +62,14 @@ public class OrderService {
     public List<Order> getUserOrders(User user) {
         return orderRepository.findByUserOrderByCreatedAtDesc(user);
     }
-    
-    @Transactional
-    public Order createOrder(User user, OrderRequest orderRequest) {
+
+    @Retryable(
+            value = {org.springframework.dao.CannotAcquireLockException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000)
+    )
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public Order createOrder(User user, OrderRequest orderRequest) throws UnsupportedEncodingException {
         // Create new order
         Order order = new Order();
         order.setUser(user);
@@ -68,45 +78,45 @@ public class OrderService {
         order.setPaymentMethod(orderRequest.getPaymentMethod());
         order.setPhoneNumber(orderRequest.getPhoneNumber());
         order.setRecipientName(orderRequest.getRecipientName());
-        
+
         // Calculate total and add items
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
-        
+
         for (OrderItemRequest itemRequest : orderRequest.getItems()) {
-            Product product = productService.getProductById(itemRequest.getProductId());
-            
+            Product product = productService.getProductByIdWithLock(itemRequest.getProductId());
+
             // Check if there's enough stock
             if (product.getStock() < itemRequest.getQuantity()) {
                 throw new RuntimeException("Not enough stock for product: " + product.getName());
             }
-            
+
             // Reduce stock
             product.setStock(product.getStock() - itemRequest.getQuantity());
             productService.updateProduct(product.getId(), product);
-            
+
             // Create order item
             OrderItem orderItem = new OrderItem(product, itemRequest.getQuantity());
             orderItem.setOrder(order);
             orderItems.add(orderItem);
-            
+
             // Add to total
             total = total.add(BigDecimal.valueOf(product.getPrice()).multiply(new BigDecimal(itemRequest.getQuantity())));
         }
-        
+
         order.setOrderItems(orderItems);
         order.calculateTotal(); // Calculate subtotal before applying coupon discount
-        
+
         // Apply coupon if provided
         if (orderRequest.getCouponCode() != null && !orderRequest.getCouponCode().isEmpty()) {
             try {
                 // Validate coupon - use the appropriate method from your CouponService
                 Coupon coupon = couponService.verifyCoupon(
-                    orderRequest.getCouponCode(), 
-                    user, 
+                    orderRequest.getCouponCode(),
+                    user,
                     order.getTotalAmount().doubleValue()
                 );
-                
+
                 if (coupon != null) {
                     // Apply discount
                     BigDecimal discountAmount;
@@ -119,12 +129,12 @@ public class OrderService {
                         // Fixed amount discount - already a BigDecimal, no conversion needed
                         discountAmount = coupon.getDiscountValue();
                     }
-                    
+
                     // Make sure discount doesn't exceed total
                     if (discountAmount.compareTo(order.getTotalAmount()) > 0) {
                         discountAmount = order.getTotalAmount();
                     }
-                    
+
                     order.setCoupon(coupon);
                     order.setDiscountAmount(discountAmount);
                     order.calculateTotal(); // Recalculate total with discount
@@ -134,22 +144,21 @@ public class OrderService {
                 System.out.println("Coupon validation failed: " + e.getMessage());
             }
         }
-        
+
         if (orderRequest.getTotal() != null) {
             // Use the client-provided total that includes the discount
-            order.setTotalAmount(BigDecimal.valueOf(orderRequest.getTotal()));
+            order.setTotalAmount(BigDecimal.valueOf(orderRequest.getTotal()).divide(new BigDecimal("1000"), 0, RoundingMode.HALF_UP)  // Chia 1000 và làm tròn số nguyên
+                    .multiply(new BigDecimal("1000")));
         } else {
             // If no client total is provided, calculate the total with discount
             order.calculateTotal();
         }
-        
-        // Process payment based on payment method
         if ("account_balance".equals(orderRequest.getPaymentMethod())) {
             // Check if user has sufficient balance
             if (!userBalanceService.hasSufficientBalance(user, order.getTotalAmount())) {
                 throw new RuntimeException("Insufficient account balance to complete payment");
             }
-            
+
             // Process payment using user's balance
             try {
                 userBalanceService.processOrderPayment(user, order.getTotalAmount(), order.getId());
@@ -161,35 +170,115 @@ public class OrderService {
             // For other payment methods, just set status as pending
             order.setPaymentStatus("PROCESSING");
         }
-        
         // Save the order initially
         Order savedOrder = orderRepository.save(order);
-        
-        // Update the status to CONFIRMED after successful order creation
+
+        // Update the status to READY_TO_SHIP after successful order creation
         savedOrder.setStatus(Order.OrderStatus.READY_TO_SHIP);
         savedOrder = orderRepository.save(savedOrder);
-        
+
         // Create notification for order success
         String title = "Đặt hàng thành công";
-        String message = String.format("Đơn hàng #%d của bạn đã được xác nhận. Tổng tiền: %.2f VND. Cảm ơn bạn đã mua sắm!", 
+        String message = String.format("Đơn hàng #%d của bạn đã được xác nhận. Tổng tiền: %.2f VND. Cảm ơn bạn đã mua sắm!",
                 savedOrder.getId(), savedOrder.getTotalAmount().doubleValue());
-        
+
         Map<String, Object> additionalData = new HashMap<>();
         additionalData.put("orderId", savedOrder.getId());
         additionalData.put("totalAmount", savedOrder.getTotalAmount().doubleValue());
-        additionalData.put("status", Order.OrderStatus.CONFIRMED.name());
-        
+        additionalData.put("status", Order.OrderStatus.READY_TO_SHIP.name());
+
         notificationService.createNotificationForUser(
-            user, 
-            title, 
-            message, 
-            "ORDER_STATUS_CHANGE", 
+            user,
+            title,
+            message,
+            "ORDER_STATUS_CHANGE",
             additionalData
         );
-        
+
         return savedOrder;
     }
-    
+    @Transactional
+    public BigDecimal GetAmount(User user,OrderRequest orderRequest) {
+
+        Order order = new Order();
+        List<OrderItem> orderItems = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (OrderItemRequest itemRequest : orderRequest.getItems()) {
+            Product product = productService.getProductById(itemRequest.getProductId());
+
+            // Check if there's enough stock
+            if (product.getStock() < itemRequest.getQuantity()) {
+                throw new RuntimeException("Not enough stock for product: " + product.getName());
+            }
+
+            // Reduce stock
+            product.setStock(product.getStock() - itemRequest.getQuantity());
+            productService.updateProduct(product.getId(), product);
+
+            // Create order item
+            OrderItem orderItem = new OrderItem(product, itemRequest.getQuantity());
+            orderItem.setOrder(order);
+            orderItems.add(orderItem);
+
+            // Add to total
+            total = total.add(BigDecimal.valueOf(product.getPrice()).multiply(new BigDecimal(itemRequest.getQuantity())));
+        }
+
+        order.setOrderItems(orderItems);
+        order.calculateTotal(); // Calculate subtotal before applying coupon discount
+
+        // Apply coupon if provided
+        if (orderRequest.getCouponCode() != null && !orderRequest.getCouponCode().isEmpty()) {
+            try {
+                // Validate coupon - use the appropriate method from your CouponService
+                Coupon coupon = couponService.verifyCoupon(
+                        orderRequest.getCouponCode(),
+                        user,
+                        order.getTotalAmount().doubleValue()
+                );
+
+                if (coupon != null) {
+                    // Apply discount
+                    BigDecimal discountAmount;
+                    if ("PERCENTAGE".equals(coupon.getDiscountType())) {
+                        // Calculate percentage discount using BigDecimal operations
+                        BigDecimal hundred = new BigDecimal("100");
+                        BigDecimal percentage = coupon.getDiscountValue().divide(hundred, 6, BigDecimal.ROUND_HALF_UP);
+                        discountAmount = order.getTotalAmount().multiply(percentage);
+                    } else {
+                        // Fixed amount discount - already a BigDecimal, no conversion needed
+                        discountAmount = coupon.getDiscountValue();
+                    }
+
+                    // Make sure discount doesn't exceed total
+                    if (discountAmount.compareTo(order.getTotalAmount()) > 0) {
+                        discountAmount = order.getTotalAmount();
+                    }
+
+                    order.setCoupon(coupon);
+                    order.setDiscountAmount(discountAmount);
+                    order.calculateTotal(); // Recalculate total with discount
+                }
+            } catch (Exception e) {
+                // If coupon validation fails, continue without applying coupon
+                System.out.println("Coupon validation failed: " + e.getMessage());
+            }
+        }
+        BigDecimal finalAmount;
+        if (orderRequest.getTotal() != null) {
+            // Use the client-provided total that includes the discount
+            finalAmount= BigDecimal.valueOf(orderRequest.getTotal());
+        } else {
+            // If no client total is provided, calculate the total with discount
+            finalAmount=order.calculateTotal();
+        }
+        BigDecimal rounded = finalAmount
+                .divide(new BigDecimal("1000"), 0, RoundingMode.HALF_UP)  // Chia 1000 và làm tròn số nguyên
+                .multiply(new BigDecimal("1000"));
+        return rounded;
+    }
+
     @Transactional
     public Order cancelOrder(Long orderId, User user) {
         Order order = getOrderById(orderId);
@@ -205,9 +294,9 @@ public class OrderService {
         }
         
         // If payment was made with account balance, process refund
-        if ("account_balance".equals(order.getPaymentMethod()) && "PAID".equals(order.getPaymentStatus())) {
-            userBalanceService.refundOrderPayment(user, order.getTotalAmount(), orderId);
-        }
+//        if ("account_balance".equals(order.getPaymentMethod()) && "PAID".equals(order.getPaymentStatus())) {
+//            userBalanceService.refundOrderPayment(user, order.getTotalAmount(), orderId);
+//        }
         
         // Return items to stock
         for (OrderItem item : order.getOrderItems()) {
@@ -219,6 +308,7 @@ public class OrderService {
         // Update order status
         order.setStatus(Order.OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
+        order.setPaymentStatus("CANCELLED");
         
         Order savedOrder = orderRepository.save(order);
         
@@ -306,7 +396,7 @@ public class OrderService {
             throw new RuntimeException("Đơn hàng này đã được hoàn tiền trước đó");
         }
         
-        // Hoàn tiền dựa trên phương thức thanh toán
+//         Hoàn tiền dựa trên phương thức thanh toán
         if ("account_balance".equals(order.getPaymentMethod()) || "credit".equals(order.getPaymentMethod())) {
             // Hoàn tiền vào tài khoản người dùng
             userBalanceService.refundOrderPayment(order.getUser(), order.getTotalAmount(), orderId);
@@ -315,7 +405,7 @@ public class OrderService {
             // Đối với COD, chỉ cần đánh dấu là đã hủy vì khách hàng chưa thanh toán
             order.setPaymentStatus("CANCELLED");
         }
-        
+
         order.setUpdatedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
         

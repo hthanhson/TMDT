@@ -72,7 +72,7 @@ export const refreshHeaderNotifications = () => {
   console.log("Triggering global header notification refresh");
   const event = new CustomEvent(NOTIFICATION_UPDATE_EVENT);
   window.dispatchEvent(event);
-  
+  console.log("ok123")
   // Add a fallback approach - sometimes events might not work reliably
   // Try to directly fetch notifications through the service
   try {

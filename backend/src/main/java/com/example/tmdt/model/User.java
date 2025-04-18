@@ -78,13 +78,13 @@ public class User {
     @JsonIgnore
     private List<Coupon> coupons = new ArrayList<>();
     
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore
-    private UserBalance userBalance;
+//    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+//    @JsonIgnore
+//    private UserBalance userBalance;
     
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
-    private List<BalanceTransaction> balanceTransactions = new ArrayList<>();
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+//    @JsonIgnore
+//    private List<BalanceTransaction> balanceTransactions = new ArrayList<>();
     
     public User(String username, String email, String password, String fullName) {
         this.username = username;

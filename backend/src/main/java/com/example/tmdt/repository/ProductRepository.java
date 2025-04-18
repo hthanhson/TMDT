@@ -2,9 +2,11 @@ package com.example.tmdt.repository;
 
 import com.example.tmdt.model.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -22,4 +24,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findTop10ByOrderBySoldCountDesc();
     
     List<Product> findByCategory_IdAndIdNot(Long categoryId, Long productId);
+    @Query("SELECT p FROM Product p WHERE p.id = :id")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Product findByIdWithLock(@Param("id") Long id);
 } 
