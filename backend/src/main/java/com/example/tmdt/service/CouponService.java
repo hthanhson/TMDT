@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -148,14 +151,41 @@ public class CouponService {
         Coupon coupon = couponRepository.findByCode(code)
                 .orElseThrow(() -> new RuntimeException("Invalid coupon code"));
         
-        // Kiểm tra coupon có active không
+        // Kiểm tra coupon có active không trước khi thực hiện các kiểm tra khác
         if (!coupon.getIsActive()) {
             throw new RuntimeException("Coupon is not active");
         }
         
-        // Kiểm tra coupon có hết hạn không
-        if (coupon.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Coupon has expired");
+        // Kiểm tra thời gian hiệu lực của coupon
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Kiểm tra ngày bắt đầu
+        if (coupon.getStartDate() != null && now.isBefore(coupon.getStartDate())) {
+            throw new RuntimeException("Coupon is not yet active, valid from: " + coupon.getStartDate());
+        }
+        
+        // Kiểm tra coupon có hết hạn không - kiểm tra cả expiryDate và endDate
+        boolean isExpired = false;
+        String expiryMessage = "";
+        
+        // Kiểm tra theo expiryDate
+        LocalDateTime expiryDate = coupon.getExpiryDate();
+        if (expiryDate != null && now.isAfter(expiryDate)) {
+            isExpired = true;
+            expiryMessage = "Coupon has expired on: " + expiryDate;
+        }
+        
+        // Kiểm tra theo endDate
+        if (!isExpired && coupon.getEndDate() != null && now.isAfter(coupon.getEndDate())) {
+            isExpired = true;
+            expiryMessage = "Coupon has expired on: " + coupon.getEndDate();
+        }
+        
+        // Nếu phiếu đã hết hạn, đánh dấu là không active và thông báo lỗi
+        if (isExpired) {
+            coupon.setIsActive(false);
+            couponRepository.save(coupon);
+            throw new RuntimeException(expiryMessage);
         }
         
         // Kiểm tra coupon có thuộc về user cụ thể không, nếu có thì kiểm tra user hiện tại
@@ -181,6 +211,19 @@ public class CouponService {
             coupon.setIsActive(false);
             couponRepository.save(coupon);
         }
+        
+        // Nếu có số lần sử dụng tối đa, cần cập nhật số lần đã sử dụng
+        if (coupon.getMaxUses() != null) {
+            int usedCount = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
+            coupon.setUsedCount(usedCount + 1);
+            
+            // Nếu đã sử dụng đạt tới giới hạn, deactivate coupon
+            if (coupon.getMaxUses() <= (usedCount + 1)) {
+                coupon.setIsActive(false);
+            }
+            
+            couponRepository.save(coupon);
+        }
     }
     
     @Transactional
@@ -194,10 +237,22 @@ public class CouponService {
     
     @Transactional
     public void deactivateExpiredCoupons() {
-        List<Coupon> expiredCoupons = couponRepository.findByIsActiveAndExpiryDateBefore(true, LocalDateTime.now());
-        for (Coupon coupon : expiredCoupons) {
-            coupon.setIsActive(false);
-            couponRepository.save(coupon);
+        int count = deactivateAllExpiredCoupons();
+        if (count > 0) {
+            System.out.println("Scheduled task: Deactivated " + count + " expired coupons.");
+        }
+    }
+    
+    // Tự động chạy hàng ngày lúc 00:01
+    @Scheduled(cron = "0 1 0 * * ?")
+    @Transactional
+    public void scheduledDeactivateExpiredCoupons() {
+        try {
+            deactivateExpiredCoupons();
+        } catch (Exception e) {
+            // Log lỗi nhưng không làm fail ứng dụng
+            System.err.println("Error while deactivating expired coupons: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -246,5 +301,46 @@ public class CouponService {
         Coupon coupon = getCouponById(id);
         coupon.setIsActive(false);
         couponRepository.save(coupon);
+    }
+
+    // Chạy khi ứng dụng khởi động để vô hiệu hóa tất cả phiếu giảm giá quá hạn
+    @EventListener(ContextRefreshedEvent.class)
+    @Transactional
+    public void onApplicationStartup() {
+        try {
+            System.out.println("Deactivating expired coupons on application startup...");
+            int count = deactivateAllExpiredCoupons();
+            System.out.println("Deactivated " + count + " expired coupons on startup.");
+        } catch (Exception e) {
+            System.err.println("Error while deactivating expired coupons on startup: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Phương thức cập nhật để trả về số phiếu giảm giá bị vô hiệu hóa
+    @Transactional
+    public int deactivateAllExpiredCoupons() {
+        LocalDateTime now = LocalDateTime.now();
+        int count = 0;
+        
+        // Tìm tất cả phiếu đang active mà đã quá hạn theo expiryDate
+        List<Coupon> expiredCoupons = couponRepository.findByIsActiveAndExpiryDateBefore(true, now);
+        for (Coupon coupon : expiredCoupons) {
+            coupon.setIsActive(false);
+            couponRepository.save(coupon);
+            count++;
+        }
+        
+        // Tìm tất cả phiếu đang active mà đã quá hạn theo endDate
+        List<Coupon> expiredByEndDate = couponRepository.findByIsActiveAndEndDateBefore(true, now);
+        for (Coupon coupon : expiredByEndDate) {
+            if (coupon.getIsActive()) { // Tránh đếm trùng lặp
+                coupon.setIsActive(false);
+                couponRepository.save(coupon);
+                count++;
+            }
+        }
+        
+        return count;
     }
 }

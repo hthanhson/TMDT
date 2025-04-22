@@ -24,6 +24,8 @@ public interface CouponRepository extends JpaRepository<Coupon, Long> {
     
     List<Coupon> findByIsActiveAndExpiryDateBefore(boolean isActive, LocalDateTime date);
     
+    List<Coupon> findByIsActiveAndEndDateBefore(boolean isActive, LocalDateTime date);
+    
     List<Coupon> findByUserAndIsActiveAndExpiryDateAfter(User user, boolean isActive, LocalDateTime date);
     
     @Query("SELECT c FROM Coupon c WHERE c.isActive = true AND c.startDate <= ?1 AND c.endDate >= ?1")

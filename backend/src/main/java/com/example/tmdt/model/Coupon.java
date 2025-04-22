@@ -49,12 +49,11 @@ public class Coupon {
     @Column(name = "min_purchase_amount")
     private BigDecimal minPurchaseAmount;
 
-//    @NotNull
-//    @Column(name = "max_uses")
-//    private Integer maxUses;
-
     @Column(name = "used_count")
     private Integer usedCount = 0;
+
+    @Column(name = "max_uses")
+    private Integer maxUses;
 
     @Column(name = "start_date", nullable = false)
     private LocalDateTime startDate;
@@ -93,14 +92,6 @@ public class Coupon {
         updatedAt = LocalDateTime.now();
     }
 
-//    public boolean isValid() {
-//        LocalDateTime now = LocalDateTime.now();
-//        return isActive &&
-//               now.isAfter(startDate) &&
-//               now.isBefore(endDate) &&
-//               (maxUses == null || usedCount < maxUses);
-//    }
-//
     // Additional methods for CouponService
     public boolean getIsActive() {
         return isActive;
@@ -120,5 +111,21 @@ public class Coupon {
 
     public void setIsActive(boolean isActive) {
         this.isActive = isActive;
+    }
+
+    public Integer getMaxUses() {
+        return maxUses;
+    }
+
+    public void setMaxUses(Integer maxUses) {
+        this.maxUses = maxUses;
+    }
+
+    public Integer getUsedCount() {
+        return usedCount;
+    }
+
+    public void setUsedCount(Integer usedCount) {
+        this.usedCount = usedCount;
     }
 } 

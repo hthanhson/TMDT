@@ -138,6 +138,9 @@ public class OrderService {
                     order.setCoupon(coupon);
                     order.setDiscountAmount(discountAmount);
                     order.calculateTotal(); // Recalculate total with discount
+                    
+                    // Không đánh dấu phiếu giảm giá ở đây - chỉ khi hoàn thành thanh toán
+                    // Phiếu giảm giá sẽ được đánh dấu đã sử dụng trong createOrder
                 }
             } catch (Exception e) {
                 // If coupon validation fails, continue without applying coupon
@@ -172,6 +175,16 @@ public class OrderService {
         }
         // Save the order initially
         Order savedOrder = orderRepository.save(order);
+
+        // Đánh dấu phiếu giảm giá đã sử dụng nếu đơn hàng đã được tạo thành công
+        if (orderRequest.getCouponCode() != null && !orderRequest.getCouponCode().isEmpty()) {
+            try {
+                couponService.useCoupon(orderRequest.getCouponCode());
+            } catch (Exception e) {
+                // Log lỗi nhưng không ảnh hưởng đến việc tạo đơn hàng
+                System.err.println("Error marking coupon as used: " + e.getMessage());
+            }
+        }
 
         // Update the status to READY_TO_SHIP after successful order creation
         savedOrder.setStatus(Order.OrderStatus.READY_TO_SHIP);

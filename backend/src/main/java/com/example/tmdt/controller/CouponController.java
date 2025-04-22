@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -185,6 +186,24 @@ public class CouponController {
         } catch (Exception e) {
             logger.error("Error deactivating coupon: {}", e.getMessage());
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/deactivate-expired")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deactivateExpiredCoupons() {
+        logger.info("Admin requesting deactivation of all expired coupons");
+        try {
+            int count = couponService.deactivateAllExpiredCoupons();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Successfully deactivated " + count + " expired coupons");
+            response.put("deactivatedCount", count);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error deactivating expired coupons: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Error deactivating expired coupons: " + e.getMessage()));
         }
     }
 }

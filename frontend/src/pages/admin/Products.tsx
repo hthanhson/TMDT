@@ -74,29 +74,135 @@ const AdminProducts: React.FC = () => {
     try {
       setLoading(true);
       const response = await AdminService.getAllProducts();
-      console.log('Products API response:', response);
+      console.log('Products API raw response:', response);
       
-      if (response && response.data) {
-        if (response.data.content) {
-          // Dữ liệu trả về theo dạng phân trang
-          console.log('Setting products from paginated data:', response.data.content);
-          setProducts(response.data.content);
-        } else if (Array.isArray(response.data)) {
-          // Dữ liệu trả về trực tiếp là mảng
-          console.log('Setting products from array data:', response.data);
-          setProducts(response.data);
-        } else {
-          console.error('Unexpected data format:', response.data);
-          setProducts([]);
-        }
-      } else {
-        console.error('Invalid response format:', response);
-        setProducts([]);
+      // Đảm bảo console.log hoạt động tốt ngay cả với dữ liệu lớn
+      try {
+        console.log('Products API response (stringified):', JSON.stringify(response).slice(0, 500) + '...');
+      } catch (e) {
+        console.log('Failed to stringify response:', e);
       }
       
-      setError(null);
+      // Kiểm tra chi tiết cấu trúc response
+      console.log('Response type:', typeof response);
+      console.log('Response keys:', response ? Object.keys(response) : 'No response');
+      
+      // Một số backend có thể trả về response trong định dạng khác
+      // Thử tìm hiểu nơi có thể chứa dữ liệu
+      let possibleDataContainers = [];
+      if (response) {
+        possibleDataContainers = [
+          response,
+          response.data,
+          response.body,
+          response.content,
+          response.items,
+          response.products,
+          response.result,
+          response.results,
+        ].filter(Boolean); // Chỉ giữ lại những giá trị không null/undefined
+      }
+      
+      console.log('Possible data containers found:', possibleDataContainers.length);
+      
+      let productsData = [];
+      
+      if (response && typeof response === 'object') {
+        // Case 1: Dữ liệu trả về trực tiếp trong response (không có data wrapper)
+        if (Array.isArray(response)) {
+          console.log('Response is directly an array');
+          productsData = response;
+        } 
+        // Case 2: Dữ liệu được đóng gói trong response.data
+        else if (response.data) {
+          console.log('Response has data property, type:', typeof response.data);
+          
+          // Case 2.1: response.data là một mảng
+          if (Array.isArray(response.data)) {
+            console.log('Data is an array with length:', response.data.length);
+            productsData = response.data;
+          } 
+          // Case 2.2: response.data là một object có thuộc tính content (dạng phân trang)
+          else if (response.data.content && Array.isArray(response.data.content)) {
+            console.log('Data is paginated, content length:', response.data.content.length);
+            productsData = response.data.content;
+          } 
+          // Case 2.3: response.data là một object đơn lẻ (một sản phẩm)
+          else if (typeof response.data === 'object' && !Array.isArray(response.data)) {
+            console.log('Data is a single object');
+            productsData = [response.data];
+          }
+        }
+        // Case 3: Response có thuộc tính content trực tiếp (phân trang không qua data)
+        else if (response.content && Array.isArray(response.content)) {
+          console.log('Response has content array directly, length:', response.content.length);
+          productsData = response.content;
+        }
+        // Case 4: Response là object sản phẩm đơn lẻ
+        else if (response.id) {
+          console.log('Response appears to be a single product');
+          productsData = [response];
+        }
+      }
+      
+      console.log('Extracted products data:', productsData);
+      console.log('Products data length:', productsData.length);
+      
+      if (productsData.length > 0) {
+        // Chuẩn hóa dữ liệu để đảm bảo các trường cần thiết đều có giá trị
+        const normalizedProducts = productsData.map((product: any) => {
+          console.log('Processing product:', product);
+          
+          // Xử lý category có thể ở nhiều dạng khác nhau
+          let categoryValue = '';
+          if (product.category) {
+            if (typeof product.category === 'object' && product.category !== null) {
+              categoryValue = product.category.name || product.category.title || JSON.stringify(product.category);
+            } else if (typeof product.category === 'string') {
+              categoryValue = product.category;
+            } else {
+              categoryValue = String(product.category);
+            }
+          }
+          
+          return {
+            id: product.id || '',
+            name: product.name || '',
+            description: product.description || '',
+            price: typeof product.price === 'number' ? product.price : 
+                   typeof product.price === 'string' ? parseFloat(product.price) || 0 : 0,
+            category: categoryValue,
+            categoryObject: product.category, // Lưu lại object gốc để sử dụng nếu cần
+            stock: typeof product.stock === 'number' ? product.stock : 
+                   typeof product.stock === 'string' ? parseInt(product.stock) || 0 : 0,
+            imageUrl: product.imageUrl || product.image || '',
+            rating: product.rating || 0,
+            createdAt: product.createdAt || '',
+            updatedAt: product.updatedAt || ''
+          };
+        });
+        
+        console.log('Normalized products:', normalizedProducts);
+        setProducts(normalizedProducts);
+        setError(null);
+      } else {
+        console.error('No products data found in response', response);
+        setProducts([]);
+        if (response && response.data) {
+          setError('No products data found. Server returned data in an unexpected format.');
+        } else if (response) {
+          setError('No products data found. Server response is empty or invalid.');
+        } else {
+          setError('No response received from server.');
+        }
+      }
     } catch (err: any) {
       console.error('Error fetching products:', err);
+      if (err.response) {
+        console.error('Error response:', err.response);
+        console.error('Error response status:', err.response.status);
+        console.error('Error response data:', err.response.data);
+      }
       setError(err.response?.data?.message || 'Failed to fetch products');
       setProducts([]);
     } finally {
@@ -104,15 +210,34 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  const handleOpenDialog = (product: any = null) => {
+  const handleOpenDialog = (product: Product | any = null) => {
     if (product) {
       setCurrentProduct(product);
+      
+      // Xử lý category cẩn thận
+      let categoryValue = '';
+      if (product.category) {
+        if (typeof product.category === 'object' && product.category !== null) {
+          categoryValue = product.category.name || product.category.title || '';
+        } else {
+          categoryValue = String(product.category);
+        }
+      }
+      
       setFormData({
-        name: product.name,
-        description: product.description,
-        price: product.price.toString(),
-        category: product.category,
-        stock: product.stock.toString(),
+        name: product.name || '',
+        description: product.description || '',
+        price: typeof product.price === 'number' 
+          ? product.price.toString() 
+          : typeof product.price === 'string' 
+            ? product.price 
+            : '0',
+        category: categoryValue,
+        stock: typeof product.stock === 'number' 
+          ? product.stock.toString() 
+          : typeof product.stock === 'string' 
+            ? product.stock 
+            : '0',
         imageFile: null,
       });
     } else {
@@ -177,7 +302,8 @@ const AdminProducts: React.FC = () => {
       handleCloseDialog();
     } catch (err: any) {
       console.error('Error saving product:', err);
-      setError('Failed to save product');
+      const errorMessage = err.response?.data?.message || 'Failed to save product';
+      setError(errorMessage);
     }
   };
 
@@ -222,7 +348,33 @@ const AdminProducts: React.FC = () => {
         </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={() => fetchProducts()}
+            >
+              Thử lại
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Debug information - hidden in production */}
+      {process.env.NODE_ENV !== 'production' && error && (
+        <Paper sx={{ p: 2, mb: 2, maxHeight: 200, overflow: 'auto' }}>
+          <Typography variant="subtitle2" color="error">Debug information</Typography>
+          <pre style={{ fontSize: '0.75rem' }}>
+            {JSON.stringify({ products, error }, null, 2)}
+          </pre>
+        </Paper>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
@@ -239,23 +391,38 @@ const AdminProducts: React.FC = () => {
           <TableBody>
             {Array.isArray(products) && products.length > 0 ? (
               products.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id || Math.random().toString()}>
                   <TableCell>
                     <Box
                       component="img"
                       sx={{ width: 50, height: 50, objectFit: 'contain' }}
                       src={product.imageUrl || 'https://via.placeholder.com/50'}
-                      alt={product.name}
+                      alt={product.name || 'Product image'}
                     />
                   </TableCell>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
+                  <TableCell>{product.name || 'Unnamed product'}</TableCell>
                   <TableCell>
-                    <Chip label={product.category?.name || product.category} size="small" />
+                    {typeof product.price === 'number' 
+                      ? `$${product.price.toFixed(2)}` 
+                      : typeof product.price === 'string' 
+                        ? `$${parseFloat(product.price).toFixed(2)}` 
+                        : '$0.00'}
                   </TableCell>
                   <TableCell>
-                    {product.stock > 0 ? (
+                    <Chip 
+                      label={
+                        typeof product.category === 'object' && product.category !== null
+                          ? product.category.name || product.category.title || 'Uncategorized'
+                          : product.category || 'Uncategorized'
+                      } 
+                      size="small" 
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {typeof product.stock === 'number' && product.stock > 0 ? (
                       product.stock
+                    ) : typeof product.stock === 'string' && parseInt(product.stock) > 0 ? (
+                      parseInt(product.stock)
                     ) : (
                       <Chip label="Out of stock" color="error" size="small" />
                     )}
@@ -264,7 +431,11 @@ const AdminProducts: React.FC = () => {
                     <IconButton onClick={() => handleOpenDialog(product)}>
                       <EditIcon />
                     </IconButton>
-                    <IconButton onClick={() => handleDeleteProduct(product.id)} color="error">
+                    <IconButton 
+                      onClick={() => handleDeleteProduct(product.id)} 
+                      color="error" 
+                      disabled={!product.id}
+                    >
                       <DeleteIcon />
                     </IconButton>
                   </TableCell>
