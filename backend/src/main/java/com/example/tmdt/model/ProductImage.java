@@ -24,7 +24,7 @@ public class ProductImage {
     @JsonIgnore
     private Product product;
     
-    @Column(name = "image_url", nullable = false)
+    @Column(name = "url", nullable = false)
     private String imageUrl;
     
     @Column(name = "display_order")

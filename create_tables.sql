@@ -200,7 +200,7 @@ CREATE TABLE wishlist (
   INDEX idx_wishlist_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE user_balance (
+CREATE TABLE user_balances (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   balance DECIMAL(10,2) DEFAULT 0.00,
@@ -209,7 +209,7 @@ CREATE TABLE user_balance (
   UNIQUE KEY uk_user_balance_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE balance_transaction (
+CREATE TABLE balance_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
