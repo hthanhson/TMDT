@@ -19,7 +19,7 @@ import lombok.ToString;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"orderItems", "user"})
+@ToString(exclude = {"orderItems", "user", "refundRequest"})
 @JsonIdentityInfo(
         generator = ObjectIdGenerators.PropertyGenerator.class,
         property = "id")
@@ -97,6 +97,13 @@ public class Order {
     @Column(name = "discount_amount")
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private RefundRequest refundRequest;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "refund_status")
+    private RefundStatus refundStatus;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -157,6 +164,15 @@ public class Order {
         RETURNED            // Hoàn trả
     }
 
+    public enum RefundStatus {
+        NONE,       // Không có yêu cầu hoàn tiền
+        REQUESTED,  // Đã yêu cầu hoàn tiền
+        REVIEWING,  // Đang xem xét
+        APPROVED,   // Đã chấp nhận
+        REJECTED,   // Từ chối
+        COMPLETED   // Đã hoàn tiền
+    }
+
     public Order(Long userId, BigDecimal totalAmount, String shippingAddress, 
                 String billingAddress, String phoneNumber, String recipientName) {
         this.userId = userId;
@@ -168,6 +184,7 @@ public class Order {
         this.status = OrderStatus.PENDING;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        this.refundStatus = RefundStatus.NONE;
     }
 
     public void updateStatus(OrderStatus newStatus) {

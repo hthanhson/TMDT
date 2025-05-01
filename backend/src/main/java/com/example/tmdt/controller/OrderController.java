@@ -2,23 +2,32 @@ package com.example.tmdt.controller;
 
 import com.example.tmdt.model.Order;
 import com.example.tmdt.model.User;
-import com.example.tmdt.service.OrderService;
-import com.example.tmdt.service.UserService;
+import com.example.tmdt.model.RefundRequest;
 import com.example.tmdt.payload.request.OrderRequest;
+import com.example.tmdt.payload.request.RefundRequestDto;
+import com.example.tmdt.payload.response.MessageResponse;
+import com.example.tmdt.payload.response.OrderResponse;
+import com.example.tmdt.service.OrderService;
+import com.example.tmdt.service.RefundService;
+import com.example.tmdt.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import javax.validation.Valid;
 import java.io.UnsupportedEncodingException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -27,11 +36,13 @@ public class OrderController {
 
     private final OrderService orderService;
     private final UserService userService;
+    private final RefundService refundService;
 
     @Autowired
-    public OrderController(OrderService orderService, UserService userService) {
+    public OrderController(OrderService orderService, UserService userService, RefundService refundService) {
         this.orderService = orderService;
         this.userService = userService;
+        this.refundService = refundService;
     }
     @PostMapping
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
@@ -228,6 +239,78 @@ public class OrderController {
             return ResponseEntity.ok(orderService.refundOrder(id));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping(value = "/{id}/request-refund", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<?> requestRefund(
+            @PathVariable Long id,
+            @RequestPart("reason") @Valid String reason,
+            @RequestPart(value = "additionalInfo", required = false) String additionalInfo,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+        try {
+            // Get current user
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = userService.getUserByUsername(auth.getName());
+            
+            // Get the order
+            Order order = orderService.getOrderById(id);
+            
+            // Check if current user is the owner of the order
+            if (!order.getUserId().equals(user.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new MessageResponse("You don't have permission to request a refund for this order"));
+            }
+            
+            // Create RefundRequestDto
+            RefundRequestDto requestDto = new RefundRequestDto();
+            requestDto.setOrderId(id);
+            requestDto.setReason(reason);
+            requestDto.setAdditionalInfo(additionalInfo);
+            
+            // Process refund request
+            RefundRequest refundRequest = refundService.createRefundRequest(user, requestDto, images);
+            return ResponseEntity.ok(refundRequest);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Failed to request refund: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/refund-status")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<?> getRefundStatus(@PathVariable Long id) {
+        try {
+            // Get current user
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = userService.getUserByUsername(auth.getName());
+            
+            // Get the order
+            Order order = orderService.getOrderById(id);
+            
+            // Check if current user is the owner of the order or an admin
+            boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!order.getUserId().equals(user.getId()) && !isAdmin) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                      .body(new MessageResponse("You don't have permission to view this order's refund status"));
+            }
+            
+            // Get refund request for the order
+            Optional<RefundRequest> refundRequestOpt = refundService.getRefundRequestByOrderId(id);
+            
+            if (refundRequestOpt.isPresent()) {
+                return ResponseEntity.ok(refundRequestOpt.get());
+            } else {
+                return ResponseEntity.ok(new MessageResponse("No refund request found for this order"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Error retrieving refund status: " + e.getMessage()));
         }
     }
 } 

@@ -8,17 +8,30 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface RefundRequest {
+  id: number;
+  orderId: number;
+  reason: string;
+  additionalInfo?: string;
+  status: 'REQUESTED' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  imageUrls?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: number;
   createdAt: string;
   updatedAt: string;
-  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | string;
+  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'COMPLETED' | string;
   paymentMethod: string;
   paymentStatus: string;
   shippingAddress: string;
   totalAmount: number;
   orderItems: OrderItem[];
   discountAmount?: number;
+  refundStatus?: 'REQUESTED' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  refundRequest?: RefundRequest;
   coupon?: {
     id: number;
     code: string;
@@ -27,11 +40,11 @@ export interface Order {
 }
 
 export interface OrderData {
+  shippingAddress: string;
   items: Array<{
-    productId: string | number;
+    productId: number;
     quantity: number;
   }>;
-  shippingAddress: string;
   paymentMethod: string;
   phoneNumber: string;
   recipientName: string;

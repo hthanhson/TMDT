@@ -45,11 +45,11 @@ public class PaymentController {
         return ResponseEntity.ok(vnpay);
     }
 
-//    @GetMapping("/PaySuccess")
-//    public ResponseEntity<String>transaction(
-//            @RequestParam(value ="vnp_ResponseCode") String responseCode
-//    ){
-//        String res = responseCode.equals("00") ? "Success" : "Fail";
-//        return ResponseEntity.ok(res);
-//    }
+    @GetMapping("/PaySuccess")
+    public ResponseEntity<String>transaction(
+            @RequestParam(value ="vnp_ResponseCode") String responseCode
+    ){
+        String res = responseCode.equals("00") ? "Success" : "Fail";
+        return ResponseEntity.ok(res);
+    }
 }

@@ -113,13 +113,8 @@ const ChatBot: React.FC = () => {
   // Initial greeting when chat opens
   useEffect(() => {
     if (open && messages.length === 0) {
-      const greeting: Message = {
-        id: generateMessageId(),
-        text: `Hi${user ? ' ' + user.username : ' there'}! You'll be connected to a support agent as soon as you send a message.`,
-        sender: 'system',
-        timestamp: new Date(),
-      };
-      setMessages([greeting]);
+      // Loại bỏ thông báo chào ban đầu
+      // Không thêm bất kỳ tin nhắn hệ thống nào ban đầu
     }
   }, [open, user, messages.length]);
 
@@ -146,24 +141,7 @@ const ChatBot: React.FC = () => {
             localStorage.removeItem('chatSessionId');
             setCurrentSessionId(null);
             
-            // Thêm tin nhắn hệ thống thông báo session không còn tồn tại
-            const systemMessage: Message = {
-              id: generateMessageId(),
-              text: "Your previous chat session is no longer available. Please send a message to start a new conversation.",
-              sender: 'system',
-              timestamp: new Date(),
-            };
-            
-            // Chỉ thêm thông báo nếu người dùng mở chat
-            if (open) {
-              setMessages(prev => {
-                // Nếu prev chỉ có 1 tin nhắn chào đón, thêm thông báo vào sau
-                if (prev.length === 1 && prev[0].sender === 'system') {
-                  return [...prev, systemMessage];
-                }
-                return prev;
-              });
-            }
+            // Loại bỏ thông báo hệ thống về session không tồn tại
           } else {
             // Session vẫn tồn tại, chỉ tải tin nhắn khi người dùng mở chat
             if (open) {
@@ -239,14 +217,7 @@ const ChatBot: React.FC = () => {
           setCurrentSessionId(null);
           setChatWithAdmin(false);
           
-          // Add system message but do NOT automatically create a new session
-          const sessionErrorMessage: Message = {
-            id: generateMessageId(),
-            text: "Your chat session has expired or was deleted. Please send a new message to start a conversation.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, sessionErrorMessage]);
+          // Loại bỏ thông báo về session hết hạn
           return; // Dừng thực thi hàm
         }
       } catch (err) {
@@ -282,11 +253,11 @@ const ChatBot: React.FC = () => {
           console.error('WebSocket connection timeout');
           newSocket.close();
           
-          // Show error message to user only on first attempt
+          // Giữ lại thông báo về lỗi kết nối nhưng chỉ hiển thị một lần
           if (!hasShownConnectionError) {
             const errorMessage: Message = {
               id: generateMessageId(),
-              text: 'Unable to connect to chat server. The system will automatically try to reconnect.',
+              text: 'Đang kết nối lại với máy chủ...',
               sender: 'system',
               timestamp: new Date(),
             };
@@ -330,18 +301,7 @@ const ChatBot: React.FC = () => {
         } else {
           console.warn('WebSocket connected but no currentSessionId available');
           
-          // Since no sessionId is available, we should try to create a new session
-          // This will only happen if the code flow is somehow broken
-          if (!hasShownConnectionError) {
-            const systemMessage: Message = {
-              id: generateMessageId(),
-              text: 'Connection issue detected. Please send a message to connect with support.',
-              sender: 'system',
-              timestamp: new Date(),
-            };
-            setMessages(prev => [...prev, systemMessage]);
-            setHasShownConnectionError(true);
-          }
+          // Loại bỏ thông báo khi không có session ID
         }
       };
       
@@ -375,10 +335,10 @@ const ChatBot: React.FC = () => {
           if (reconnectAttemptsRef.current >= 3) {
             console.log('Max reconnect attempts reached (3), giving up');
             
-            // Thông báo cho user
+            // Giữ lại thông báo về đã đạt giới hạn kết nối lại
             const maxRetryMessage: Message = {
               id: generateMessageId(),
-              text: "We couldn't reconnect to the chat server. Please send a new message to continue the conversation.",
+              text: "Không thể kết nối lại. Vui lòng gửi tin nhắn mới.",
               sender: 'system' as 'system',
               timestamp: new Date(),
             };
@@ -405,14 +365,7 @@ const ChatBot: React.FC = () => {
               setCurrentSessionId(null);
               setChatWithAdmin(false);
               
-              // Thông báo cho user và không kết nối lại
-              const systemMessage: Message = {
-                id: generateMessageId(),
-                text: "Your chat session is no longer available. Please send a new message to start a conversation.",
-                sender: 'system' as 'system',
-                timestamp: new Date(),
-              };
-              setMessages(prev => [...prev, systemMessage]);
+              // Loại bỏ thông báo về session không tồn tại
               
               // Reset trạng thái reconnect
               reconnectAttemptsRef.current = 0;
@@ -424,7 +377,7 @@ const ChatBot: React.FC = () => {
             if (!hasShownConnectionError) {
               const disconnectMessage: Message = {
                 id: generateMessageId(),
-                text: 'Connection to chat server lost. Automatically attempting to reconnect...',
+                text: 'Mất kết nối đến máy chủ. Đang kết nối lại...',
                 sender: 'system' as 'system',
                 timestamp: new Date(),
               };
@@ -448,14 +401,7 @@ const ChatBot: React.FC = () => {
             setCurrentSessionId(null);
             setChatWithAdmin(false);
             
-            // Thông báo lỗi
-            const errorMessage: Message = {
-              id: generateMessageId(),
-              text: "We couldn't verify your chat session. Please send a new message to start a conversation.",
-              sender: 'system' as 'system',
-              timestamp: new Date(),
-            };
-            setMessages(prev => [...prev, errorMessage]);
+            // Loại bỏ thông báo lỗi về session không tồn tại
             
             // Reset trạng thái
             reconnectAttemptsRef.current = 0;
@@ -471,11 +417,11 @@ const ChatBot: React.FC = () => {
         console.error('WebSocket error:', error);
         clearTimeout(connectionTimeout);
         
-        // Show error message but indicate automatic reconnection only on first error
+        // Giữ lại thông báo về lỗi kết nối và đang thử kết nối lại
         if (!hasShownConnectionError) {
           const errorMessage: Message = {
             id: generateMessageId(),
-            text: 'There was an error with the chat connection. Automatically attempting to reconnect...',
+            text: 'Đang kết nối lại với máy chủ...',
             sender: 'system',
             timestamp: new Date(),
           };
@@ -489,11 +435,11 @@ const ChatBot: React.FC = () => {
     } catch (err) {
       console.error('Error connecting to WebSocket:', err);
       
-      // Show error to user but indicate automatic reconnection
+      // Giữ lại thông báo về lỗi kết nối và đang thử kết nối lại
       if (!hasShownConnectionError) {
         const errorMessage: Message = {
           id: generateMessageId(),
-          text: 'Unable to connect to chat server. Automatically attempting to reconnect...',
+          text: 'Đang kết nối lại với máy chủ...',
           sender: 'system',
           timestamp: new Date(),
         };
@@ -561,14 +507,7 @@ const ChatBot: React.FC = () => {
         setCurrentSessionId(null);
         setChatWithAdmin(false);
         
-        // Add system message about missing session
-        const systemMessage: Message = {
-          id: generateMessageId(),
-          text: "Your previous chat session is no longer available. Please send a message to start a new conversation.",
-          sender: 'system',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, systemMessage]);
+        // Loại bỏ thông báo về session không tồn tại
         return;
       }
       
@@ -627,13 +566,7 @@ const ChatBot: React.FC = () => {
           setCurrentSessionId(null);
           setChatWithAdmin(false);
           
-          const errorMessage: Message = {
-            id: generateMessageId(),
-            text: "There was an issue retrieving your chat history. Please send a message to start a new conversation.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, errorMessage]);
+          // Loại bỏ thông báo về lỗi không tải được tin nhắn
         }
       } else {
         // Session exists but is not active - likely ended
@@ -642,14 +575,7 @@ const ChatBot: React.FC = () => {
         setCurrentSessionId(null);
         setChatWithAdmin(false);
         
-        // Add system message about the ended session
-        const systemMessage: Message = {
-          id: generateMessageId(),
-          text: "Your previous chat session has ended. Send a message to start a new support conversation.",
-          sender: 'system',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, systemMessage]);
+        // Loại bỏ thông báo về session đã kết thúc
       }
     } catch (err) {
       console.error('Error checking active session:', err);
@@ -658,14 +584,7 @@ const ChatBot: React.FC = () => {
       setCurrentSessionId(null);
       setChatWithAdmin(false);
       
-      // Add system message about session error
-      const errorMessage: Message = {
-        id: generateMessageId(),
-        text: "We couldn't retrieve your previous chat session. Please send a message to start a new conversation.",
-        sender: 'system',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Loại bỏ thông báo về lỗi session
     }
   };
 
@@ -695,14 +614,7 @@ const ChatBot: React.FC = () => {
         
         if (!sessionExists) {
           console.log('Session no longer exists, creating a new one');
-          // Thông báo cho user và tạo session mới
-          const systemMessage: Message = {
-            id: generateMessageId(),
-            text: "Your previous chat session is no longer available. Creating a new session for you...",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, systemMessage]);
+          // Loại bỏ thông báo về session không tồn tại và đang tạo session mới
           
           // Reset session và tạo mới
           setCurrentSessionId(null);
@@ -763,14 +675,7 @@ const ChatBot: React.FC = () => {
           (errorMessage.includes('not exist') || errorMessage.includes('not found'));
           
         if (isSessionError) {
-          // Thông báo và tạo session mới
-          const systemMessage: Message = {
-            id: generateMessageId(),
-            text: "Your chat session is no longer available. Creating a new session...",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, systemMessage]);
+          // Loại bỏ thông báo về session không tồn tại và đang tạo session mới
           
           // Reset trạng thái và tạo session mới
           setCurrentSessionId(null);
@@ -838,14 +743,7 @@ const ChatBot: React.FC = () => {
           }
         } catch (err) {
           console.error('Error verifying session existence:', err);
-          // Thông báo lỗi và dừng, không tiếp tục xử lý
-          const errorMessage: Message = {
-            id: generateMessageId(),
-            text: "There was a problem with your chat session. Please try sending your message again.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, errorMessage]);
+          // Loại bỏ thông báo lỗi và dừng
           setCurrentSessionId(null); // Xóa session ID không hợp lệ
           setLoading(false);
           setWaitingForSupportResponse(false);
@@ -901,14 +799,7 @@ const ChatBot: React.FC = () => {
             }
           } catch (checkErr) {
             console.error('Error checking if session still exists:', checkErr);
-            // Thông báo lỗi nhưng vẫn tiếp tục nếu session có vẻ tồn tại
-            const errorMessage: Message = {
-              id: generateMessageId(),
-              text: "We couldn't send your message. Please try again.",
-              sender: 'system',
-              timestamp: new Date(),
-            };
-            setMessages(prev => [...prev, errorMessage]);
+            // Loại bỏ thông báo lỗi gửi tin nhắn
             setCurrentSessionId(null);
             localStorage.removeItem('chatSessionId');
             setLoading(false);
@@ -936,22 +827,7 @@ const ChatBot: React.FC = () => {
         setChatWithAdmin(true);
         connectToWebSocket();
         
-        // Update UI with connecting message - but only if not already shown
-        if (!hasShownSystemNotifications.supportConnecting) {
-          const systemMessage: Message = {
-            id: generateMessageId(),
-            text: "Connected to support. An agent will assist you shortly.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, systemMessage]);
-          
-          // Mark as shown
-          setHasShownSystemNotifications(prev => ({
-            ...prev,
-            supportConnecting: true
-          }));
-        }
+        // Loại bỏ thông báo hệ thống về đã kết nối tới hỗ trợ
         
         // Wait for WebSocket to connect before trying to send the message there
         // If WebSocket isn't available, the message is already saved in the database
@@ -989,14 +865,7 @@ const ChatBot: React.FC = () => {
       localStorage.removeItem('chatSessionId');
       setChatWithAdmin(false);
       
-      // Show final error message
-      const errorMessage: Message = {
-        id: generateMessageId(),
-        text: "We encountered an error connecting you to support. Please try sending your message again.",
-        sender: 'system',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Loại bỏ thông báo lỗi kết nối
       
       setLoading(false);
       setWaitingForSupportResponse(false);
@@ -1063,22 +932,7 @@ const ChatBot: React.FC = () => {
         localStorage.removeItem('chatSessionId');
         setChatWithAdmin(false);
         
-        // Add system message about reconnecting - but only if not already shown
-        if (!hasShownSystemNotifications.sessionNotFound) {
-          const reconnectMessage: Message = {
-            id: generateMessageId(),
-            text: "Your chat session was not found. Please send a new message to reconnect.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, reconnectMessage]);
-          
-          // Mark this notification as shown
-          setHasShownSystemNotifications(prev => ({
-            ...prev,
-            sessionNotFound: true
-          }));
-        }
+        // Loại bỏ thông báo về session không tìm thấy
         
         // Close the socket
         if (socket) {
@@ -1094,22 +948,7 @@ const ChatBot: React.FC = () => {
         // Message delivery confirmation
         console.log('Message delivered, admin count:', data.adminCount);
         if (data.adminCount !== undefined && data.adminCount === 0 && waitingForSupportResponse) {
-          // No admins received the message, show system message - but only if not already shown
-          if (!hasShownSystemNotifications.noAdminsOnline) {
-            const offlineMessage: Message = {
-              id: generateMessageId(),
-              text: "No support agents are currently online. Your message has been saved and will be answered as soon as possible.",
-              sender: 'system',
-              timestamp: new Date(),
-            };
-            setMessages(prevMessages => [...prevMessages, offlineMessage]);
-            
-            // Mark this notification as shown
-            setHasShownSystemNotifications(prev => ({
-              ...prev,
-              noAdminsOnline: true
-            }));
-          }
+          // Loại bỏ thông báo không có admin online
           setWaitingForSupportResponse(false);
         }
         break;
@@ -1117,22 +956,7 @@ const ChatBot: React.FC = () => {
       case 'ADMIN_CONNECTED':
         // Admin connected to the chat
         if (data.adminName) {
-          // Show admin connected message - but only if not already shown for this admin
-          if (!hasShownSystemNotifications.adminConnected) {
-            const adminConnectedMessage: Message = {
-              id: generateMessageId(),
-              text: `Support agent ${data.adminName} has joined the chat.`,
-              sender: 'system',
-              timestamp: new Date(),
-            };
-            setMessages(prevMessages => [...prevMessages, adminConnectedMessage]);
-            
-            // Mark this notification as shown
-            setHasShownSystemNotifications(prev => ({
-              ...prev,
-              adminConnected: true
-            }));
-          }
+          // Loại bỏ thông báo admin đã tham gia
           setWaitingForSupportResponse(false);
         }
         break;
@@ -1142,11 +966,13 @@ const ChatBot: React.FC = () => {
         // Clear the session from state and localStorage
         setCurrentSessionId(null);
         setChatWithAdmin(false);
+        
+        // Giữ lại thông báo về session bị xóa vì đây là thông tin quan trọng
         setMessages(prev => [
           ...prev,
           {
             id: uuidv4(),
-            text: 'This chat session has been deleted by an administrator. Please start a new chat if you need further assistance.',
+            text: 'Phiên chat đã bị xóa. Vui lòng tạo phiên chat mới nếu cần hỗ trợ.',
             sender: 'system',
             timestamp: new Date(),
           },
@@ -1177,22 +1003,7 @@ const ChatBot: React.FC = () => {
         setChatWithAdmin(false);
         setCurrentSessionId(null);
         
-        // Add system message - but only if not already shown
-        if (!hasShownSystemNotifications.chatEnded) {
-          const endMessage: Message = {
-            id: generateMessageId(),
-            text: data.message || "Chat session has ended.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prevMessages => [...prevMessages, endMessage]);
-          
-          // Mark this notification as shown
-          setHasShownSystemNotifications(prev => ({
-            ...prev,
-            chatEnded: true
-          }));
-        }
+        // Loại bỏ thông báo về chat đã kết thúc
         
         // Clean up
         if (socket) {
@@ -1208,22 +1019,7 @@ const ChatBot: React.FC = () => {
         break;
         
       case 'ADMIN_DISCONNECT':
-        // Admin disconnected - but only show if not already shown
-        if (!hasShownSystemNotifications.adminDisconnected) {
-          const adminDisconnectMessage: Message = {
-            id: generateMessageId(),
-            text: data.message || "Support agent has disconnected. Your chat session remains active and will be picked up by another agent.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prevMessages => [...prevMessages, adminDisconnectMessage]);
-          
-          // Mark this notification as shown
-          setHasShownSystemNotifications(prev => ({
-            ...prev,
-            adminDisconnected: true
-          }));
-        }
+        // Loại bỏ thông báo admin đã rời đi
         break;
         
       case 'ERROR':
@@ -1250,22 +1046,7 @@ const ChatBot: React.FC = () => {
           localStorage.removeItem('chatSessionId');
           setChatWithAdmin(false);
           
-          // Add system message about session error - but only if not already shown
-          if (!hasShownSystemNotifications.sessionNotFound) {
-            const sessionErrorMessage: Message = {
-              id: generateMessageId(),
-              text: "Your chat session has expired or was not found. Please send a new message to reconnect.",
-              sender: 'system',
-              timestamp: new Date(),
-            };
-            setMessages(prevMessages => [...prevMessages, sessionErrorMessage]);
-            
-            // Mark this notification as shown
-            setHasShownSystemNotifications(prev => ({
-              ...prev,
-              sessionNotFound: true
-            }));
-          }
+          // Loại bỏ thông báo về lỗi session
           
           // Close the socket to force reconnection with a new session
           if (socket) {
@@ -1273,14 +1054,7 @@ const ChatBot: React.FC = () => {
             setSocket(null);
           }
         } else {
-          // General error message
-          const errorMessage: Message = {
-            id: generateMessageId(),
-            text: data.message || "An error occurred in the chat.",
-            sender: 'system',
-            timestamp: new Date(),
-          };
-          setMessages(prevMessages => [...prevMessages, errorMessage]);
+          // Loại bỏ các thông báo lỗi chung
         }
         
         setWaitingForSupportResponse(false);

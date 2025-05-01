@@ -15,14 +15,37 @@ import {
   ListItem,
   ListItemText,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Stepper,
+  Step,
+  StepLabel,
+  IconButton,
+  FormHelperText,
 } from '@mui/material';
 import { format } from 'date-fns';
+import { PhotoCamera } from '@mui/icons-material';
 import OrderService from '../services/OrderService';
 import NotificationService from '../services/NotificationService';
 import { refreshHeaderNotifications } from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { Order } from '../types/order';
+
+// Định nghĩa các trạng thái cho quy trình hoàn tiền
+const RefundStatus = {
+  REQUESTED: 'REQUESTED',
+  REVIEWING: 'REVIEWING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  COMPLETED: 'COMPLETED'
+};
+
+// Định nghĩa các bước trong quy trình hoàn tiền
+const refundSteps = ['Yêu cầu hoàn tiền', 'Đang xem xét', 'Hoàn tiền thành công'];
 
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +56,17 @@ const OrderDetail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refundSuccess, setRefundSuccess] = useState<boolean>(false);
+  
+  // State cho chức năng hoàn tiền
+  const [openRefundDialog, setOpenRefundDialog] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundImages, setRefundImages] = useState<File[]>([]);
+  const [refundImagePreviews, setRefundImagePreviews] = useState<string[]>([]);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const [activeStep, setActiveStep] = useState(0);
+  const [refundAdditionalInfo, setRefundAdditionalInfo] = useState('');
+  const [reasonError, setReasonError] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -50,6 +84,31 @@ const OrderDetail: React.FC = () => {
         
         const response = await OrderService.getOrderById(id);
         setOrder(response.data);
+        
+        // Kiểm tra nếu đơn hàng đã có yêu cầu hoàn tiền, cập nhật step hiện tại
+        if (response.data.refundStatus) {
+          switch (response.data.refundStatus) {
+            case RefundStatus.REQUESTED:
+              setActiveStep(1);
+              break;
+            case RefundStatus.REVIEWING:
+              setActiveStep(2);
+              break;
+            case RefundStatus.APPROVED:
+              setActiveStep(3); // Hoàn tiền thành công
+              break;
+            case RefundStatus.COMPLETED:
+              setActiveStep(3); // Hoàn tiền thành công
+              break;
+            case RefundStatus.REJECTED:
+              // Trong trường hợp bị từ chối, không cập nhật step
+              setActiveStep(1);
+              break;
+            default:
+              setActiveStep(0);
+          }
+        }
+        
         setError(null);
       } catch (err: any) {
         console.error('Error fetching order:', err);
@@ -113,6 +172,103 @@ const OrderDetail: React.FC = () => {
       console.error('Error cancelling order:', err);
       setError(err.response?.data?.message || 'Failed to cancel order');
     }
+  };
+
+  // Mở dialog yêu cầu hoàn tiền
+  const handleOpenRefundDialog = () => {
+    setOpenRefundDialog(true);
+    setRefundReason('');
+    setRefundImages([]);
+    setRefundImagePreviews([]);
+    setRefundError(null);
+  };
+
+  // Xử lý khi người dùng tải ảnh lên
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const fileArray = Array.from(event.target.files);
+      
+      // Giới hạn tối đa 3 ảnh
+      const newFiles = [...refundImages, ...fileArray].slice(0, 3);
+      setRefundImages(newFiles);
+      
+      // Tạo URL preview cho ảnh
+      const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+      
+      // Xóa các URL preview cũ để tránh memory leak
+      refundImagePreviews.forEach(url => URL.revokeObjectURL(url));
+      
+      setRefundImagePreviews(newPreviews);
+    }
+  };
+
+  // Xóa ảnh đã chọn
+  const handleRemoveImage = (index: number) => {
+    URL.revokeObjectURL(refundImagePreviews[index]);
+    
+    const newImages = [...refundImages];
+    newImages.splice(index, 1);
+    setRefundImages(newImages);
+    
+    const newPreviews = [...refundImagePreviews];
+    newPreviews.splice(index, 1);
+    setRefundImagePreviews(newPreviews);
+  };
+
+  // Gửi yêu cầu hoàn tiền
+  const handleSubmitRefund = async () => {
+    // Validate form
+    if (!refundReason.trim()) {
+      setReasonError(true);
+      return;
+    }
+    
+    setReasonError(false);
+    setRefundLoading(true);
+    setRefundError(null);
+    
+    try {
+      if (!id) return;
+      
+      const formData = new FormData();
+      formData.append('reason', refundReason);
+      formData.append('additionalInfo', refundAdditionalInfo);
+      
+      // Thêm ảnh vào formData
+      refundImages.forEach((image, index) => {
+        formData.append('images', image);
+      });
+      
+      // Gọi API để tạo yêu cầu hoàn tiền
+      await OrderService.requestRefund(Number(id), formData);
+      
+      // Cập nhật UI
+      setRefundSuccess(true);
+      setOpenRefundDialog(false);
+      setActiveStep(1); // Cập nhật trạng thái sang "Đang xem xét"
+      
+      // Refresh thông báo
+      refreshHeaderNotifications();
+      await refreshNotifications();
+      
+      // Refresh dữ liệu đơn hàng
+      const response = await OrderService.getOrderById(id);
+      setOrder(response.data);
+      
+    } catch (err: any) {
+      console.error('Error requesting refund:', err);
+      setRefundError(err.response?.data?.message || 'Failed to request refund');
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+  // Hàm để lấy các bước hoàn tiền dựa vào trạng thái hiện tại
+  const getRefundSteps = () => {
+    if (order?.refundStatus === 'REJECTED') {
+      return ['Yêu cầu hoàn tiền', 'Đang xem xét', 'Hoàn tiền thất bại'];
+    }
+    return ['Yêu cầu hoàn tiền', 'Đang xem xét', 'Hoàn tiền thành công'];
   };
 
   if (loading) {
@@ -199,11 +355,54 @@ const OrderDetail: React.FC = () => {
     }
   };
 
+  // Kiểm tra xem đơn hàng có đủ điều kiện để yêu cầu hoàn tiền không
+  const canRequestRefund = order.status === 'DELIVERED' || order.status === 'COMPLETED';
+  
+  // Kiểm tra xem đã có yêu cầu hoàn tiền chưa
+  const hasRefundRequest = order.refundStatus !== undefined && order.refundStatus !== null;
+
+  // Kiểm tra trạng thái hiển thị refund
+  const getRefundStatusDisplay = () => {
+    if (!order?.refundStatus) return null;
+    
+    let label = '';
+    let color: 'error' | 'warning' | 'success' | 'info' = 'info';
+    
+    switch (order.refundStatus) {
+      case 'REQUESTED':
+        label = 'Yêu cầu đang chờ xử lý';
+        color = 'warning';
+        break;
+      case 'REVIEWING':
+        label = 'Đang xem xét';
+        color = 'info';
+        break;
+      case 'APPROVED':
+        label = 'Refund Complete';
+        color = 'success';
+        break;
+      case 'COMPLETED':
+        label = 'Refund Complete';
+        color = 'success';
+        break;
+      case 'REJECTED':
+        label = 'Yêu cầu bị từ chối';
+        color = 'error';
+        break;
+      default:
+        return null;
+    }
+    
+    return { label, color };
+  };
+
   return (
     <Box my={4}>
       {refundSuccess && (
         <Alert severity="success" sx={{ mb: 3 }}>
-          Đơn hàng đã được hủy và số tiền đã được hoàn trả vào tài khoản của bạn.
+          {order.status === 'CANCELLED' 
+            ? 'Đơn hàng đã được hủy và số tiền đã được hoàn trả vào tài khoản của bạn.'
+            : 'Yêu cầu hoàn tiền của bạn đã được gửi thành công và đang được xử lý.'}
         </Alert>
       )}
       
@@ -215,6 +414,37 @@ const OrderDetail: React.FC = () => {
           variant="outlined"
         />
       </Box>
+
+      {/* Hiển thị stepper cho quy trình hoàn tiền nếu đã có yêu cầu */}
+      {hasRefundRequest && (
+        <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Trạng thái yêu cầu hoàn tiền
+            {order.refundStatus === 'APPROVED' || order.refundStatus === 'COMPLETED' ? (
+              <Chip 
+                label="Refund Complete" 
+                color="success" 
+                size="small" 
+                sx={{ ml: 2 }}
+              />
+            ) : order.refundStatus === 'REJECTED' ? (
+              <Chip 
+                label="Refund Failed" 
+                color="error" 
+                size="small" 
+                sx={{ ml: 2 }}
+              />
+            ) : null}
+          </Typography>
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ mt: 2 }}>
+            {getRefundSteps().map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        </Paper>
+      )}
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
@@ -237,8 +467,8 @@ const OrderDetail: React.FC = () => {
             </List>
           </Paper>
 
-          {(order.status === 'PENDING' || order.status === 'READY_TO_SHIP') && (
-            <Box display="flex" justifyContent="flex-end" mt={2}>
+          <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
+            {(order.status === 'PENDING' || order.status === 'READY_TO_SHIP') && (
               <Button
                 variant="contained"
                 color="error"
@@ -246,8 +476,18 @@ const OrderDetail: React.FC = () => {
               >
                 Hủy đơn hàng
               </Button>
-            </Box>
-          )}
+            )}
+            
+            {canRequestRefund && !hasRefundRequest && (
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={handleOpenRefundDialog}
+              >
+                Yêu cầu trả hàng - hoàn tiền
+              </Button>
+            )}
+          </Box>
         </Grid>
 
         <Grid item xs={12} md={4}>
@@ -297,6 +537,140 @@ const OrderDetail: React.FC = () => {
           Quay lại danh sách đơn hàng
         </Button>
       </Box>
+
+      {/* Dialog yêu cầu hoàn tiền */}
+      <Dialog 
+        open={openRefundDialog} 
+        onClose={() => setOpenRefundDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Yêu cầu hoàn tiền</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1" gutterBottom>
+              Vui lòng cung cấp lý do và ảnh chụp sản phẩm (nếu cần) để yêu cầu hoàn tiền cho đơn hàng #{order.id}.
+            </Typography>
+            
+            <TextField
+              label="Lý do hoàn tiền"
+              multiline
+              rows={4}
+              fullWidth
+              required
+              value={refundReason}
+              onChange={(e) => {
+                setRefundReason(e.target.value);
+                if (e.target.value.trim()) setReasonError(false);
+              }}
+              error={reasonError}
+              helperText={reasonError ? "Vui lòng nhập lý do hoàn tiền" : ""}
+              margin="normal"
+            />
+            
+            <TextField
+              label="Thông tin bổ sung (tùy chọn)"
+              multiline
+              rows={2}
+              fullWidth
+              value={refundAdditionalInfo}
+              onChange={(e) => setRefundAdditionalInfo(e.target.value)}
+              margin="normal"
+            />
+            
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1" gutterBottom>
+                Tải lên ảnh chụp sản phẩm (tối đa 3 ảnh)
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', my: 1 }}>
+                <Button
+                  variant="contained"
+                  component="label"
+                  startIcon={<PhotoCamera />}
+                  disabled={refundImages.length >= 3}
+                >
+                  Chọn ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={handleImageUpload}
+                  />
+                </Button>
+                <Typography variant="body2" sx={{ ml: 2 }}>
+                  {refundImages.length}/3 ảnh đã chọn
+                </Typography>
+              </Box>
+              
+              {/* Hiển thị preview ảnh */}
+              {refundImagePreviews.length > 0 && (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                  {refundImagePreviews.map((preview, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        position: 'relative',
+                        width: 100,
+                        height: 100,
+                        border: '1px solid #ccc',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: 4,
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        sx={{
+                          position: 'absolute',
+                          top: -10,
+                          right: -10,
+                          color: 'error.main',
+                          bgcolor: 'background.paper',
+                          border: '1px solid currentColor',
+                          '&:hover': { bgcolor: 'error.light', color: 'white' },
+                        }}
+                        onClick={() => handleRemoveImage(index)}
+                      >
+                        &times;
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              
+              <FormHelperText>
+                Ảnh chụp sẽ giúp chúng tôi xử lý yêu cầu hoàn tiền của bạn nhanh hơn.
+              </FormHelperText>
+            </Box>
+            
+            {refundError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {refundError}
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRefundDialog(false)}>Hủy</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleSubmitRefund}
+            disabled={refundLoading}
+          >
+            {refundLoading ? <CircularProgress size={24} /> : 'Gửi yêu cầu'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

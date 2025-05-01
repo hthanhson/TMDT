@@ -29,6 +29,18 @@ const OrderService = {
     return api.put(`/orders/${id}/refund`, {});
   },
 
+  requestRefund(id: string | number, formData: FormData) {
+    return api.put(`/orders/${id}/request-refund`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  getRefundStatus(id: string | number) {
+    return api.get(`/orders/${id}/refund-status`);
+  },
+
   getOrderSummary() {
     return api.get<OrderSummary>(`/orders/summary`);
   }

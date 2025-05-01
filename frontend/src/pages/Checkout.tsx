@@ -326,7 +326,7 @@ const Checkout: React.FC = (): JSX.Element => {
         phoneNumber: deliveryInfo.phone,
         recipientName: deliveryInfo.fullName,
         items: items.map(item => ({
-          productId: item.id,
+          productId: Number(item.id),
           quantity: item.quantity
         })),
         couponCode: couponInfo?.code,
@@ -345,8 +345,9 @@ const Checkout: React.FC = (): JSX.Element => {
         }
         navigate('/order-success', { state: { orderId: response.data.id } });
       } else if (paymentMethod === 'credit') {
-        localStorage.setItem('pendingOrder', JSON.stringify(orderData));
-        const respon = await OrderService.createPay(orderData);
+        const paymentData = { ...orderData };
+        localStorage.setItem('pendingOrder', JSON.stringify(paymentData));
+        const respon = await OrderService.createPay(paymentData);
         const paymentUrl = respon.data;
         window.location.href = paymentUrl;
       }
@@ -518,9 +519,9 @@ const Checkout: React.FC = (): JSX.Element => {
                     control={<Radio />} 
                     label={
                       <Box>
-                        <Typography variant="subtitle1">Thẻ tín dụng/Ghi nợ</Typography>
+                        <Typography variant="subtitle1">Thẻ điện tử</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Thanh toán an toàn với các thẻ Visa, Mastercard, JCB
+                          Thanh toán an toàn với VNPAY
                         </Typography>
                       </Box>
                     } 

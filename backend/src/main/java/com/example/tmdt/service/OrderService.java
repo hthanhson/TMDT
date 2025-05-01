@@ -83,6 +83,11 @@ public class OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
 
+        // Kiểm tra null trước khi truy cập items
+        if (orderRequest.getItems() == null) {
+            throw new IllegalArgumentException("Order items cannot be null. Please provide at least one item.");
+        }
+
         for (OrderItemRequest itemRequest : orderRequest.getItems()) {
             Product product = productService.getProductByIdWithLock(itemRequest.getProductId());
 
@@ -169,8 +174,11 @@ public class OrderService {
             } catch (Exception e) {
                 throw new RuntimeException("Failed to process payment: " + e.getMessage());
             }
+        } else if ("credit".equals(orderRequest.getPaymentMethod())) {
+            // Para pagamento com cartão de crédito, definir status como PAID imediatamente
+            order.setPaymentStatus("PAID");
         } else {
-            // For other payment methods, just set status as pending
+            // For other payment methods like COD, set status as PROCESSING
             order.setPaymentStatus("PROCESSING");
         }
         // Save the order initially
@@ -216,6 +224,11 @@ public class OrderService {
         Order order = new Order();
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
+
+        // Kiểm tra null trước khi truy cập items
+        if (orderRequest.getItems() == null) {
+            throw new IllegalArgumentException("Order items cannot be null. Please provide at least one item.");
+        }
 
         for (OrderItemRequest itemRequest : orderRequest.getItems()) {
             Product product = productService.getProductById(itemRequest.getProductId());

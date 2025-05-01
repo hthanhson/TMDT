@@ -93,7 +93,12 @@ const Orders: React.FC = () => {
     fetchOrders();
   }, [user, navigate]);
   
-  const getStatusColor = (status: Order['status']) => {
+  const getStatusColor = (status: Order['status'], refundStatus?: string) => {
+    // Nếu đơn hàng đã được duyệt hoàn tiền, ưu tiên hiển thị màu này
+    if (refundStatus === 'APPROVED' || refundStatus === 'COMPLETED') {
+      return 'secondary';
+    }
+    
     switch (status) {
       case 'PENDING':
         return 'warning';
@@ -105,12 +110,19 @@ const Orders: React.FC = () => {
         return 'success';
       case 'CANCELLED':
         return 'error';
+      case 'RETURNED':
+        return 'secondary';
       default:
         return 'default';
     }
   };
   
-  const getStatusIcon = (status: Order['status']) => {
+  const getStatusIcon = (status: Order['status'], refundStatus?: string) => {
+    // Nếu đơn hàng đã được duyệt hoàn tiền, hiển thị biểu tượng tương ứng
+    if (refundStatus === 'APPROVED' || refundStatus === 'COMPLETED') {
+      return <LocalShipping />;
+    }
+    
     switch (status) {
       case 'PENDING':
         return <Receipt />;
@@ -122,6 +134,8 @@ const Orders: React.FC = () => {
         return <CheckCircle />;
       case 'CANCELLED':
         return <Cancel />;
+      case 'RETURNED':
+        return <LocalShipping />;
       default:
         return <ShoppingBag />;
     }
@@ -131,7 +145,12 @@ const Orders: React.FC = () => {
     return format(new Date(dateStr), 'dd MMM yyyy, HH:mm');
   };
   
-  const getStatusTranslation = (status: string): string => {
+  const getStatusTranslation = (status: string, refundStatus?: string): string => {
+    // Nếu đơn hàng đã được duyệt hoàn tiền, ưu tiên hiển thị trạng thái này
+    if (refundStatus === 'APPROVED' || refundStatus === 'COMPLETED') {
+      return 'Đã trả hàng & hoàn tiền';
+    }
+    
     switch (status) {
       case 'PENDING':
         return 'Chờ xác nhận';
@@ -156,20 +175,26 @@ const Orders: React.FC = () => {
       case 'CANCELLED':
         return 'Đã hủy';
       case 'RETURNED':
-        return 'Đã trả hàng';
+        return 'Đã trả hàng & hoàn tiền';
       default:
         return status;
     }
   };
   
   const renderOrderTimeline = (order: Order) => {
-    const steps = [
-      { status: 'PENDING', label: 'Đơn hàng đã đặt', completed: true },
-      { status: 'PROCESSING', label: 'Sẵn sàng giao hàng', completed: ['READY_TO_SHIP', 'DELIVERED','OUT_FOR_DELIVERY'].includes(order.status) },
-      { status: 'SHIPPED', label: 'Đang giao hàng', completed: ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) },
-      { status: 'DELIVERED', label: 'Đã giao hàng', completed: order.status === 'DELIVERED' }
-    ];
+    // Nếu đơn hàng đã được hoàn tiền, hiển thị dưới dạng đơn hàng đã trả
+    if (order.refundStatus === 'APPROVED' || order.refundStatus === 'COMPLETED') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+          <LocalShipping color="secondary" sx={{ mr: 1 }} />
+          <Typography color="secondary" variant="body2">
+            Đơn hàng đã được hoàn trả và hoàn tiền
+          </Typography>
+        </Box>
+      );
+    }
     
+    // Nếu đơn hàng đã bị hủy
     if (order.status === 'CANCELLED') {
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
@@ -180,6 +205,13 @@ const Orders: React.FC = () => {
         </Box>
       );
     }
+    
+    const steps = [
+      { status: 'PENDING', label: 'Đơn hàng đã đặt', completed: true },
+      { status: 'PROCESSING', label: 'Sẵn sàng giao hàng', completed: ['READY_TO_SHIP', 'DELIVERED','OUT_FOR_DELIVERY'].includes(order.status) },
+      { status: 'SHIPPED', label: 'Đang giao hàng', completed: ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status) },
+      { status: 'DELIVERED', label: 'Đã giao hàng', completed: order.status === 'DELIVERED' }
+    ];
     
     return (
       <Timeline position="alternate" sx={{ py: 0, my: 0 }}>
@@ -192,7 +224,7 @@ const Orders: React.FC = () => {
             </TimelineOppositeContent>
             <TimelineSeparator>
               <TimelineDot color={step.completed ? 'primary' : 'grey'} variant={step.completed ? 'filled' : 'outlined'}>
-                {getStatusIcon(step.status as Order['status'])}
+                {getStatusIcon(step.status as Order['status'], order.refundStatus)}
               </TimelineDot>
               {index < steps.length - 1 && <TimelineConnector />}
             </TimelineSeparator>
@@ -260,8 +292,8 @@ const Orders: React.FC = () => {
                     Đơn hàng #{order.id}
                   </Typography>
                   <Chip
-                    label={getStatusTranslation(order.status)}
-                    color={getStatusColor(order.status)}
+                    label={getStatusTranslation(order.status, order.refundStatus)}
+                    color={getStatusColor(order.status, order.refundStatus)}
                     size="small"
                   />
                 </Box>

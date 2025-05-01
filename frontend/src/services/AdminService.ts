@@ -292,9 +292,25 @@ class AdminService {
   async getAllOrders(params?: any) {
     try {
       console.log('Fetching all orders for admin');
-      const response = await api.get('/admin/orders', { params });
-      console.log('Admin orders response:', response.data);
-      return { data: response.data };
+      const response = await api.get('/orders', { params });
+      console.log('Admin orders response:', response);
+      
+      if (response.data) {
+        // Nếu là mảng
+        if (Array.isArray(response.data)) {
+          response.data = response.data.map(this.normalizeOrderData.bind(this));
+        } 
+        // Nếu là đối tượng pagination
+        else if (response.data.content && Array.isArray(response.data.content)) {
+          response.data.content = response.data.content.map(this.normalizeOrderData.bind(this));
+        }
+        // Nếu là một đơn hàng
+        else if (response.data.id) {
+          response.data = this.normalizeOrderData(response.data);
+        }
+      }
+      
+      return response;
     } catch (error: any) {
       console.error('Error fetching admin orders:', error.message);
       console.error('Response status:', error.response?.status);
@@ -305,7 +321,11 @@ class AdminService {
 
   async getOrder(id: string) {
     try {
-      return await api.get<Order>(`/admin/orders/${id}`);
+      const response = await api.get<Order>(`/orders/${id}`);
+      if (response.data) {
+        response.data = this.normalizeOrderData(response.data);
+      }
+      return response;
     } catch (error: any) {
       console.error(`Error fetching order ${id}:`, error.message);
       throw error;
@@ -315,11 +335,73 @@ class AdminService {
   async updateOrderStatus(id: string | number, status: string) {
     try {
       console.log(`Updating order ${id} status to ${status}`);
-      const response = await api.put(`/admin/orders/${id}/status?status=${status}`);
-      console.log('Update order status response:', response.data);
+      const response = await api.put(`/orders/${id}/status?status=${status}`);
+      console.log('Update order status response:', response);
       return response.data;
     } catch (error: any) {
       console.error('Error updating order status:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
+
+  // Phương thức lấy thông tin về trạng thái hoàn tiền
+  async getRefundStatus(orderId: string | number) {
+    try {
+      console.log(`Fetching refund status for order ${orderId}`);
+      const response = await api.get(`/orders/${orderId}/refund-status`);
+      console.log('Refund status response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('Error fetching refund status:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
+  
+  // Phương thức cập nhật trạng thái yêu cầu hoàn tiền
+  async updateRefundStatus(orderId: string | number, status: string, adminNotes?: string) {
+    try {
+      console.log(`Updating refund request for order ${orderId} to ${status}`);
+      
+      // Đầu tiên, lấy refund request ID từ orderId
+      const refundResponse = await this.getRefundStatus(orderId);
+      
+      if (!refundResponse || !refundResponse.data || !refundResponse.data.id) {
+        throw new Error('Refund request not found for this order');
+      }
+      
+      const refundId = refundResponse.data.id;
+      
+      // Tạo query params
+      let params: any = { status };
+      if (adminNotes) {
+        params.adminNotes = adminNotes;
+      }
+      
+      // Sử dụng endpoint trực tiếp với ID của refund request
+      const response = await api.put(`/refunds/${refundId}/status`, null, { params });
+      console.log('Update refund status response:', response);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error updating refund status:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
+  }
+  
+  // Lấy danh sách tất cả các yêu cầu hoàn tiền
+  async getAllRefundRequests(params?: any) {
+    try {
+      console.log('Fetching all refund requests');
+      const response = await api.get('/refunds/all', { params });
+      console.log('Admin refunds response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('Error fetching refund requests:', error.message);
       console.error('Response status:', error.response?.status);
       console.error('Response data:', error.response?.data);
       throw error;
@@ -387,6 +469,59 @@ class AdminService {
       params, 
       responseType: 'blob' 
     });
+  }
+
+  // Phương thức chuẩn hóa đơn hàng để đảm bảo cấu trúc nhất quán
+  private normalizeOrderData(order: any): any {
+    if (!order) return null;
+    
+    const normalizedOrder = { ...order };
+    
+    // Chuẩn hóa trường user
+    if (typeof normalizedOrder.user === 'number' || typeof normalizedOrder.user === 'string') {
+      normalizedOrder.userId = normalizedOrder.user;
+      normalizedOrder.user = { id: normalizedOrder.user };
+    }
+    
+    // Đảm bảo user là một object
+    if (!normalizedOrder.user || typeof normalizedOrder.user !== 'object') {
+      normalizedOrder.user = {};
+    }
+    
+    // Gán tên người dùng ưu tiên từ recipientName hoặc các trường khác
+    if (normalizedOrder.recipientName) {
+      normalizedOrder.user.displayName = normalizedOrder.recipientName;
+    } else if (normalizedOrder.user.username) {
+      normalizedOrder.user.displayName = normalizedOrder.user.username;
+    } else if (normalizedOrder.user.fullName) {
+      normalizedOrder.user.displayName = normalizedOrder.user.fullName;
+    } else if (normalizedOrder.username) {
+      normalizedOrder.user.displayName = normalizedOrder.username;
+    } else {
+      normalizedOrder.user.displayName = `Khách hàng #${normalizedOrder.userId || normalizedOrder.user.id || 'Unknown'}`;
+    }
+    
+    return normalizedOrder;
+  }
+  
+  // Phương thức lấy một đơn hàng theo ID
+  async getOrderById(orderId: string) {
+    try {
+      console.log(`Fetching order by ID: ${orderId}`);
+      const response = await api.get(`/orders/${orderId}`);
+      console.log('Get order by ID response:', response);
+      
+      if (response.data) {
+        response.data = this.normalizeOrderData(response.data);
+      }
+      
+      return response;
+    } catch (error: any) {
+      console.error(`Error fetching order ${orderId}:`, error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      throw error;
+    }
   }
 }
 
