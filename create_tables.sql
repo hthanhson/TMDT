@@ -14,13 +14,18 @@ DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS coupons;
 DROP TABLE IF EXISTS wishlist;
-DROP TABLE IF EXISTS user_balance;
-DROP TABLE IF EXISTS balance_transaction;
+DROP TABLE IF EXISTS user_balances;
+DROP TABLE IF EXISTS balance_transactions;
 DROP TABLE IF EXISTS user_points;
 DROP TABLE IF EXISTS user_points_transaction;
 DROP TABLE IF EXISTS loyalty_tier;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS product_recommendation;
+DROP TABLE IF EXISTS refund_requests;
+DROP TABLE IF EXISTS refund_request_images;
+DROP TABLE IF EXISTS shipment_tracking;
+DROP TABLE IF EXISTS order_status;
+DROP TABLE IF EXISTS vnpay_status;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -127,42 +132,14 @@ CREATE TABLE review_helpful (
   INDEX idx_review_helpful_review (review_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE orders (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  total_amount DECIMAL(10,2) NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  shipping_address TEXT,
-  shipping_method VARCHAR(50),
-  tracking_number VARCHAR(100),
-  payment_method VARCHAR(50),
-  payment_status VARCHAR(20),
-  notes TEXT,
-  coupon_code VARCHAR(50),
-  discount_amount DECIMAL(10,2) DEFAULT 0.00,
-  shipping_fee DECIMAL(10,2) DEFAULT 0.00,
-  tax_amount DECIMAL(10,2) DEFAULT 0.00,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-  INDEX idx_order_user (user_id),
-  INDEX idx_order_status (status),
-  INDEX idx_order_date (order_date)
+CREATE TABLE order_status (
+  code VARCHAR(50) PRIMARY KEY,
+  display_name VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE order_items (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  order_id BIGINT NOT NULL,
-  product_id BIGINT NOT NULL,
-  quantity INT NOT NULL,
-  price DECIMAL(10,2) NOT NULL,
-  discount_amount DECIMAL(10,2) DEFAULT 0.00,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-  CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
-  INDEX idx_order_item_order (order_id),
-  INDEX idx_order_item_product (product_id)
+CREATE TABLE vnpay_status (
+  code VARCHAR(50) PRIMARY KEY,
+  display_name VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE coupons (
@@ -174,7 +151,7 @@ CREATE TABLE coupons (
   minimum_order_value DECIMAL(10,2) DEFAULT 0.00,
   maximum_discount DECIMAL(10,2),
   start_date TIMESTAMP NOT NULL,
-  end_date TIMESTAMP NOT NULL,
+  expiry_date TIMESTAMP NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   usage_limit INT,
   usage_count INT DEFAULT 0,
@@ -186,7 +163,90 @@ CREATE TABLE coupons (
   CONSTRAINT fk_coupon_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
   INDEX idx_coupon_user (user_id),
   INDEX idx_coupon_active (is_active),
-  INDEX idx_coupon_dates (start_date, end_date)
+  INDEX idx_coupon_dates (start_date, expiry_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE orders (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  total_amount DECIMAL(10,2) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  shipping_address TEXT NOT NULL,
+  billing_address TEXT,
+  phone_number VARCHAR(20) NOT NULL,
+  recipient_name VARCHAR(100) NOT NULL,
+  payment_method VARCHAR(50),
+  payment_status VARCHAR(20) DEFAULT 'PENDING',
+  shipper_id BIGINT,
+  shipping_fee DECIMAL(10,2) DEFAULT 0.00,
+  estimated_delivery_date TIMESTAMP,
+  actual_delivery_date TIMESTAMP,
+  tracking_number VARCHAR(100),
+  notes TEXT,
+  coupon_id BIGINT,
+  discount_amount DECIMAL(10,2) DEFAULT 0.00,
+  refund_status VARCHAR(20) DEFAULT 'NONE',
+  CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id) ON DELETE SET NULL,
+  INDEX idx_order_user (user_id),
+  INDEX idx_order_status (status),
+  INDEX idx_order_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE order_items (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  quantity INT NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  discount_amount DECIMAL(10,2) DEFAULT 0.00,
+  product_name VARCHAR(255),
+  product_image_url VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
+  INDEX idx_order_item_order (order_id),
+  INDEX idx_order_item_product (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE shipment_tracking (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  location VARCHAR(255),
+  notes TEXT,
+  created_by BIGINT,
+  latitude DOUBLE,
+  longitude DOUBLE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_shipment_tracking_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  INDEX idx_shipment_tracking_order (order_id),
+  INDEX idx_shipment_tracking_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE refund_requests (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL UNIQUE,
+  user_id BIGINT NOT NULL,
+  reason TEXT NOT NULL,
+  additional_info TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'REQUESTED',
+  admin_notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_refund_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_refund_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  INDEX idx_refund_user (user_id),
+  INDEX idx_refund_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE refund_request_images (
+  refund_request_id BIGINT NOT NULL,
+  image_url VARCHAR(255) NOT NULL,
+  CONSTRAINT fk_refund_image_request FOREIGN KEY (refund_request_id) REFERENCES refund_requests (id) ON DELETE CASCADE,
+  INDEX idx_refund_image_request (refund_request_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE wishlist (
@@ -266,7 +326,7 @@ CREATE TABLE notifications (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   title VARCHAR(255) NOT NULL,
-  message TEXT NOT NULL,
+  content TEXT NOT NULL,
   type VARCHAR(50) NOT NULL,
   is_read BOOLEAN DEFAULT FALSE,
   requires_action BOOLEAN DEFAULT FALSE,
@@ -322,6 +382,7 @@ CREATE TABLE chat_messages (
   INDEX idx_chat_message_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Dữ liệu mẫu
 INSERT INTO roles (name) VALUES ('ROLE_USER');
 INSERT INTO roles (name) VALUES ('ROLE_MODERATOR');
 INSERT INTO roles (name) VALUES ('ROLE_ADMIN');
@@ -332,12 +393,6 @@ INSERT INTO loyalty_tier (name, minimum_points, discount_percentage, special_per
 ('Gold', 5000, 5.00, 'Free expedited shipping, Priority customer service'),
 ('Platinum', 10000, 10.00, 'Free priority shipping, VIP customer service, Early access to promotions');
 
-
-
-CREATE TABLE order_status (
-    code VARCHAR(50) PRIMARY KEY,
-    display_name VARCHAR(255) NOT NULL
-);
 INSERT INTO order_status (code, display_name) VALUES
 ('PENDING', 'Chờ xác nhận'),
 ('CONFIRMED', 'Đã xác nhận'),
@@ -351,3 +406,23 @@ INSERT INTO order_status (code, display_name) VALUES
 ('COMPLETED', 'Hoàn tất'),
 ('CANCELLED', 'Đã hủy'),
 ('RETURNED', 'Hoàn trả');
+
+INSERT INTO vnpay_status (code, display_name) VALUES
+('00', 'Giao dịch thành công'),
+('01', 'Giao dịch chưa hoàn tất'),
+('02', 'Giao dịch bị lỗi'),
+('04', 'Giao dịch đảo (Khách hàng đã bị trừ tiền tại Ngân hàng nhưng GD chưa thành công ở VnPay)'),
+('05', 'Giao dịch không thành công'),
+('06', 'Giao dịch bị nghi ngờ gian lận'),
+('07', 'Giao dịch bị từ chối bởi Ngân hàng thanh toán'),
+('09', 'Giao dịch không được phép'),
+('10', 'Xác thực OTP không thành công'),
+('11', 'GD không thành công do: Thẻ hết hạn chuyển khoản'),
+('12', 'GD không thành công do: Thẻ bị khóa chuyển khoản'),
+('13', 'GD không thành công do: Quá hạn mức chuyển khoản'),
+('24', 'Giao dịch không thành công do: Khách hàng hủy giao dịch'),
+('51', 'Giao dịch không thành công do: Tài khoản không đủ số dư'),
+('65', 'Giao dịch không thành công do: Tài khoản của quý khách đã vượt quá hạn mức giao dịch trong ngày'),
+('75', 'Ngân hàng thanh toán đang bảo trì'),
+('79', 'Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định'),
+('99', 'Có lỗi khác xảy ra');

@@ -67,10 +67,8 @@ public class AdminController {
                 .mapToDouble(order -> order.getTotalAmount().doubleValue())
                 .sum();
         
-        // Get recent orders
-        List<Map<String, Object>> recentOrders = orders.stream()
-                .sorted((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt()))
-                .limit(5)
+        // Get all orders instead of just recent 5
+        List<Map<String, Object>> allOrders = orders.stream()
                 .map(order -> {
                     Map<String, Object> orderMap = new HashMap<>();
                     orderMap.put("id", order.getId());
@@ -92,6 +90,11 @@ public class AdminController {
                     productMap.put("name", product.getName());
                     productMap.put("stock", product.getStock());
                     productMap.put("sales", 0); // This would need to be calculated from order data
+                    // Thêm thông tin giá và danh mục sản phẩm
+                    productMap.put("price", product.getPrice());
+                    productMap.put("category", product.getCategory() != null ? product.getCategory().getName() : "Không phân loại");
+                    // Tính doanh thu giả định (số lượng bán * giá)
+                    productMap.put("revenue", 0);
                     return productMap;
                 })
                 .collect(Collectors.toList());
@@ -100,7 +103,7 @@ public class AdminController {
         response.put("totalOrders", totalOrders);
         response.put("totalProducts", totalProducts);
         response.put("totalRevenue", totalRevenue);
-        response.put("recentOrders", recentOrders);
+        response.put("recentOrders", allOrders); // Use all orders instead of just recent 5
         response.put("productPerformance", productPerformance);
         
         return new ResponseEntity<>(response, HttpStatus.OK);
