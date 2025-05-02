@@ -24,7 +24,8 @@ import {
   Tooltip,
   Button,
   Chip,
-  Autocomplete
+  Autocomplete,
+  Alert
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -99,20 +100,226 @@ const Products: React.FC = () => {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(12);
+  const [totalProducts, setTotalProducts] = useState(0);
 
-  // Parse query params
+  // Fetch products with current filters
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Build query parameters
+      const params: Record<string, string> = {
+        page: page.toString(),
+        size: pageSize.toString(),
+        sort: sortBy
+      };
+      
+      // Se estiver buscando, adicionar termo de busca como "keyword" (parâmetro principal)
+      if (searchTerm) {
+        // No backend, "keyword" é o parâmetro padrão para busca de texto
+        params.keyword = searchTerm;
+        
+        // Também adicionar como "search" para compatibilidade com alguns endpoints
+        params.search = searchTerm;
+        
+        // Adicionar query como outro possível parâmetro
+        params.query = searchTerm;
+        
+        console.log('Searching for products with term:', searchTerm);
+      }
+      
+      // Se uma categoria específica for selecionada, adicionar à busca
+      if (selectedCategory && selectedCategory !== 'all') {
+        params.category = selectedCategory;
+        console.log('Filtering by category:', selectedCategory);
+      }
+      
+      if (priceRange.min > 0) {
+        params.minPrice = priceRange.min.toString();
+      }
+      
+      if (priceRange.max < maxPrice) {
+        params.maxPrice = priceRange.max.toString();
+      }
+      
+      if (selectedRating !== null) {
+        params.minRating = selectedRating.toString();
+      }
+      
+      if (inStockOnly) {
+        params.inStock = 'true';
+      }
+      
+      console.log('Fetching products with params:', params);
+      
+      // Usar o método searchProductsSafe que trata erros automaticamente
+      const response = await ProductService.searchProductsSafe(params);
+      
+      // Tratar a resposta da API
+      if (response && response.data) {
+        let productsData: Product[] = [];
+        let total = 0;
+        
+        // Verificar o tipo da resposta
+        if (typeof response.data === 'object' && !Array.isArray(response.data) && response.data !== null) {
+          // Verificar se é uma resposta paginada (tem propriedade content)
+          if ('content' in response.data && Array.isArray(response.data.content)) {
+            // É uma resposta paginada
+            productsData = response.data.content;
+            total = 'totalElements' in response.data && typeof response.data.totalElements === 'number' 
+              ? response.data.totalElements 
+              : response.data.content.length;
+          } else {
+            // Objeto desconhecido - tentar extrair informações úteis
+            console.warn('Unexpected response format, trying to extract products:', response.data);
+            if (Object.values(response.data).some(Array.isArray)) {
+              // Tentar encontrar um array no objeto
+              for (const key in response.data) {
+                if (Array.isArray(response.data[key])) {
+                  productsData = response.data[key];
+                  total = productsData.length;
+                  break;
+                }
+              }
+            } else {
+              productsData = [];
+              total = 0;
+            }
+          }
+        } else if (Array.isArray(response.data)) {
+          // É um array direto de produtos
+          productsData = response.data;
+          total = response.data.length;
+        } else {
+          // Tipo desconhecido - fallback para array vazio
+          console.warn('Unexpected response type:', typeof response.data);
+          productsData = [];
+          total = 0;
+        }
+        
+        // Normalizar dados de produtos para garantir consistência
+        productsData = productsData.map(product => {
+          // Criar uma cópia do produto para não modificar o original
+          const normalizedProduct = { ...product };
+          
+          // Garantir que category seja sempre uma string
+          if (normalizedProduct.category === null || normalizedProduct.category === undefined) {
+            normalizedProduct.category = '';
+          } else if (typeof normalizedProduct.category === 'object' && normalizedProduct.category !== null) {
+            // Se category for um objeto, tentar extrair o nome
+            const categoryObj = normalizedProduct.category as Record<string, any>;
+            if (categoryObj && 'name' in categoryObj && typeof categoryObj.name === 'string') {
+              normalizedProduct.categoryName = categoryObj.name;
+              normalizedProduct.category = categoryObj.name;
+            }
+            if (categoryObj && 'id' in categoryObj) {
+              normalizedProduct.categoryId = categoryObj.id;
+            }
+          } else if (typeof normalizedProduct.category !== 'string') {
+            // Converter para string se não for
+            normalizedProduct.category = String(normalizedProduct.category);
+          }
+          
+          return normalizedProduct;
+        });
+        
+        console.log('Normalized products data sample:', productsData.slice(0, 2));
+        
+        // Aplicar filtros adicionais no frontend para garantir que apenas produtos relevantes sejam exibidos
+        let filteredProducts = productsData;
+        
+        // Se houver termo de busca, filtrar produtos que correspondam ao termo
+        if (searchTerm && searchTerm.trim() !== '') {
+          const searchLower = searchTerm.toLowerCase();
+          filteredProducts = filteredProducts.filter(product => 
+            product.name.toLowerCase().includes(searchLower) || 
+            (product.description && product.description.toLowerCase().includes(searchLower)) ||
+            (product.category && product.category.toLowerCase().includes(searchLower))
+          );
+          console.log(`Frontend filter by search term: ${filteredProducts.length} products match "${searchTerm}"`);
+        }
+        
+        // Se houver categoria selecionada, filtrar produtos dessa categoria
+        if (selectedCategory && selectedCategory !== 'all') {
+          const categoryLower = selectedCategory.toLowerCase();
+          filteredProducts = filteredProducts.filter(product => {
+            // Verificar se category é uma string antes de chamar toLowerCase()
+            if (product.category && typeof product.category === 'string' && product.category.toLowerCase() === categoryLower) {
+              return true;
+            }
+            
+            // Verificar campos adicionais que podem conter informações de categoria
+            if (product.categoryId && String(product.categoryId).toLowerCase() === categoryLower) {
+              return true;
+            }
+            
+            if (product.categoryName && product.categoryName.toLowerCase() === categoryLower) {
+              return true;
+            }
+            
+            // Se chegarmos aqui é porque a categoria não corresponde
+            return false;
+          });
+          console.log(`Frontend filter by category: ${filteredProducts.length} products in "${selectedCategory}"`);
+          // Log para debug - ver o formato da categoria
+          if (filteredProducts.length === 0 && productsData.length > 0) {
+            console.log('Category format debug:', 
+              productsData.slice(0, 3).map(p => ({
+                id: p.id,
+                name: p.name, 
+                category: p.category, 
+                categoryType: typeof p.category,
+                categoryId: p.categoryId,
+                categoryName: p.categoryName
+              }))
+            );
+          }
+        }
+        
+        // Definir produtos filtrados e total
+        setProducts(filteredProducts);
+        setTotalProducts(filteredProducts.length);
+        
+        // Se aplicamos filtros e o resultado é diferente do total retornado pela API,
+        // atualizamos mensagens de log para o desenvolvedor
+        if (filteredProducts.length !== total) {
+          console.log(`Frontend filtering applied: ${filteredProducts.length} of ${total} products match criteria`);
+        }
+      } else {
+        // Resposta vazia
+        setProducts([]);
+        setTotalProducts(0);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Không thể tải sản phẩm. Vui lòng thử lại sau.');
+      setProducts([]);
+      setTotalProducts(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, searchTerm, selectedCategory, sortBy, priceRange, selectedRating, inStockOnly, maxPrice]);
+
+  // Parse query params and trigger search when URL changes
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const categoryParam = params.get('category');
     if (categoryParam) {
       setSelectedCategory(categoryParam);
       addActiveFilter(`Danh mục: ${categoryParam}`);
+    } else {
+      setSelectedCategory('all');
     }
     
     const searchParam = params.get('search');
     if (searchParam) {
       setSearchTerm(searchParam);
       addActiveFilter(`Tìm kiếm: ${searchParam}`);
+    } else {
+      setSearchTerm('');
     }
     
     const minPrice = params.get('minPrice');
@@ -129,14 +336,36 @@ const Products: React.FC = () => {
     if (rating) {
       setSelectedRating(parseInt(rating));
       addActiveFilter(`Đánh giá: ${rating} sao trở lên`);
+    } else {
+      setSelectedRating(null);
     }
     
     const inStock = params.get('inStock');
     if (inStock === 'true') {
       setInStockOnly(true);
       addActiveFilter('Chỉ sản phẩm còn hàng');
+    } else {
+      setInStockOnly(false);
     }
+    
+    const sort = params.get('sort');
+    if (sort) {
+      setSortBy(sort);
+      addActiveFilter(`Sắp xếp: ${getSortLabel(sort)}`);
+    } else {
+      setSortBy('newest');
+    }
+    
+    // Reset page when filters change
+    setPage(0);
+    
+    // Sau khi đã parse tất cả parameters, gọi fetchProducts để lấy dữ liệu
   }, [location.search]);
+
+  // Trigger product search whenever filters change
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
   
   // Format currency function
   const formatCurrency = (amount: number) => {
@@ -177,14 +406,14 @@ const Products: React.FC = () => {
         }
       } catch (err) {
         console.error('Error fetching categories:', err);
-        // Sử dụng danh mục mẫu khi API bị lỗi
+        // Usar categorias de exemplo em caso de erro
         setCategories([
-          { id: 1, name: 'Electronics' },
-          { id: 2, name: 'Clothing' },
-          { id: 3, name: 'Home & Kitchen' },
-          { id: 4, name: 'Beauty' },
-          { id: 5, name: 'Books' },
-          { id: 6, name: 'Toys' }
+          { id: 1, name: 'Điện thoại' },
+          { id: 2, name: 'Laptop' },
+          { id: 3, name: 'Tablet' },
+          { id: 4, name: 'Phụ kiện' },
+          { id: 5, name: 'Đồng hồ thông minh' },
+          { id: 6, name: 'Tai nghe' }
         ]);
       }
     };
@@ -201,7 +430,9 @@ const Products: React.FC = () => {
         }
       } catch (err) {
         console.error('Error fetching max price:', err);
-        // Giữ nguyên giá mặc định nếu có lỗi
+        // Usar valor padrão em caso de erro
+        setMaxPrice(10000000);
+        setPriceRange({ min: 0, max: 10000000 });
       }
     };
     
@@ -223,7 +454,7 @@ const Products: React.FC = () => {
     fetchRecommendedProducts();
   }, []);
   
-  // Fetch search suggestions - sử dụng debounce để giảm số lượng request
+  // Fetch search suggestions - usando debounce para reduzir número de requisições
   const fetchSuggestionsImpl = async (term: string) => {
     if (term.length < 2) {
       setSearchSuggestions([]);
@@ -232,12 +463,25 @@ const Products: React.FC = () => {
 
     try {
       const response = await ProductService.getSearchSuggestions(term);
-      if (response.data && Array.isArray(response.data)) {
-        // Extract names for display or transform as needed
-        const suggestions = response.data.map((item: any) => 
-          typeof item === 'string' ? item : item.name || ''
-        );
-        setSearchSuggestions(suggestions);
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          // Extrair nomes para exibição
+          const suggestions = response.data.map((item: any) => 
+            typeof item === 'string' ? item : item.name || ''
+          );
+          setSearchSuggestions(suggestions);
+        } else if (response.data.content && Array.isArray(response.data.content)) {
+          // Resposta paginada - usar content
+          const suggestions = response.data.content.map((item: any) =>
+            typeof item === 'string' ? item : item.name || ''
+          );
+          setSearchSuggestions(suggestions);
+        } else {
+          // Formato desconhecido - resetar sugestões
+          setSearchSuggestions([]);
+        }
+      } else {
+        setSearchSuggestions([]);
       }
     } catch (error) {
       console.error('Error fetching search suggestions:', error);
@@ -379,7 +623,24 @@ const Products: React.FC = () => {
     setActiveFilters([]);
   };
   
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleApplyFilters();
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(0); // Reset to first page when changing page size
+  };
+
   const handleApplyFilters = () => {
+    // Reset page to first page when applying new filters
+    setPage(0);
+    
     // Tạo URL mới với các tham số lọc
     const searchParams = new URLSearchParams();
     
@@ -389,6 +650,7 @@ const Products: React.FC = () => {
     
     if (searchTerm) {
       searchParams.append('search', searchTerm);
+      searchParams.append('keyword', searchTerm);
     }
     
     if (priceRange.min > 0 || priceRange.max < maxPrice) {
@@ -408,9 +670,22 @@ const Products: React.FC = () => {
       searchParams.append('sort', sortBy);
     }
     
+    // Log dos filtros aplicados
+    console.log('Applying filters:', {
+      category: selectedCategory,
+      search: searchTerm,
+      priceRange,
+      rating: selectedRating,
+      inStock: inStockOnly,
+      sort: sortBy
+    });
+    
     // Cập nhật URL
     const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
+    
+    // Trigger a fetch with the new filters
+    fetchProducts();
     
     // Ẩn bộ lọc nâng cao sau khi áp dụng
     setShowAdvancedFilters(false);
@@ -437,41 +712,42 @@ const Products: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 2, mb: 4 }}>
             <Box display="flex" alignItems="center" flexWrap="wrap" gap={2}>
-              <Autocomplete
-                freeSolo
-                options={searchSuggestions}
-                value={searchTerm}
-                onChange={(event, newValue) => {
-                  setSearchTerm(newValue || '');
-                  if (newValue) {
-                    addActiveFilter(`Tìm kiếm: ${newValue}`);
-                  } else {
-                    removeActiveFilter('Tìm kiếm');
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Tìm kiếm sản phẩm"
-                    variant="outlined"
-                    size="small"
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    sx={{ flexGrow: 1, minWidth: '200px' }}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton edge="end">
-                            <SearchIcon />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                )}
-                sx={{ flexGrow: 1, minWidth: '200px' }}
-              />
+              <form onSubmit={handleSearchSubmit} style={{ flexGrow: 1, minWidth: '200px' }}>
+                <Autocomplete
+                  freeSolo
+                  options={searchSuggestions}
+                  value={searchTerm}
+                  onChange={(event, newValue) => {
+                    setSearchTerm(newValue || '');
+                    if (newValue) {
+                      addActiveFilter(`Tìm kiếm: ${newValue}`);
+                    } else {
+                      removeActiveFilter('Tìm kiếm');
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Tìm kiếm sản phẩm"
+                      variant="outlined"
+                      size="small"
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      sx={{ flexGrow: 1, minWidth: '200px' }}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton edge="end" type="submit">
+                              <SearchIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+              </form>
               
               <FormControl size="small" sx={{ minWidth: '150px' }}>
                 <InputLabel id="category-select-label">Danh Mục</InputLabel>
@@ -623,20 +899,24 @@ const Products: React.FC = () => {
         <Grid item xs={12} md={8}>
           <Box sx={{ mb: 4 }}>
             <Typography variant="h4" gutterBottom>
-              Tất Cả Sản Phẩm
+              Tất Cả Sản Phẩm {totalProducts > 0 && `(${totalProducts})`}
             </Typography>
             {loading ? (
               <Box display="flex" justifyContent="center" my={4}>
                 <CircularProgress />
               </Box>
+            ) : error ? (
+              <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>
+            ) : products.length === 0 ? (
+              <Alert severity="info" sx={{ my: 2 }}>Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</Alert>
             ) : (
               <ProductList 
-                categoryFilter={selectedCategory}
-                searchTerm={searchTerm}
-                sortBy={sortBy}
-                priceRange={priceRange}
-                ratingFilter={selectedRating}
-                inStockOnly={inStockOnly}
+                products={products}
+                totalItems={totalProducts}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
               />
             )}
           </Box>

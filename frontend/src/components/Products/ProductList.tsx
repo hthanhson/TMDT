@@ -1,165 +1,56 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Grid,
-  Card,
-  CardContent,
-  CardMedia,
-  Typography,
-  Button,
-  Rating,
-  Box,
+import React, { useState, useEffect } from 'react';
+import { 
+  Grid, 
+  Box, 
+  Typography, 
+  Pagination, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem,
+  SelectChangeEvent,
   CircularProgress,
-  IconButton,
-  Tooltip,
-  CardActions,
-  Chip,
-  Snackbar,
   Alert
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Favorite as FavoriteIcon,
-  FavoriteBorder as FavoriteBorderIcon
-} from '@mui/icons-material';
-import { Product } from '../../types/product';
+import ProductCard from './ProductCard';
 import ProductService from '../../services/productService';
-import { useCart } from '../../contexts/CartContext';
-import { useAuth } from '../../contexts/AuthContext';
-
-interface PriceRange {
-  min: number;
-  max: number;
-}
+import { Product } from '../../types/product';
 
 interface ProductListProps {
-  categoryFilter?: string;
-  searchTerm?: string;
-  sortBy?: string;
-  priceRange?: PriceRange;
-  ratingFilter?: number | null;
-  inStockOnly?: boolean;
+  products: Product[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-const ProductList: React.FC<ProductListProps> = ({ 
-  categoryFilter = 'all', 
-  searchTerm = '', 
-  sortBy = 'newest',
-  priceRange = { min: 0, max: 100000000 },
-  ratingFilter = null,
-  inStockOnly = false
+const ProductList: React.FC<ProductListProps> = ({
+  products,
+  totalItems,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  isLoading = false,
+  error = null
 }) => {
-  const navigate = useNavigate();
-  const { addToCart } = useCart();
-  const { isAuthenticated } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        const response = await ProductService.getAllProducts({
-          category: categoryFilter !== 'all' ? categoryFilter : undefined,
-          search: searchTerm || undefined,
-          sort: sortBy || undefined,
-          minPrice: priceRange.min,
-          maxPrice: priceRange.max,
-          rating: ratingFilter || undefined,
-          inStock: inStockOnly || undefined
-        });
-        setProducts(response.data);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-        // Nếu không có sản phẩm, hiển thị sản phẩm mẫu
-        
-        setError(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [categoryFilter, searchTerm, sortBy, priceRange, ratingFilter, inStockOnly]);
-
-  useEffect(() => {
-    // Load favorites if user is authenticated
-    const loadFavorites = async () => {
-      if (isAuthenticated) {
-        try {
-          const response = await ProductService.getFavorites();
-          // Lấy IDs từ danh sách sản phẩm yêu thích
-          const favoriteIds = response.data.map((product: Product) => product.id);
-          setFavorites(favoriteIds);
-        } catch (err) {
-          console.error('Error loading favorites:', err);
-          // Không hiển thị lỗi, chỉ log cho mục đích debug
-          setFavorites([]);
-        }
-      }
-    };
-
-    loadFavorites();
-  }, [isAuthenticated]);
-
-  const handleProductClick = (productId: string) => {
-    navigate(`/products/${productId}`);
+  // Cálculo para total de páginas
+  const totalPages = Math.ceil(totalItems / pageSize);
+  
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    onPageChange(value - 1); // API uses 0-based indexing
   };
 
-  const handleAddToCart = (event: React.MouseEvent, product: Product) => {
-    event.stopPropagation();
-    addToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      imageUrl: product.imageUrl,
-      quantity: 1
-    });
-    showSnackbar('Product added to cart', 'success');
+  const handlePageSizeChange = (event: SelectChangeEvent) => {
+    onPageSizeChange(Number(event.target.value));
   };
 
-  const handleToggleFavorite = async (event: React.MouseEvent, productId: string) => {
-    event.stopPropagation();
-    
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: window.location.pathname } });
-      return;
-    }
-
-    try {
-      if (favorites.includes(productId)) {
-        await ProductService.removeFromFavorites(productId);
-        setFavorites(favorites.filter(id => id !== productId));
-        showSnackbar('Removed from favorites', 'success');
-      } else {
-        await ProductService.addToFavorites(productId);
-        setFavorites([...favorites, productId]);
-        showSnackbar('Added to favorites', 'success');
-      }
-    } catch (err) {
-      console.error('Error updating favorites:', err);
-      showSnackbar('Failed to update favorites', 'error');
-    }
-  };
-
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbarOpen(false);
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+      <Box display="flex" justifyContent="center" my={4}>
         <CircularProgress />
       </Box>
     );
@@ -167,113 +58,66 @@ const ProductList: React.FC<ProductListProps> = ({
 
   if (error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <Typography color="error">{error}</Typography>
-      </Box>
+      <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>
     );
   }
 
   if (products.length === 0) {
     return (
-      <Box textAlign="center" my={4}>
-        <Typography variant="h6">No products found</Typography>
-        <Typography color="textSecondary">Try a different search term or filter</Typography>
-      </Box>
+      <Alert severity="info" sx={{ my: 2 }}>Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</Alert>
     );
   }
 
   return (
-    <>
-      <Grid container spacing={3}>
+    <Box>
+      <Grid container spacing={2}>
         {products.map((product) => (
           <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
-            <Card 
-              sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                flexDirection: 'column',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-5px)',
-                  boxShadow: 6
-                },
-                position: 'relative'
-              }}
-              onClick={() => handleProductClick(product.id)}
-            >
-              <CardMedia
-                component="img"
-                height="200"
-                image={product.imageUrl}
-                alt={product.name}
-                sx={{ objectFit: 'cover' }}
-              />
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography gutterBottom variant="h6" component="h2" noWrap>
-                  {product.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ 
-                  mb: 2,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                }}>
-                  {product.description}
-                </Typography>
-                <Box display="flex" alignItems="center" sx={{ mb: 1 }}>
-                  <Rating value={product.rating} readOnly precision={0.5} />
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                    ({product.reviews.length})
-                  </Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6" color="primary">
-                    {product.price.toFixed(2)}đ
-                  </Typography>
-                  <Chip 
-                    label={product.stock > 0 ? 'Còn Hàng' : 'Out of Stock'} 
-                    color={product.stock > 0 ? 'success' : 'error'} 
-                    size="small" 
-                  />
-                </Box>
-              </CardContent>
-              <CardActions sx={{ justifyContent: 'space-between', padding: 2 }}>
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  disabled={product.stock === 0}
-                  onClick={(e) => handleAddToCart(e, product)}
-                >
-                  Add to Cart
-                </Button>
-                <Tooltip title={favorites.includes(product.id) ? "Remove from favorites" : "Add to favorites"}>
-                  <IconButton 
-                    color="primary" 
-                    onClick={(e) => handleToggleFavorite(e, product.id)}
-                  >
-                    {favorites.includes(product.id) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
-                  </IconButton>
-                </Tooltip>
-              </CardActions>
-            </Card>
+            <ProductCard product={product} />
           </Grid>
         ))}
       </Grid>
-
-      <Snackbar 
-        open={snackbarOpen} 
-        autoHideDuration={3000} 
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-    </>
+      
+      {totalItems > 0 && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mt: 4 
+        }}>
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              Hiển thị {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalItems)} trong số {totalItems} sản phẩm
+            </Typography>
+          </Box>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="items-per-page-label">Hiển thị</InputLabel>
+              <Select
+                labelId="items-per-page-label"
+                id="items-per-page"
+                value={pageSize.toString()}
+                label="Hiển thị"
+                onChange={handlePageSizeChange}
+              >
+                <MenuItem value={12}>12 / trang</MenuItem>
+                <MenuItem value={24}>24 / trang</MenuItem>
+                <MenuItem value={48}>48 / trang</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Pagination 
+              count={totalPages} 
+              page={page + 1} // UI uses 1-based indexing
+              onChange={handlePageChange}
+              color="primary" 
+              shape="rounded"
+            />
+          </Box>
+        </Box>
+      )}
+    </Box>
   );
 };
 

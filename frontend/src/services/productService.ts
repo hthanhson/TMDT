@@ -2,6 +2,18 @@ import api from './api';
 import { API_URL } from '../config';
 import { Product } from '../types/product';
 
+// Interface para resposta paginada da API
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
 export interface ProductQueryParams {
   category?: string;
   search?: string;
@@ -33,9 +45,137 @@ const ProductService = {
     return api.get<Product[]>(`${API_URL}/products/category/${category}`);
   },
 
-  searchProducts(query: string) {
-    return api.get<Product[]>(`${API_URL}/products/search`, {
-      params: { query }
+  searchProducts(params: Record<string, string>) {
+    // Constrói a URL com query params
+    const queryParams = new URLSearchParams();
+    
+    // Adiciona cada parâmetro à query string
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+    
+    // Para compatibilidade, verifique se precisamos ajustar os parâmetros
+    if (params.search && !params.keyword && !params.term) {
+      queryParams.append('keyword', params.search);
+    }
+    
+    console.log('Search query params:', queryParams.toString());
+    
+    // Faz a requisição com os parâmetros de busca
+    return api.get(`${API_URL}/products/search?${queryParams.toString()}`);
+  },
+  
+  // Método para buscar produtos com suporte a tratamento de erros
+  searchProductsSafe(params: Record<string, string>) {
+    // Obter parâmetros específicos de busca
+    const keyword = params.keyword || params.search || params.query || '';
+    const category = params.category || '';
+    
+    // Log de informações sobre a busca
+    if (keyword) console.log(`Searching for products with keyword: ${keyword}`);
+    if (category) console.log(`Filtering by category: ${category}`);
+    
+    // Array de promises para tentar diferentes endpoints
+    const searchPromises: Promise<any>[] = [];
+    
+    // 1. Tentar o endpoint principal de busca
+    searchPromises.push(
+      this.searchProducts(params)
+        .catch(error => {
+          console.log('Primary search endpoint failed:', error.message);
+          return Promise.reject(error);
+        })
+    );
+    
+    // 2. Tentar busca por categoria (se a categoria estiver especificada)
+    if (category) {
+      searchPromises.push(
+        api.get(`${API_URL}/products/category/${category}`, {
+          params: { keyword, page: params.page, size: params.size }
+        }).catch(error => {
+          console.log('Category search endpoint failed:', error.message);
+          return Promise.reject(error);
+        })
+      );
+    }
+    
+    // 3. Tentar busca geral
+    searchPromises.push(
+      api.get(`${API_URL}/products`, { 
+        params: { 
+          keyword, 
+          category,
+          page: params.page || 0,
+          size: params.size || 12,
+          sort: params.sort
+        }
+      }).catch(error => {
+        console.log('General products endpoint failed:', error.message);
+        return Promise.reject(error);
+      })
+    );
+    
+    // Tentar cada endpoint em sequência, até que um deles funcione
+    return new Promise<any>((resolve) => {
+      // Tentar o primeiro endpoint
+      searchPromises[0]
+        .then((response: any) => {
+          console.log('Primary search endpoint succeeded');
+          resolve(response);
+        })
+        .catch(() => {
+          // Se falhar, tentar o próximo endpoint
+          if (searchPromises.length > 1) {
+            searchPromises[1]
+              .then((response: any) => {
+                console.log('Alternative search endpoint succeeded');
+                resolve(response);
+              })
+              .catch(() => {
+                // Se falhar, tentar o último endpoint
+                if (searchPromises.length > 2) {
+                  searchPromises[2]
+                    .then((response: any) => {
+                      console.log('Fallback search endpoint succeeded');
+                      resolve(response);
+                    })
+                    .catch(() => {
+                      // Se todos falharem, retornar uma resposta vazia
+                      console.error('All search endpoints failed');
+                      resolve({
+                        data: [],
+                        status: 200,
+                        statusText: 'OK',
+                        headers: {},
+                        config: {} as any
+                      });
+                    });
+                } else {
+                  // Se não houver terceiro endpoint, retornar uma resposta vazia
+                  console.error('All search endpoints failed');
+                  resolve({
+                    data: [],
+                    status: 200,
+                    statusText: 'OK',
+                    headers: {},
+                    config: {} as any
+                  });
+                }
+              });
+          } else {
+            // Se só houver um endpoint, retornar uma resposta vazia
+            console.error('Search endpoint failed');
+            resolve({
+              data: [],
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: {} as any
+            });
+          }
+        });
     });
   },
 
@@ -79,14 +219,43 @@ const ProductService = {
 
   // Phương thức để lấy gợi ý tìm kiếm
   getSearchSuggestions(term: string) {
-    return api.get(`${API_URL}/products/search/suggestions`, {
-      params: { term }
+    // Alterando o endpoint para corresponder ao que existe no backend
+    return api.get(`${API_URL}/products/search`, {
+      params: { 
+        keyword: term,
+        size: 5,  // Limitar a 5 sugestões
+        autocomplete: true
+      }
+    }).catch(() => {
+      // Tentar um endpoint alternativo
+      return api.get(`${API_URL}/products`, {
+        params: { keyword: term, size: 5 }
+      }).catch(() => {
+        // Se ambos falharem, retornar um objeto compatível com AxiosResponse
+        return Promise.resolve({
+          data: [],
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {} as any
+        });
+      });
     });
   },
 
   // Phương thức để lấy giá cao nhất của sản phẩm
   getMaxPrice() {
-    return api.get(`${API_URL}/products/max-price`);
+    return api.get(`${API_URL}/products/max-price`)
+      .catch(() => {
+        // Retornar um valor padrão em caso de erro, com estrutura AxiosResponse
+        return Promise.resolve({
+          data: { maxPrice: 10000000 },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {} as any
+        });
+      });
   },
 
   // Phương thức đánh dấu đánh giá là hữu ích
@@ -201,6 +370,33 @@ const ProductService = {
       console.error('Error parsing user data:', err);
       return null;
     }
+  },
+
+  // Método auxiliar que converte objetos de filtro para query params
+  buildSearchQueryParams: (filters: {
+    search?: string;
+    category?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    minRating?: number;
+    inStock?: boolean;
+    sort?: string;
+    page?: number;
+    size?: number;
+  }) => {
+    const params: Record<string, string> = {};
+    
+    if (filters.search) params.search = filters.search;
+    if (filters.category && filters.category !== 'all') params.category = filters.category;
+    if (filters.minPrice !== undefined && filters.minPrice > 0) params.minPrice = filters.minPrice.toString();
+    if (filters.maxPrice !== undefined) params.maxPrice = filters.maxPrice.toString();
+    if (filters.minRating !== undefined) params.minRating = filters.minRating.toString();
+    if (filters.inStock) params.inStock = 'true';
+    if (filters.sort) params.sort = filters.sort;
+    if (filters.page !== undefined) params.page = filters.page.toString();
+    if (filters.size !== undefined) params.size = filters.size.toString();
+    
+    return params;
   }
 };
 
