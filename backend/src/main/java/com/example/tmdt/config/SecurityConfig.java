@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -30,6 +31,7 @@ import com.example.tmdt.repository.UserRepository;
 import com.example.tmdt.model.User;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
@@ -48,6 +50,16 @@ public class SecurityConfig {
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
         return new AuthTokenFilter();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        
+        return authProvider;
     }
 
     @Bean
@@ -82,35 +94,44 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.cors().and().csrf().disable()
+        http.cors().configurationSource(corsConfigurationSource()).and()
+            .csrf().disable()
             .exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
             .authorizeHttpRequests(authorize -> authorize
-                .antMatchers("/api/auth/**").permitAll()
-                .antMatchers("/auth/**").permitAll()
-                .antMatchers("/api/signup/**").permitAll()
-                .antMatchers("/signup/**").permitAll()
-                .antMatchers("/api/notifications/**").permitAll()
-                .antMatchers("/api/test/**").permitAll()
-                .antMatchers("/products/**").permitAll()
-                .antMatchers("/test/**").permitAll()
-                .antMatchers("/api/products/**").permitAll()
+                // Common public endpoints
+                .antMatchers("/api/auth/**", "/auth/**").permitAll()
+                .antMatchers("/api/signup/**", "/signup/**").permitAll()
+                .antMatchers("/api/test/**", "/test/**").permitAll()
+                // Product related endpoints
+                .antMatchers("/api/products/**", "/products/**").permitAll()
+                .antMatchers("/products/top").permitAll()
+                .antMatchers("/products/recommended").permitAll()
+                // Category related endpoints
                 .antMatchers("/api/categories/**").permitAll()
+                // Other public endpoints
                 .antMatchers("/api/reviews/**").permitAll()
                 .antMatchers("/api/files/**").permitAll()
                 .antMatchers("/api/public/**").permitAll()
+                .antMatchers("/api/notifications/**").permitAll()
+                // Chat related endpoints
                 .antMatchers("/api/chat/sessions/**").permitAll()
                 .antMatchers("/api/chat/messages/**").permitAll()
-                .antMatchers("/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                 .antMatchers("/ws/**").permitAll()
                 .antMatchers("/chat/**").permitAll()
                 .antMatchers("/topic/**").permitAll()
                 .antMatchers("/app/**").permitAll()
                 .antMatchers("/user/**").permitAll()
+                // Swagger/API docs
+                .antMatchers("/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                // Role specific endpoints
+                .antMatchers("/api/shipper/**").hasRole("SHIPPER")
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
+                // Everything else requires authentication
                 .anyRequest().authenticated()
             );
 
+        http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
         
         return http.build();
@@ -119,11 +140,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // Combine both CORS configurations
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Auth-Token", "*"));
         configuration.setExposedHeaders(Arrays.asList("X-Auth-Token"));
         configuration.setAllowCredentials(true);
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

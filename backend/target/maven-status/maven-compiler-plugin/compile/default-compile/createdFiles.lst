@@ -125,7 +125,6 @@ com/example/tmdt/model/Order$RefundStatus.class
 com/example/tmdt/payload/request/RefundRequestDto.class
 com/example/tmdt/config/WebMvcConfig.class
 com/example/tmdt/model/User.class
-com/example/tmdt/security/WebSecurityConfig.class
 com/example/tmdt/repository/ChatSessionRepository.class
 com/example/tmdt/payload/request/StatusUpdateRequest.class
 com/example/tmdt/controller/FileController.class
