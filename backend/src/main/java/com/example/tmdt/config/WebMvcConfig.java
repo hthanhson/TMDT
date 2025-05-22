@@ -17,6 +17,8 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 
 import java.util.List;
 
@@ -31,6 +33,53 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
         argumentResolvers.add(new CurrentUserArgumentResolver());
         logger.info("Added CurrentUserArgumentResolver to Spring MVC");
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Configure resource handler for product images
+        registry.addResourceHandler("/uploads/products/**")
+                .addResourceLocations("file:./uploads/products/", "file:./backend/uploads/products/")
+                .setCachePeriod(3600) // Cache for 1 hour
+                .resourceChain(true);
+        
+        // Add handler for images served through the /images endpoint
+        registry.addResourceHandler("/images/products/**")
+                .addResourceLocations("file:./uploads/products/", "file:./backend/uploads/products/")
+                .setCachePeriod(3600) // Cache for 1 hour
+                .resourceChain(true);
+        
+        // Add handler for direct image access
+        registry.addResourceHandler("/products/images/direct/**")
+                .addResourceLocations("file:./uploads/products/", "file:./backend/uploads/products/")
+                .setCachePeriod(3600) // Cache for 1 hour
+                .resourceChain(true);
+                
+        // Add handler for product images by ID
+        registry.addResourceHandler("/products/images/product/**")
+                .addResourceLocations("file:./uploads/products/", "file:./backend/uploads/products/")
+                .setCachePeriod(3600) // Cache for 1 hour
+                .resourceChain(true);
+                
+        // Add handler for default product images
+        registry.addResourceHandler("/products/images/default/**")
+                .addResourceLocations("file:./uploads/products/", "file:./backend/uploads/products/")
+                .setCachePeriod(3600) // Cache for 1 hour
+                .resourceChain(true);
+                
+        logger.info("Added resource handlers for product images");
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Methods")
+                .maxAge(3600);
+        
+        logger.info("Configured CORS for all endpoints");
     }
 
     private class CurrentUserArgumentResolver implements HandlerMethodArgumentResolver {

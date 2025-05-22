@@ -30,7 +30,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             to="/"
             sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit' }}
           >
-            TMDT Shop
+            {/* TMDT Shop */}
           </Typography>
           
           <Button

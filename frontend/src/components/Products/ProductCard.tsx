@@ -64,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       id: product.id,
       name: product.name,
       price: product.price,
-      imageUrl: imageError ? DEFAULT_IMAGE_URL : product.imageUrl,
+      imageUrl: imageError ? DEFAULT_IMAGE_URL : getImageUrl(product),
       quantity: 1
     });
   };
@@ -104,18 +104,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     }).format(price);
   };
 
-  // Verificar se a URL da imagem é válida (não é um exemplo ou placeholder)
-  const isValidImageUrl = (url: string) => {
-    if (!url) return false;
-    return !url.includes('example.com') && 
-           !url.startsWith('http://example.com') && 
-           !url.startsWith('https://example.com');
+  // Update the getImageUrl function to use our standardized approach
+  const getImageUrl = (product: Product) => {
+    if (!product || !product.id) {
+      return DEFAULT_IMAGE_URL;
+    }
+
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+    
+    // Always use the direct product image endpoint which handles all server-side logic
+    return `${baseUrl}/products/images/product/${product.id}`;
   };
 
-  // Determinar qual URL de imagem usar
-  const imageUrl = imageError || !isValidImageUrl(product.imageUrl) 
-    ? DEFAULT_IMAGE_URL 
-    : product.imageUrl;
+  // Use the getImageUrl function with the product object
+  const displayImageUrl = getImageUrl(product);
 
   return (
     <Card 
@@ -132,7 +134,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       }}
       onClick={handleProductClick}
     >
-      {imageError || !isValidImageUrl(product.imageUrl) ? (
+      {imageError ? (
         <Box 
           sx={{ 
             height: 200, 
@@ -148,7 +150,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <CardMedia
           component="img"
           height="200"
-          image={product.imageUrl}
+          image={displayImageUrl}
           alt={product.name}
           sx={{ objectFit: 'cover' }}
           onError={handleImageError}

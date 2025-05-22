@@ -26,9 +26,14 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.example.tmdt.payload.response.FileResponse;
 import com.example.tmdt.payload.response.MessageResponse;
 import com.example.tmdt.service.FileStorageService;
+import org.springframework.core.io.FileSystemResource;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.File;
 
 @RestController
-@RequestMapping("/files")
+@RequestMapping("/api/files")
 public class FileController {
 
     @Autowired
@@ -108,5 +113,54 @@ public class FileController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse("Could not delete file: " + e.getMessage()));
         }
+    }
+
+    @GetMapping("/product-image/{filename:.+}")
+    public ResponseEntity<Resource> getProductImage(@PathVariable String filename) {
+        try {
+            // Attempt to load from backend/uploads/products first
+            Path filePath = Paths.get("backend/uploads/products/" + filename);
+            if (!Files.exists(filePath)) {
+                // Try uploads/products as fallback
+                filePath = Paths.get("uploads/products/" + filename);
+            }
+            
+            // Check if file exists
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Get file content type
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+            
+            // Create resource and return it
+            Resource resource = new FileSystemResource(filePath.toFile());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .body(resource);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    @GetMapping("/check-image/{filename:.+}")
+    public ResponseEntity<?> checkImage(@PathVariable String filename) {
+        // Construct paths to check
+        String backendPath = "backend/uploads/products/" + filename;
+        String regularPath = "uploads/products/" + filename;
+        
+        // Check if files exist
+        boolean backendExists = new File(backendPath).exists();
+        boolean regularExists = new File(regularPath).exists();
+        
+        // Create response
+        String response = "Backend path (" + backendPath + "): " + (backendExists ? "EXISTS" : "NOT FOUND") + 
+                         "\nRegular path (" + regularPath + "): " + (regularExists ? "EXISTS" : "NOT FOUND");
+        
+        return ResponseEntity.ok(response);
     }
 }

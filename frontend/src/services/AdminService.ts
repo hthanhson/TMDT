@@ -6,7 +6,7 @@ interface Product {
   name: string;
   description: string;
   price: number;
-  category: string;
+  category: Category;
   stock: number;
   imageUrl: string;
   rating: number;
@@ -15,11 +15,9 @@ interface Product {
 }
 
 interface Category {
-  id: string;
+  id: number;
   name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
+  description?: string;
 }
 
 interface User {
@@ -236,11 +234,31 @@ class AdminService {
 
   async createProduct(productData: FormData) {
     try {
-      return await api.post('/admin/products', productData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      console.log('Creating product with data:');
+      
+      // Log FormData contents 
+      productData.forEach((value, key) => {
+        console.log(`${key}: ${value instanceof File ? '[File: ' + value.name + ']' : value}`);
       });
+
+      // Ensure the file is in the FormData
+      const hasFile = productData.has('imageFile') && productData.get('imageFile') instanceof File;
+      console.log('FormData contains file:', hasFile);
+
+      const response = await api.post('/admin/products', productData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json'
+        },
+        // Important: Don't transform the request data
+        transformRequest: (data) => data
+      });
+      
+      console.log('Product creation response:', response.data);
+      return response;
     } catch (error: any) {
-      console.error('Error creating product:', error.message);
+      console.error('Error creating product:', error);
+      console.error('Error response:', error.response);
       throw error;
     }
   }
@@ -271,9 +289,9 @@ class AdminService {
   }
 
   // Categories
-  async getAllCategories(params?: any) {
+  async getAllCategories() {
     try {
-      return await api.get<string[]>('/categories', { params });
+      return await api.get<Category[]>('/categories');
     } catch (error: any) {
       console.error('Error fetching categories:', error.message);
       throw error;

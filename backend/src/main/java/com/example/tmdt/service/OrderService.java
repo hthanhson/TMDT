@@ -93,7 +93,7 @@ public class OrderService {
 
             // Check if there's enough stock
             if (product.getStock() < itemRequest.getQuantity()) {
-                throw new RuntimeException("Not enough stock for product: " + product.getName());
+                throw new RuntimeException("Số lượng vượt quá giới hạn: " + product.getName());
             }
 
             // Reduce stock
@@ -235,7 +235,7 @@ public class OrderService {
 
             // Check if there's enough stock
             if (product.getStock() < itemRequest.getQuantity()) {
-                throw new RuntimeException("Not enough stock for product: " + product.getName());
+                throw new RuntimeException("Số lượng vượt quá giới hạn: " + product.getName());
             }
 
             // Reduce stock

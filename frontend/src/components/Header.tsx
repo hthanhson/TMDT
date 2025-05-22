@@ -319,7 +319,7 @@ const Header: React.FC = () => {
             to="/"
             sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit', fontWeight: 'bold' }}
           >
-            TMDT Shop
+            {/* TMDT Shop */}
           </Typography>
           
           {/* Chỉ hiển thị search bar khi không phải admin */}

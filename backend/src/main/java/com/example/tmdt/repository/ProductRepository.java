@@ -27,4 +27,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Product findByIdWithLock(@Param("id") Long id);
+    
+    @Query("SELECT p FROM Product p WHERE p.category.name = :categoryName")
+    List<Product> findByCategoryName(@Param("categoryName") String categoryName);
+    
+    @Query("SELECT p FROM Product p WHERE LOWER(p.category.name) = LOWER(:categoryName)")
+    List<Product> findByCategoryNameIgnoreCase(@Param("categoryName") String categoryName);
+    
+    @Query("SELECT p FROM Product p WHERE LOWER(p.category.name) = LOWER(:categoryName) AND LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<Product> findByCategoryNameIgnoreCaseAndNameContainingIgnoreCase(
+            @Param("categoryName") String categoryName, 
+            @Param("query") String query);
 } 

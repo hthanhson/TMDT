@@ -68,14 +68,24 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-// Add this debug utility at the top of the file, outside the component
-const DEBUG = true;
+const DEBUG = false;
 
 function debugLog(...args: any[]) {
   if (DEBUG) {
     console.log(...args);
   }
 }
+
+const getImageUrl = (product: any): string => {
+  if (!product || !product.id) {
+    return '/assets/images/product-placeholder.jpg';
+  }
+
+  const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+  
+  // Always use the direct product image endpoint which handles all server-side logic
+  return `${BASE_URL}/products/images/product/${product.id}`;
+};
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -105,7 +115,6 @@ const ProductDetail: React.FC = () => {
     }).format(amount);
   };
 
-  // Hàm bổ sung để khắc phục reviews thiếu userId
   const fixReviewsWithMissingUserId = (reviews: any[]) => {
     if (!isAuthenticated || !user) return;
 
@@ -220,7 +229,6 @@ const ProductDetail: React.FC = () => {
     }
   };
 
-  // Hàm chính để xử lý dữ liệu sản phẩm
   const processProduct = (product: any) => {
     console.log('Raw product data:', product);
 
@@ -629,6 +637,8 @@ const ProductDetail: React.FC = () => {
     const processedProduct = {
       ...product,
       reviews: processedReviews,
+      // Don't transform the URL here, let the image component handle it
+      imageUrl: product.imageUrl || '',
       category: typeof product.category === 'object' ?
         (product.category ? (
           typeof product.category === 'object' && product.category !== null && 'name' in product.category
@@ -739,11 +749,14 @@ const ProductDetail: React.FC = () => {
 
   const handleAddToCart = () => {
     if (product) {
+      // Always use our standardized image URL
+      const imageUrl = getImageUrl(product);
+      
       addToCart({
         id: product.id,
         name: product.name,
         price: product.price,
-        imageUrl: product.imageUrl,
+        imageUrl: imageUrl,
         quantity: quantity
       });
       setAddedToCart(true);
@@ -964,17 +977,24 @@ const ProductDetail: React.FC = () => {
             >
               {inWishlist ? <FavoriteIcon /> : <FavoriteBorderIcon />}
             </IconButton>
-            <Box
-              component="img"
-              src={product.imageUrl}
-              alt={product.name}
-              sx={{
-                width: '100%',
-                height: 'auto',
-                objectFit: 'contain',
-                borderRadius: 1,
-              }}
-            />
+            <Box sx={{ position: 'relative', width: '100%', height: '400px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <Box
+                component="img"
+                src={getImageUrl(product)}
+                alt={product.name}
+                sx={{
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: '400px',
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                }}
+                onError={(e) => {
+                  console.log("Image failed to load");
+                  // Just log the error - server will return a default image
+                }}
+              />
+            </Box>
           </Paper>
         </Grid>
 
@@ -1113,8 +1133,6 @@ const ProductDetail: React.FC = () => {
 
           {processedReviews.length > 0 ? (
             processedReviews.map((review, index) => (
-              // Trong phần hiển thị review, cập nhật đoạn code sau:
-
               <Paper key={review.id || index} elevation={1} sx={{ p: 2, mb: 2 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                   <Box>

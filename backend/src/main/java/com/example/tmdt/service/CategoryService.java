@@ -29,6 +29,10 @@ public class CategoryService {
         return categoryRepository.findAll();
     }
 
+    public List<Category> getAllActiveCategories() {
+        return categoryRepository.findAllActiveCategories();
+    }
+
     public Category getCategoryById(Long id) {
         return categoryRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));

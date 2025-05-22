@@ -58,10 +58,10 @@ const Home: React.FC = () => {
           <Grid container spacing={4} alignItems="center">
             <Grid item xs={12} md={6}>
               <Typography variant="h2" component="h1" gutterBottom>
-                Chào Mừng Đến Với TMDT Shop
+                WelCome
               </Typography>
               <Typography variant="h5" paragraph>
-                Điểm đến mua sắm tuyệt vời cho mọi nhu cầu của bạn
+               
               </Typography>
               <Button
                 variant="contained"
@@ -94,18 +94,12 @@ const Home: React.FC = () => {
       <Container maxWidth="lg">
         <TopProducts title="Sản Phẩm Nổi Bật" maxItems={6} />
       </Container>
-
-      {/* Features Section */}
-    
-      {/* Special Offers Section */}
-      
-
       {/* Categories Section */}
       <Container maxWidth="lg" sx={{ mb: 6 }}>
         <Typography variant="h4" component="h2" gutterBottom align="center">
-          Danh Mục Phổ Biến
+          {/* Danh Mục Phổ Biến */}
         </Typography>
-        <Grid container spacing={4}>
+        {/* <Grid container spacing={4}>
           {['Thiết Bị Điện Tử', 'Thời Trang', 'Nhà Cửa & Đời Sống', 'Sách'].map(
             (category, index) => (
               <Grid item xs={12} sm={6} md={3} key={index}>
@@ -137,7 +131,7 @@ const Home: React.FC = () => {
               </Grid>
             )
           )}
-        </Grid>
+        </Grid> */}
       </Container>
     </Box>
   );

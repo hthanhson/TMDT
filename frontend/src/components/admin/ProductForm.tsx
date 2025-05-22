@@ -18,13 +18,20 @@ import {
 } from '@mui/material';
 import { PhotoCamera, Delete as DeleteIcon } from '@mui/icons-material';
 import AdminService from '../../services/AdminService';
+import { useNavigate, useParams } from 'react-router-dom';
+
+interface Category {
+  id: number;
+  name: string;
+  description?: string;
+}
 
 interface ProductFormData {
   id?: string;
   name: string;
   description: string;
   price: string;
-  category: string;
+  categoryId: string;
   stock: string;
   imageFile: File | null;
   imageUrl?: string;
@@ -37,17 +44,19 @@ interface ProductFormProps {
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }) => {
+  const navigate = useNavigate();
+  const { id: productIdFromParams } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
     price: '',
-    category: '',
+    categoryId: '',
     stock: '0',
     imageFile: null
   });
@@ -64,8 +73,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await AdminService.getCategories();
-        setCategories(response.data);
+        const response = await AdminService.getAllCategories();
+        console.log('Categories fetched:', response.data);
+        
+        // Ensure categories are properly mapped
+        const mappedCategories = response.data.map((cat: any) => ({
+          id: cat.id,
+          name: cat.name,
+          description: cat.description
+        }));
+        
+        console.log('Mapped categories:', mappedCategories);
+        setCategories(mappedCategories);
       } catch (err) {
         console.error('Error fetching categories:', err);
         setError('Failed to load categories');
@@ -74,19 +93,21 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
 
     fetchCategories();
 
-    if (productId) {
+    if (productIdFromParams) {
       const fetchProduct = async () => {
         try {
           setLoading(true);
-          const response = await AdminService.getProduct(productId);
+          const response = await AdminService.getProduct(productIdFromParams);
           const product = response.data;
+          
+          console.log('Fetched product:', product);
           
           setFormData({
             id: product.id,
             name: product.name,
             description: product.description,
             price: product.price.toString(),
-            category: product.category,
+            categoryId: product.category?.id?.toString() || '',
             stock: product.stock.toString(),
             imageFile: null,
             imageUrl: product.imageUrl
@@ -103,7 +124,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
 
       fetchProduct();
     }
-  }, [productId]);
+  }, [productIdFromParams]);
 
   const validateForm = (): boolean => {
     let valid = true;
@@ -134,7 +155,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
       valid = false;
     }
 
-    if (!formData.category) {
+    if (!formData.categoryId) {
       errors.category = 'Category is required';
       valid = false;
     }
@@ -200,6 +221,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
     e.preventDefault();
     
     if (!validateForm()) {
+      console.error('Form validation failed');
       return;
     }
     
@@ -207,27 +229,70 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
     setError(null);
     
     try {
+      console.log('Full form data:', formData);
+      
+      // Validate categoryId
+      if (!formData.categoryId) {
+        setError('Category is required');
+        setSubmitting(false);
+        return;
+      }
+
       const productData = new FormData();
       productData.append('name', formData.name);
       productData.append('description', formData.description);
       productData.append('price', formData.price);
-      productData.append('category', formData.category);
+      
+      // Find selected category and send its name instead of ID
+      const selectedCategory = categories.find(cat => cat.id.toString() === formData.categoryId);
+      if (selectedCategory) {
+        // Send category name, not ID
+        productData.append('category', selectedCategory.name);
+        console.log('Sending category name:', selectedCategory.name);
+      } else {
+        console.error('Selected category not found in categories list');
+        setError('Selected category not found');
+        setSubmitting(false);
+        return;
+      }
+      
       productData.append('stock', formData.stock);
       
+      // Ensure image is added if creating new product
+      if (!productIdFromParams && !formData.imageFile) {
+        setError('Image is required for new product');
+        setSubmitting(false);
+        return;
+      }
+      
+      // Explicitly set the image file with correct parameter name
       if (formData.imageFile) {
-        productData.append('image', formData.imageFile);
+        // Use the exact name 'imageFile' as expected by the backend
+        productData.append('imageFile', formData.imageFile);
+        console.log('Image file added:', formData.imageFile.name, 'size:', formData.imageFile.size, 'type:', formData.imageFile.type);
       }
+
+      // Log FormData contents
+      console.log('FormData contents before sending:');
+      const formDataObj: {[key: string]: any} = {};
+      productData.forEach((value, key) => {
+        formDataObj[key] = value instanceof File ? `[File: ${value.name}, size: ${value.size}, type: ${value.type}]` : value;
+      });
+      console.log(formDataObj);
       
-      if (productId) {
-        await AdminService.updateProduct(productId, productData);
+      if (productIdFromParams) {
+        const updateResponse = await AdminService.updateProduct(productIdFromParams, productData);
+        console.log('Update product response:', updateResponse);
       } else {
-        await AdminService.createProduct(productData);
+        const response = await AdminService.createProduct(productData);
+        console.log('Create product response:', response);
       }
       
-      onSave();
+      navigate('/admin/products');
     } catch (err: any) {
       console.error('Error saving product:', err);
-      setError(err.response?.data?.message || 'Failed to save product');
+      console.error('Full error object:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      setError(err.response?.data?.message || err.message || 'Failed to save product');
     } finally {
       setSubmitting(false);
     }
@@ -272,15 +337,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onSave, onCancel }
             <FormControl fullWidth error={!!formErrors.category}>
               <InputLabel>Category</InputLabel>
               <Select
-                name="category"
-                value={formData.category}
+                name="categoryId"
+                value={formData.categoryId}
                 onChange={handleInputChange}
                 label="Category"
                 required
               >
                 {categories.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
+                  <MenuItem key={category.id} value={category.id.toString()}>
+                    {category.name}
                   </MenuItem>
                 ))}
               </Select>

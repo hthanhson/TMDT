@@ -5,8 +5,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.tmdt.model.Product;
 import com.example.tmdt.model.Review;
 import com.example.tmdt.model.User;
+import com.example.tmdt.model.ProductImage;
 import com.example.tmdt.payload.request.ReviewRequest;
 import com.example.tmdt.payload.response.MessageResponse;
 import com.example.tmdt.repository.ProductRepository;
@@ -144,14 +152,57 @@ public class ProductController {
 
     @GetMapping("/category/{category}")
     public ResponseEntity<List<Product>> getProductsByCategory(@PathVariable String category) {
-        List<Product> products = productRepository.findByCategory(category);
-        return new ResponseEntity<>(products, HttpStatus.OK);
+        try {
+            // Log to debug
+            System.out.println("Searching for category: " + category);
+            
+            // Find products by category name (case insensitive)
+            List<Product> products = productRepository.findByCategoryNameIgnoreCase(category);
+            
+            // Log results
+            System.out.println("Found " + products.size() + " products in category: " + category);
+            
+            return new ResponseEntity<>(products, HttpStatus.OK);
+        } catch (Exception e) {
+            System.err.println("Error searching by category: " + category + ", error: " + e.getMessage());
+            e.printStackTrace();
+            return new ResponseEntity<>(new ArrayList<>(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Product>> searchProducts(@RequestParam String query) {
-        List<Product> products = productRepository.search(query);
-        return new ResponseEntity<>(products, HttpStatus.OK);
+    public ResponseEntity<List<Product>> searchProducts(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String category) {
+        try {
+            System.out.println("Search request - query: " + query + ", category: " + category);
+            
+            List<Product> products;
+            
+            if (category != null && !category.isEmpty()) {
+                // If category is provided, use it for filtering
+                if (query != null && !query.isEmpty()) {
+                    // Both category and query
+                    products = productRepository.findByCategoryNameIgnoreCaseAndNameContainingIgnoreCase(category, query);
+                } else {
+                    // Only category
+                    products = productRepository.findByCategoryNameIgnoreCase(category);
+                }
+            } else if (query != null && !query.isEmpty()) {
+                // Only query
+                products = productRepository.search(query);
+            } else {
+                // No filters, return all
+                products = productRepository.findAll();
+            }
+            
+            System.out.println("Found " + products.size() + " products in search");
+            return new ResponseEntity<>(products, HttpStatus.OK);
+        } catch (Exception e) {
+            System.err.println("Error in search: " + e.getMessage());
+            e.printStackTrace();
+            return new ResponseEntity<>(new ArrayList<>(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @GetMapping("/top")
@@ -324,6 +375,286 @@ public class ProductController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new MessageResponse("Error getting user reviews: " + e.getMessage()));
+        }
+    }
+
+    // Add endpoint to serve product images
+    @GetMapping("/image/{filename:.+}")
+    public ResponseEntity<Resource> getProductImage(@PathVariable String filename) {
+        try {
+            // Log the request for debugging
+            System.out.println("Received request for product image: " + filename);
+            
+            // Attempt to load from different locations
+            Path filePath = null;
+            
+            // Try backend/uploads/products first (most likely)
+            Path backendPath = Paths.get("backend/uploads/products/" + filename);
+            if (Files.exists(backendPath)) {
+                filePath = backendPath;
+                System.out.println("Found image at: " + backendPath.toAbsolutePath());
+            } else {
+                // Try uploads/products as fallback
+                Path regularPath = Paths.get("uploads/products/" + filename);
+                if (Files.exists(regularPath)) {
+                    filePath = regularPath;
+                    System.out.println("Found image at fallback location: " + regularPath.toAbsolutePath());
+                }
+            }
+            
+            // If file not found in any location
+            if (filePath == null) {
+                System.out.println("Image not found in any location: " + filename);
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Get file content type
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+            
+            // Create resource and return it
+            Resource resource = new FileSystemResource(filePath.toFile());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .body(resource);
+        } catch (IOException e) {
+            System.err.println("Error serving product image: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{id}/image-debug")
+    public ResponseEntity<?> getProductImageDebugInfo(@PathVariable Long id) {
+        try {
+            Product product = productRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Product not found"));
+            
+            Map<String, Object> debugInfo = new HashMap<>();
+            debugInfo.put("productId", product.getId());
+            debugInfo.put("productName", product.getName());
+            
+            // Log image sources
+            debugInfo.put("imageUrl", product.getImageUrl());
+            
+            // Log images collection
+            List<String> imageUrls = new ArrayList<>();
+            if (product.getImages() != null) {
+                for (ProductImage img : product.getImages()) {
+                    if (img.getImageUrl() != null) {
+                        imageUrls.add(img.getImageUrl());
+                    }
+                }
+            }
+            debugInfo.put("productImageUrls", imageUrls);
+            
+            // Check file system for potential image files
+            String uploadDir = "uploads/products/";
+            Path uploadPath = Paths.get(uploadDir);
+            
+            List<String> possibleImageFiles = new ArrayList<>();
+            if (Files.exists(uploadPath) && Files.isDirectory(uploadPath)) {
+                try (var stream = Files.list(uploadPath)) {
+                    stream
+                        .filter(path -> path.getFileName().toString().toLowerCase().contains(String.valueOf(id)))
+                        .forEach(path -> possibleImageFiles.add(path.getFileName().toString()));
+                }
+            }
+            
+            debugInfo.put("possibleImageFiles", possibleImageFiles);
+            
+            return ResponseEntity.ok(debugInfo);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Could not retrieve image debug info", "details", e.getMessage()));
+        }
+    }
+
+    // Add endpoint to serve default image for products with missing images
+    @GetMapping("/images/default")
+    public ResponseEntity<Resource> getDefaultProductImage() {
+        try {
+            // Define paths to look for default image
+            String[] possiblePaths = {
+                "uploads/products/default-product.jpg",
+                "uploads/products/default.jpg",
+                "uploads/products/placeholder.jpg",
+                "src/main/resources/static/images/default-product.jpg"
+            };
+            
+            Path filePath = null;
+            for (String path : possiblePaths) {
+                Path testPath = Paths.get(path);
+                if (Files.exists(testPath)) {
+                    filePath = testPath;
+                    System.out.println("Found default image at: " + testPath.toAbsolutePath());
+                    break;
+                }
+            }
+            
+            // If no default image found, create a simple one
+            if (filePath == null) {
+                System.out.println("No default image found, creating one");
+                // Create uploads/products directory if it doesn't exist
+                Path uploadDir = Paths.get("uploads/products");
+                if (!Files.exists(uploadDir)) {
+                    Files.createDirectories(uploadDir);
+                }
+                
+                // Use a placeholder from resources or create an empty file
+                filePath = Paths.get("uploads/products/default-product.jpg");
+                // Just create an empty file if nothing else works
+                if (!Files.exists(filePath)) {
+                    Files.createFile(filePath);
+                }
+            }
+            
+            // Get file content type
+            String contentType = "image/jpeg";
+            
+            // Create resource and return it
+            Resource resource = new FileSystemResource(filePath.toFile());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.CACHE_CONTROL, "max-age=86400") // Cache for 24 hours
+                    .body(resource);
+        } catch (IOException e) {
+            System.err.println("Error serving default product image: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    // Add endpoint to directly serve a product image with fallback to default
+    @GetMapping("/images/product/{id}")
+    public ResponseEntity<Resource> getProductImageById(@PathVariable Long id) {
+        try {
+            System.out.println("Fetching image for product ID: " + id);
+            
+            // Try to find the product
+            Optional<Product> productOpt = productRepository.findById(id);
+            if (!productOpt.isPresent()) {
+                System.out.println("Product not found: " + id);
+                return getDefaultProductImage();
+            }
+            
+            Product product = productOpt.get();
+            String imageUrl = product.getImageUrl();
+            
+            // Check if product has an imageUrl
+            if (imageUrl == null || imageUrl.isEmpty()) {
+                System.out.println("Product has no imageUrl, using default");
+                return getDefaultProductImage();
+            }
+            
+            // Extract filename from imageUrl
+            String filename;
+            if (imageUrl.contains("/")) {
+                filename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+            } else {
+                filename = imageUrl;
+            }
+            
+            // Try to serve the image
+            Path filePath = null;
+            
+            // Try different paths
+            String[] possiblePaths = {
+                "uploads/products/" + filename,
+                "backend/uploads/products/" + filename,
+                imageUrl,
+                imageUrl.startsWith("/") ? imageUrl.substring(1) : imageUrl
+            };
+            
+            for (String path : possiblePaths) {
+                Path testPath = Paths.get(path);
+                if (Files.exists(testPath)) {
+                    filePath = testPath;
+                    System.out.println("Found product image at: " + testPath.toAbsolutePath());
+                    break;
+                }
+            }
+            
+            // If image not found, use default
+            if (filePath == null) {
+                System.out.println("Product image not found, using default");
+                return getDefaultProductImage();
+            }
+            
+            // Get file content type
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "image/jpeg";
+            }
+            
+            // Create resource and return it
+            Resource resource = new FileSystemResource(filePath.toFile());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow CORS
+                    .header(HttpHeaders.CACHE_CONTROL, "max-age=86400") // Cache for 24 hours
+                    .body(resource);
+        } catch (IOException e) {
+            System.err.println("Error serving product image: " + e.getMessage());
+            e.printStackTrace();
+            return getDefaultProductImage();
+        }
+    }
+    
+    // Add endpoint to serve an image directly by filename with explicit CORS support
+    @CrossOrigin(origins = "*")
+    @GetMapping("/images/direct/{filename:.+}")
+    public ResponseEntity<Resource> getDirectProductImage(@PathVariable String filename) {
+        try {
+            System.out.println("Directly serving image: " + filename);
+            
+            // Try to find the file
+            Path filePath = null;
+            
+            // Try different paths
+            String[] possiblePaths = {
+                "uploads/products/" + filename,
+                "backend/uploads/products/" + filename,
+                "src/main/resources/static/images/" + filename
+            };
+            
+            for (String path : possiblePaths) {
+                Path testPath = Paths.get(path);
+                if (Files.exists(testPath)) {
+                    filePath = testPath;
+                    System.out.println("Found image at: " + testPath.toAbsolutePath());
+                    break;
+                }
+            }
+            
+            // If image not found, use default
+            if (filePath == null) {
+                System.out.println("Image not found: " + filename + ", using default");
+                return getDefaultProductImage();
+            }
+            
+            // Get file content type
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "image/jpeg";
+            }
+            
+            // Create resource and return it
+            Resource resource = new FileSystemResource(filePath.toFile());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow CORS
+                    .header(HttpHeaders.CACHE_CONTROL, "max-age=86400") // Cache for 24 hours
+                    .body(resource);
+        } catch (IOException e) {
+            System.err.println("Error serving direct image: " + e.getMessage());
+            e.printStackTrace();
+            return getDefaultProductImage();
         }
     }
 } 
