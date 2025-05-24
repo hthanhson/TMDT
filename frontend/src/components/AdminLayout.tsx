@@ -66,8 +66,8 @@ const AdminLayout: React.FC = () => {
     { text: 'Quản lý đơn hàng', icon: <OrdersIcon />, path: '/admin/orders' },
     { text: 'Quản lý người dùng', icon: <UsersIcon />, path: '/admin/users' },
     { text: 'Mã giảm giá', icon: <CouponIcon />, path: '/admin/coupons' },
-    { text: 'Đánh giá sản phẩm', icon: <ReviewsIcon />, path: '/admin/reviews' },
-    { text: 'Báo cáo thống kê', icon: <ReportsIcon />, path: '/admin/reports' },
+    // { text: 'Đánh giá sản phẩm', icon: <ReviewsIcon />, path: '/admin/reviews' },
+    // { text: 'Báo cáo thống kê', icon: <ReportsIcon />, path: '/admin/reports' },
     // { text: 'Hỗ trợ khách hàng', icon: <SupportAgent />, path: '/admin/chat' },
   ];
   
@@ -116,14 +116,14 @@ const AdminLayout: React.FC = () => {
       </List>
       <Divider />
       <List>
-        <ListItem disablePadding>
+        {/* <ListItem disablePadding>
           <ListItemButton onClick={() => navigate('/')}>
             <ListItemIcon>
               <DashboardIcon />
             </ListItemIcon>
             <ListItemText primary="Về trang chính" />
           </ListItemButton>
-        </ListItem>
+        </ListItem> */}
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon>

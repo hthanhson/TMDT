@@ -32,6 +32,8 @@ export interface Order {
   discountAmount?: number;
   refundStatus?: 'REQUESTED' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   refundRequest?: RefundRequest;
+  refundReason?: string;
+  refundImages?: string[];
   coupon?: {
     id: number;
     code: string;

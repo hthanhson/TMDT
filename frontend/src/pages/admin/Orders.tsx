@@ -225,38 +225,65 @@ const AdminOrders: React.FC = () => {
   };
 
   // Helper function để xác thực và chuẩn bị URL hình ảnh
-  const prepareImageUrl = (url: string) => {
-    if (!url) return '';
+  const prepareImageUrl = (url: string): string[] => {
+    if (!url) return [];
     
-    // Loại bỏ ký tự không hợp lệ từ URL
-    url = url.trim();
+    // Debugging - log full URL info
+    console.log("Original URL:", url);
     
-    // Debug: ghi log URL ban đầu
-    console.log("URL gốc:", url);
+    // Backend server URL (port 8080)
+    const backendUrl = 'http://localhost:8080';
     
-    // Đối với API từ máy chủ backend, bỏ qua phần location.origin
-    if (url.includes('/api/')) {
-      return url;
+    // Comprehensive URL generation attempts
+    const urlAttempts: string[] = [
+      // Direct file download endpoint
+      `${backendUrl}/api/files/download/${url.split('/').pop() || url}`,
+      
+      // Various potential upload paths
+      `${backendUrl}/uploads/refunds/${url.split('/').pop() || url}`,
+      `${backendUrl}/refunds/${url.split('/').pop() || url}`,
+      `${backendUrl}/upload/refunds/${url.split('/').pop() || url}`,
+      
+      // If it's a relative path
+      url.startsWith('/') ? `${backendUrl}${url}` : `${backendUrl}/${url}`,
+      
+      // If it's a full URL already
+      url.startsWith('http') ? url : `${backendUrl}/${url}`
+    ].filter(Boolean); // Remove any empty strings
+    
+    // Log all potential URLs for debugging
+    console.log("URL Attempts:", urlAttempts);
+    
+    return urlAttempts;
+  };
+
+  // In the image rendering sections, update the error handling
+  const handleImageError = (
+    e: React.SyntheticEvent<HTMLImageElement>, 
+    urlAttempts: string[]
+  ) => {
+    console.error(`Failed to load image URL: ${e.currentTarget.src}`);
+    
+    // Create a copy of URL attempts to avoid mutating the original
+    const currentUrlAttempts = [...urlAttempts];
+    
+    // Remove the failed URL from attempts
+    currentUrlAttempts.shift();
+    
+    // Try next URL if available
+    if (currentUrlAttempts.length > 0) {
+      e.currentTarget.src = currentUrlAttempts[0];
+    } else {
+      // Fallback to SVG placeholder
+      e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
     }
-    
-    // Nếu URL bắt đầu với http hoặc https, sử dụng nguyên bản
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    
-    // Nếu URL là path tương đối, thêm base URL
-    if (url.startsWith('/')) {
-      return `${window.location.origin}${url}`;
-    }
-    
-    // Thêm base URL và / nếu cần
-    return `${window.location.origin}/${url}`;
   };
 
   // Mở hình ảnh trong chế độ preview
   const openImagePreview = (url: string) => {
     // Ngăn các lỗi URL có thể làm reload trang
     try {
+      console.log("Opening image preview:", url);
       // Thử mở trong tab mới, nhưng không reload trang hiện tại nếu có lỗi
       const newWindow = window.open(url, '_blank');
       if (newWindow) {
@@ -311,6 +338,9 @@ const AdminOrders: React.FC = () => {
         const refundData = await fetchRefundStatus(order.id);
         if (refundData) {
           order.refundRequest = refundData;
+          // Add detailed logging of the refund request structure
+          console.log('REFUND REQUEST FULL DATA:', JSON.stringify(refundData, null, 2));
+          console.log('Image URLs if any:', refundData.imageUrls);
         }
       } catch (err) {
         console.error('Error fetching refund details:', err);
@@ -622,32 +652,43 @@ const AdminOrders: React.FC = () => {
                           </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                             {selectedOrder.refundRequest.imageUrls.map((url: string, index: number) => {
-                              const processedUrl = prepareImageUrl(url);
-                              console.log(`Processed image URL ${index}:`, processedUrl);
+                              // Generate multiple URL attempts
+                              const urlAttempts = prepareImageUrl(url);
+                              
                               return (
                                 <Box 
                                   key={index}
-                                  component="img"
-                                  src={processedUrl}
-                                  alt={`Refund evidence ${index + 1}`}
                                   sx={{ 
                                     width: 100, 
                                     height: 100, 
-                                    objectFit: 'cover',
+                                    position: 'relative',
                                     border: '1px solid #ddd',
                                     borderRadius: 1,
-                                    cursor: 'pointer'
-                                  }}
-                                  onError={(e: any) => {
-                                    console.error(`Failed to load image: ${processedUrl}`);
-                                    e.target.src = 'https://via.placeholder.com/100?text=Image+Error';
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    overflow: 'hidden',
+                                    backgroundColor: '#f5f5f5'
                                   }}
                                   onClick={(e) => {
-                                    e.preventDefault(); // Ngăn chặn reload trang
-                                    e.stopPropagation(); // Ngăn event bubbling
-                                    openImagePreview(processedUrl);
+                                    e.preventDefault(); 
+                                    e.stopPropagation();
+                                    // Open the first valid URL
+                                    openImagePreview(urlAttempts[0]);
                                   }}
-                                />
+                                >
+                                  <img
+                                    src={urlAttempts[0]}
+                                    alt={`Refund evidence ${index + 1}`}
+                                    style={{ 
+                                      maxWidth: '100%', 
+                                      maxHeight: '100%', 
+                                      objectFit: 'cover'
+                                    }}
+                                    onError={(e) => handleImageError(e, urlAttempts)}
+                                  />
+                                </Box>
                               );
                             })}
                           </Box>
@@ -780,32 +821,43 @@ const AdminOrders: React.FC = () => {
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                           {selectedOrder.refundRequest.imageUrls.map((url: string, index: number) => {
-                            const processedUrl = prepareImageUrl(url);
-                            console.log(`Processed image URL in dialog ${index}:`, processedUrl);
+                            // Generate multiple URL attempts
+                            const urlAttempts = prepareImageUrl(url);
+                            
                             return (
                               <Box 
                                 key={index}
-                                component="img"
-                                src={processedUrl}
-                                alt={`Refund evidence ${index + 1}`}
                                 sx={{ 
                                   width: 100, 
                                   height: 100, 
-                                  objectFit: 'cover',
+                                  position: 'relative',
                                   border: '1px solid #ddd',
                                   borderRadius: 1,
-                                  cursor: 'pointer'
-                                }}
-                                onError={(e: any) => {
-                                  console.error(`Failed to load image: ${processedUrl}`);
-                                  e.target.src = 'https://via.placeholder.com/100?text=Image+Error';
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                  overflow: 'hidden',
+                                  backgroundColor: '#f5f5f5'
                                 }}
                                 onClick={(e) => {
-                                  e.preventDefault(); // Ngăn chặn reload trang
-                                  e.stopPropagation(); // Ngăn event bubbling
-                                  openImagePreview(processedUrl);
+                                  e.preventDefault(); 
+                                  e.stopPropagation();
+                                  // Open the first valid URL
+                                  openImagePreview(urlAttempts[0]);
                                 }}
-                              />
+                              >
+                                <img
+                                  src={urlAttempts[0]}
+                                  alt={`Refund evidence ${index + 1}`}
+                                  style={{ 
+                                    maxWidth: '100%', 
+                                    maxHeight: '100%', 
+                                    objectFit: 'cover'
+                                  }}
+                                  onError={(e) => handleImageError(e, urlAttempts)}
+                                />
+                              </Box>
                             );
                           })}
                         </Box>

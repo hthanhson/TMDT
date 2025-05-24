@@ -25,6 +25,9 @@ import {
   StepLabel,
   IconButton,
   FormHelperText,
+  ImageList,
+  ImageListItem,
+  Modal,
 } from '@mui/material';
 import { format } from 'date-fns';
 import { PhotoCamera } from '@mui/icons-material';
@@ -68,6 +71,11 @@ const OrderDetail: React.FC = () => {
   const [refundAdditionalInfo, setRefundAdditionalInfo] = useState('');
   const [reasonError, setReasonError] = useState(false);
 
+  // Add state for viewing refund images
+  const [refundImagesUrls, setRefundImagesUrls] = useState<string[]>([]);
+  const [openImageViewer, setOpenImageViewer] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string>('');
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
@@ -84,6 +92,40 @@ const OrderDetail: React.FC = () => {
         
         const response = await OrderService.getOrderById(id);
         setOrder(response.data);
+        
+        // Backend server URL
+        const backendUrl = 'http://localhost:8080';
+        
+        // If order has refund images, set the URLs
+        // Check both direct refundImages property and refundRequest.imageUrls
+        if (response.data.refundImages && response.data.refundImages.length > 0) {
+          // Log the original images
+          console.log("Original refundImages from backend:", response.data.refundImages);
+          
+          const imageUrls = response.data.refundImages.map((image: string) => {
+            // Use the correct file serving endpoint
+            if (!image.includes('/')) {
+              return `${backendUrl}/api/files/${image}`;
+            }
+            return image.startsWith('http') ? image : `${backendUrl}${image.startsWith('/') ? '' : '/'}${image}`;
+          });
+          setRefundImagesUrls(imageUrls);
+          console.log("Prepared refund image URLs:", imageUrls);
+        } else if (response.data.refundRequest && response.data.refundRequest.imageUrls && 
+                  response.data.refundRequest.imageUrls.length > 0) {
+          // Log the original images from refund request
+          console.log("Original refundRequest.imageUrls from backend:", response.data.refundRequest.imageUrls);
+          
+          const imageUrls = response.data.refundRequest.imageUrls.map((image: string) => {
+            // Use the correct file serving endpoint
+            if (!image.includes('/')) {
+              return `${backendUrl}/api/files/${image}`;
+            }
+            return image.startsWith('http') ? image : `${backendUrl}${image.startsWith('/') ? '' : '/'}${image}`;
+          });
+          setRefundImagesUrls(imageUrls);
+          console.log("Prepared refund request image URLs:", imageUrls);
+        }
         
         // Kiểm tra nếu đơn hàng đã có yêu cầu hoàn tiền, cập nhật step hiện tại
         if (response.data.refundStatus) {
@@ -271,6 +313,51 @@ const OrderDetail: React.FC = () => {
     return ['Yêu cầu hoàn tiền', 'Đang xem xét', 'Hoàn tiền thành công'];
   };
 
+  // Function to handle opening the image viewer
+  const handleOpenImageViewer = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setOpenImageViewer(true);
+  };
+
+  // Function to close the image viewer
+  const handleCloseImageViewer = () => {
+    setOpenImageViewer(false);
+    setSelectedImage('');
+  };
+
+  // Function to handle image load errors
+  const handleImageError = (event: React.SyntheticEvent<HTMLImageElement>, imageUrl: string) => {
+    const imgElement = event.currentTarget;
+    console.error(`Failed to load image: ${imageUrl}`);
+    
+    // Backend server URL
+    const backendUrl = 'http://localhost:8080';
+    
+    // Try alternative paths
+    const alternativeUrls = [
+      `http://localhost:8080/api/files/${imageUrl.split('/').pop()}`,
+      `http://localhost:8080/api/files/refund/${imageUrl.split('/').pop()}`,
+      `http://localhost:8080/api/files/refunds/${imageUrl.split('/').pop()}`,
+      `http://localhost:8080/api/files/download/${imageUrl.split('/').pop()}`,
+      `http://localhost:8080/uploads/refund/${imageUrl.split('/').pop()}`
+    ];
+    
+    // Try the next URL in the list
+    if (imgElement.dataset.retryCount === undefined) {
+      imgElement.dataset.retryCount = "0";
+    }
+    
+    const retryCount = parseInt(imgElement.dataset.retryCount);
+    if (retryCount < alternativeUrls.length) {
+      console.log(`Retrying with alternative URL: ${alternativeUrls[retryCount]}`);
+      imgElement.src = alternativeUrls[retryCount];
+      imgElement.dataset.retryCount = (retryCount + 1).toString();
+    } else {
+      // Use a default placeholder after all retries failed
+      imgElement.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" my={4}>
@@ -443,6 +530,70 @@ const OrderDetail: React.FC = () => {
               </Step>
             ))}
           </Stepper>
+          
+          {/* Display refund reason if available */}
+          {(order.refundReason || (order.refundRequest && order.refundRequest.reason)) && (
+            <>
+              <Typography variant="subtitle1" sx={{ mt: 3, fontWeight: 'bold' }}>
+                Lý do hoàn tiền:
+              </Typography>
+              <Typography variant="body1" sx={{ mt: 1 }}>
+                {order.refundReason || (order.refundRequest && order.refundRequest.reason)}
+              </Typography>
+            </>
+          )}
+          
+          {/* Display refund images if available */}
+          {refundImagesUrls.length > 0 && (
+            <>
+              <Typography variant="subtitle1" sx={{ mt: 3, fontWeight: 'bold' }}>
+                Hình ảnh đính kèm:
+              </Typography>
+              <ImageList sx={{ mt: 1 }} cols={3} rowHeight={120}>
+                {refundImagesUrls.map((imageUrl, index) => (
+                  <ImageListItem 
+                    key={index} 
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleOpenImageViewer(imageUrl)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`Refund image ${index + 1}`}
+                      loading="lazy"
+                      style={{ height: '100%', objectFit: 'cover' }}
+                      onError={(event) => {
+                        console.error(`Failed to load image: ${imageUrl}`);
+                        // Try alternative paths
+                        const alternativeUrls = [
+                          `http://localhost:8080/api/files/${imageUrl.split('/').pop()}`,
+                          `http://localhost:8080/api/files/refund/${imageUrl.split('/').pop()}`,
+                          `http://localhost:8080/api/files/refunds/${imageUrl.split('/').pop()}`,
+                          `http://localhost:8080/api/files/download/${imageUrl.split('/').pop()}`,
+                          `http://localhost:8080/uploads/refund/${imageUrl.split('/').pop()}`
+                        ];
+                        
+                        const imgElement = event.currentTarget;
+                        // Try the next URL in the list
+                        if (imgElement.dataset.retryCount === undefined) {
+                          imgElement.dataset.retryCount = "0";
+                        }
+                        
+                        const retryCount = parseInt(imgElement.dataset.retryCount);
+                        if (retryCount < alternativeUrls.length) {
+                          console.log(`Retrying with alternative URL ${retryCount + 1}: ${alternativeUrls[retryCount]}`);
+                          imgElement.src = alternativeUrls[retryCount];
+                          imgElement.dataset.retryCount = (retryCount + 1).toString();
+                        } else {
+                          // Use a default placeholder after all retries failed
+                          imgElement.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
+                        }
+                      }}
+                    />
+                  </ImageListItem>
+                ))}
+              </ImageList>
+            </>
+          )}
         </Paper>
       )}
 
@@ -537,6 +688,59 @@ const OrderDetail: React.FC = () => {
           Quay lại danh sách đơn hàng
         </Button>
       </Box>
+
+      {/* Image viewer modal */}
+      <Modal
+        open={openImageViewer}
+        onClose={handleCloseImageViewer}
+        aria-labelledby="image-viewer-modal"
+        aria-describedby="view-refund-image-in-full-size"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Box 
+          sx={{ 
+            position: 'relative',
+            maxWidth: '90%',
+            maxHeight: '90%',
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: 1,
+            outline: 'none',
+          }}
+        >
+          <IconButton
+            aria-label="close"
+            onClick={handleCloseImageViewer}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: 'white',
+              bgcolor: 'rgba(0,0,0,0.5)',
+              '&:hover': {
+                bgcolor: 'rgba(0,0,0,0.7)',
+              },
+            }}
+          >
+            &times;
+          </IconButton>
+          <img
+            src={selectedImage}
+            alt="Enlarged refund image"
+            style={{
+              maxWidth: '100%',
+              maxHeight: 'calc(90vh - 40px)',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+            onError={(event) => handleImageError(event, selectedImage)}
+          />
+        </Box>
+      </Modal>
 
       {/* Dialog yêu cầu hoàn tiền */}
       <Dialog 
