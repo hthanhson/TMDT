@@ -24,14 +24,13 @@ DROP TABLE IF EXISTS product_recommendation;
 DROP TABLE IF EXISTS refund_requests;
 DROP TABLE IF EXISTS refund_request_images;
 DROP TABLE IF EXISTS shipment_tracking;
-DROP TABLE IF EXISTS order_status;
-DROP TABLE IF EXISTS vnpay_status;
+DROP TABLE IF EXISTS VNPayStatus;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE roles (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(20) NOT NULL
+  name ENUM('ROLE_USER', 'ROLE_MODERATOR', 'ROLE_ADMIN', 'ROLE_SHIPPER') NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE users (
@@ -132,16 +131,6 @@ CREATE TABLE review_helpful (
   INDEX idx_review_helpful_review (review_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE order_status (
-  code VARCHAR(50) PRIMARY KEY,
-  display_name VARCHAR(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE vnpay_status (
-  code VARCHAR(50) PRIMARY KEY,
-  display_name VARCHAR(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE coupons (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL,
@@ -170,7 +159,7 @@ CREATE TABLE orders (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   total_amount DECIMAL(15,2) NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  status ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'PICKED_UP', 'IN_TRANSIT', 'ARRIVED_AT_STATION', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'RETURNED') NOT NULL DEFAULT 'PENDING',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   shipping_address TEXT NOT NULL,
@@ -187,7 +176,7 @@ CREATE TABLE orders (
   notes TEXT,
   coupon_id BIGINT,
   discount_amount DECIMAL(10,2) DEFAULT 0.00,
-  refund_status VARCHAR(20) DEFAULT 'NONE',
+  refund_status ENUM('NONE', 'REQUESTED', 'REVIEWING', 'APPROVED', 'REJECTED', 'COMPLETED') DEFAULT 'NONE',
   CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_order_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id) ON DELETE SET NULL,
   INDEX idx_order_user (user_id),
@@ -201,7 +190,6 @@ CREATE TABLE order_items (
   product_id BIGINT NOT NULL,
   quantity INT NOT NULL,
   price DECIMAL(10,2) NOT NULL,
-  discount_amount DECIMAL(10,2) DEFAULT 0.00,
   product_name VARCHAR(255),
   product_image_url VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -360,7 +348,7 @@ CREATE TABLE chat_sessions (
   user_name VARCHAR(255),
   started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ended_at TIMESTAMP NULL,
-  status VARCHAR(20) NOT NULL,
+  status ENUM('ACTIVE', 'ENDED') NOT NULL,
   last_message VARCHAR(500),
   unread_count INT DEFAULT 0,
   INDEX idx_chat_session_user (user_id),
@@ -373,7 +361,7 @@ CREATE TABLE chat_messages (
   sender_id VARCHAR(255),
   sender_name VARCHAR(255),
   receiver_id VARCHAR(255),
-  sender_type VARCHAR(20) NOT NULL,
+  sender_type ENUM('USER', 'ADMIN', 'SYSTEM') NOT NULL,
   chat_session_id VARCHAR(36) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   is_read BOOLEAN DEFAULT FALSE,
@@ -382,47 +370,21 @@ CREATE TABLE chat_messages (
   INDEX idx_chat_message_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE VNPayStatus (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  status VARCHAR(50),
+  Message VARCHAR(255),
+  url VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Dữ liệu mẫu
 INSERT INTO roles (name) VALUES ('ROLE_USER');
 INSERT INTO roles (name) VALUES ('ROLE_MODERATOR');
 INSERT INTO roles (name) VALUES ('ROLE_ADMIN');
+INSERT INTO roles (name) VALUES ('ROLE_SHIPPER');
 
 INSERT INTO loyalty_tier (name, minimum_points, discount_percentage, special_perks) VALUES
 ('Bronze', 0, 0.00, 'Standard shipping'),
 ('Silver', 1000, 2.00, 'Free standard shipping'),
 ('Gold', 5000, 5.00, 'Free expedited shipping, Priority customer service'),
 ('Platinum', 10000, 10.00, 'Free priority shipping, VIP customer service, Early access to promotions');
-
-INSERT INTO order_status (code, display_name) VALUES
-('PENDING', 'Chờ xác nhận'),
-('CONFIRMED', 'Đã xác nhận'),
-('PROCESSING', 'Đang xử lý'),
-('READY_TO_SHIP', 'Sẵn sàng giao hàng'),
-('PICKED_UP', 'Đã lấy hàng'),
-('IN_TRANSIT', 'Đang vận chuyển'),
-('ARRIVED_AT_STATION', 'Đến trạm trung chuyển'),
-('OUT_FOR_DELIVERY', 'Đang giao hàng'),
-('DELIVERED', 'Đã giao hàng'),
-('COMPLETED', 'Hoàn tất'),
-('CANCELLED', 'Đã hủy'),
-('RETURNED', 'Hoàn trả');
-
-INSERT INTO vnpay_status (code, display_name) VALUES
-('00', 'Giao dịch thành công'),
-('01', 'Giao dịch chưa hoàn tất'),
-('02', 'Giao dịch bị lỗi'),
-('04', 'Giao dịch đảo (Khách hàng đã bị trừ tiền tại Ngân hàng nhưng GD chưa thành công ở VnPay)'),
-('05', 'Giao dịch không thành công'),
-('06', 'Giao dịch bị nghi ngờ gian lận'),
-('07', 'Giao dịch bị từ chối bởi Ngân hàng thanh toán'),
-('09', 'Giao dịch không được phép'),
-('10', 'Xác thực OTP không thành công'),
-('11', 'GD không thành công do: Thẻ hết hạn chuyển khoản'),
-('12', 'GD không thành công do: Thẻ bị khóa chuyển khoản'),
-('13', 'GD không thành công do: Quá hạn mức chuyển khoản'),
-('24', 'Giao dịch không thành công do: Khách hàng hủy giao dịch'),
-('51', 'Giao dịch không thành công do: Tài khoản không đủ số dư'),
-('65', 'Giao dịch không thành công do: Tài khoản của quý khách đã vượt quá hạn mức giao dịch trong ngày'),
-('75', 'Ngân hàng thanh toán đang bảo trì'),
-('79', 'Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định'),
-('99', 'Có lỗi khác xảy ra');

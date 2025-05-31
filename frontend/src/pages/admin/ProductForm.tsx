@@ -27,12 +27,7 @@ import {
   Home as HomeIcon
 } from '@mui/icons-material';
 import AdminService from '../../services/AdminService';
-
-interface Category {
-  id: number;
-  name: string;
-  description?: string;
-}
+import { Category } from '../../types';
 
 interface ProductFormData {
   id?: string;

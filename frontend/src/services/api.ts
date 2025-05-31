@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import authService from './authService';
-import { API_URL } from '../config';
+import { API_URL, AUTH_SIGNIN, AUTH_SIGNUP } from '../config';
 
 // Sửa lại cấu hình baseURL để khớp với backend
 // API_URL là 'http://localhost:8080'
@@ -14,11 +14,26 @@ const instance: AxiosInstance = axios.create({
 });
 
 console.log('API client created with baseURL:', API_URL);
+console.log('Authentication endpoints:', { signin: AUTH_SIGNIN, signup: AUTH_SIGNUP });
 
 // Request interceptor for adding auth token
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     try {
+      // Special handling for auth endpoints to use the correct paths
+      if (config.url) {
+        // Replace /api/auth/signin with /auth/signin if needed
+        if (config.url.includes('/api/auth/signin')) {
+          config.url = AUTH_SIGNIN;
+          console.log('Redirecting to correct signin endpoint:', config.url);
+        }
+        // Replace /api/auth/signup with /auth/signup if needed
+        else if (config.url.includes('/api/auth/signup')) {
+          config.url = AUTH_SIGNUP;
+          console.log('Redirecting to correct signup endpoint:', config.url);
+        }
+      }
+
       // For requests to admin endpoints, log extra details
       const isAdminRequest = config.url && (
         config.url.includes('/admin') || 

@@ -277,8 +277,20 @@ const AdminProducts: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null); // Clear previous errors
     
     try {
+      // Validate required fields
+      if (!formData.name.trim()) {
+        setError('Product name is required');
+        return;
+      }
+      
+      if (!formData.price || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
+        setError('Valid price is required');
+        return;
+      }
+      
       const productData = new FormData();
       productData.append('name', formData.name);
       productData.append('description', formData.description);
@@ -290,19 +302,40 @@ const AdminProducts: React.FC = () => {
         productData.append('image', formData.imageFile);
       }
       
+      console.log('Submitting product form data:', {
+        id: currentProduct?.id,
+        name: formData.name,
+        description: formData.description.substring(0, 20) + '...',
+        price: formData.price,
+        category: formData.category,
+        stock: formData.stock,
+        hasImage: !!formData.imageFile
+      });
+      
+      let response;
       if (currentProduct) {
         // Update existing product
-        await AdminService.updateProduct(currentProduct.id, productData);
+        console.log(`Updating product ID: ${currentProduct.id}`);
+        response = await AdminService.updateProduct(currentProduct.id, productData);
+        console.log('Update response:', response);
       } else {
         // Create new product
-        await AdminService.createProduct(productData);
+        console.log('Creating new product');
+        response = await AdminService.createProduct(productData);
+        console.log('Create response:', response);
       }
       
       fetchProducts();
       handleCloseDialog();
     } catch (err: any) {
       console.error('Error saving product:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to save product';
+      if (err.response) {
+        console.error('Error response status:', err.response.status);
+        console.error('Error response data:', err.response.data);
+      }
+      
+      const errorMessage = err.response?.data?.message || 
+                          (currentProduct ? 'Failed to update product' : 'Failed to create product');
       setError(errorMessage);
     }
   };
@@ -403,10 +436,10 @@ const AdminProducts: React.FC = () => {
                   <TableCell>{product.name || 'Unnamed product'}</TableCell>
                   <TableCell>
                     {typeof product.price === 'number' 
-                      ? `$${product.price.toFixed(2)}` 
+                      ? `${product.price.toFixed(2)} VND` 
                       : typeof product.price === 'string' 
-                        ? `$${parseFloat(product.price).toFixed(2)}` 
-                        : '$0.00'}
+                        ? `${parseFloat(product.price).toFixed(2)} VND` 
+                        : '$0.00 VND'}
                   </TableCell>
                   <TableCell>
                     <Chip 

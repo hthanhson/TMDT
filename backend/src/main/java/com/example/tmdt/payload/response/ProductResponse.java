@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 import com.example.tmdt.model.Category;
 import com.example.tmdt.model.Product;
-import com.example.tmdt.model.ProductImage;
+// import com.example.tmdt.model.ProductImage;
 
 public class ProductResponse {
     private Long id;
@@ -36,11 +36,11 @@ public class ProductResponse {
         this.mainImageUrl = product.getImageUrl(); // Main image
         
         // Extract additional images if available
-        if (product.getImages() != null && !product.getImages().isEmpty()) {
-            this.imageUrls = product.getImages().stream()
-                    .map(ProductImage::getUrl)
-                    .collect(Collectors.toSet());
-        }
+        // if (product.getImages() != null && !product.getImages().isEmpty()) {
+        //     this.imageUrls = product.getImages().stream()
+        //             .map(ProductImage::getUrl)
+        //             .collect(Collectors.toSet());
+        // }
         
         if (product.getCategory() != null) {
             this.categoryId = product.getCategory().getId();

@@ -10,6 +10,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
+import com.example.tmdt.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +51,9 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import javax.servlet.http.HttpServletRequest;
+import javax.persistence.EntityNotFoundException;
+import javax.validation.Valid;
+import com.example.tmdt.service.CategoryService;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -77,7 +81,14 @@ public class AdminController {
     @Autowired
     private ProductService productService;
 
+    @Autowired
+    private final CategoryService categoryService;
+
     private final String uploadDir = "./backend/uploads/products/";
+
+    public AdminController(CategoryService categoryService) {
+        this.categoryService = categoryService;
+    }
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getDashboardSummary() {
@@ -288,7 +299,7 @@ public class AdminController {
             if (imageFile != null && !imageFile.isEmpty()) {
                 try {
                     // Create the directory structure
-                    File uploadDir = new File("backend/uploads/products");
+                    File uploadDir = new File("uploads/products");
                     if (!uploadDir.exists()) {
                         uploadDir.mkdirs();
                     }
@@ -353,6 +364,130 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/products/update/{id}")
+    public ResponseEntity<?> updateProduct(
+            @PathVariable Long id,
+            @RequestParam("name") String name,
+            @RequestParam("description") String description,
+            @RequestParam("price") Double price,
+            @RequestParam("stock") Integer stock,
+            @RequestParam(value = "category", required = false) String categoryName,
+            @RequestParam(value = "image", required = false) MultipartFile imageFile) {
+        try {
+            System.out.println("===== PRODUCT UPDATE REQUEST STARTED =====");
+            System.out.println("Product ID: " + id);
+            System.out.println("Name: " + name);
+            System.out.println("Description: " + description);
+            System.out.println("Price: " + price);
+            System.out.println("Stock: " + stock);
+            System.out.println("Category Name: " + categoryName);
+            
+            // Validate critical fields
+            if (name == null || name.trim().isEmpty()) {
+                throw new IllegalArgumentException("Product name is required");
+            }
+            if (description == null || description.trim().isEmpty()) {
+                throw new IllegalArgumentException("Product description is required");
+            }
+            if (price == null || price <= 0) {
+                throw new IllegalArgumentException("Invalid product price");
+            }
+            if (stock == null || stock < 0) {
+                throw new IllegalArgumentException("Invalid stock quantity");
+            }
+            
+            // Find the existing product
+            Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+            
+            // Update product details
+            product.setName(name);
+            product.setDescription(description);
+            product.setPrice(price);
+            product.setStock(stock);
+            
+            // Find category by name instead of ID
+            if (categoryName != null && !categoryName.trim().isEmpty()) {
+                try {
+                    // First try to find exact match
+                    Optional<Category> categoryOpt = categoryRepository.findByName(categoryName.trim());
+                    
+                    if (categoryOpt.isPresent()) {
+                        Category category = categoryOpt.get();
+                        product.setCategory(category);
+                        System.out.println("Category found by name: " + category.getName() + " (ID: " + category.getId() + ")");
+                    } else {
+                        System.err.println("Category not found with name: " + categoryName);
+                        throw new RuntimeException("Category not found with name: " + categoryName);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error finding category by name: " + categoryName);
+                    System.err.println("Error details: " + e.getMessage());
+                    throw e;
+                }
+            }
+            
+            // Handle image file if provided
+            if (imageFile != null && !imageFile.isEmpty()) {
+                try {
+                    // Create the directory structure
+                    File uploadDir = new File("uploads/products");
+                    if (!uploadDir.exists()) {
+                        uploadDir.mkdirs();
+                    }
+                    
+                    // Generate unique filename with timestamp
+                    String originalFilename = imageFile.getOriginalFilename();
+                    String fileExtension = "";
+                    if (originalFilename != null && originalFilename.contains(".")) {
+                        fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+                    }
+                    String filename = System.currentTimeMillis() + fileExtension;
+                    
+                    // Save file directly using transferTo
+                    File dest = new File(uploadDir.getAbsolutePath() + File.separator + filename);
+                    System.out.println("Saving image to: " + dest.getAbsolutePath());
+                    imageFile.transferTo(dest);
+                    
+                    // Set image URL in product using the new controller path
+                    String imageUrl = "/uploads/products/" + filename;
+                    product.setImageUrl(imageUrl);
+                    System.out.println("Image saved successfully. URL set to: " + imageUrl);
+                } catch (Exception e) {
+                    System.err.println("Error saving image file: " + e.getMessage());
+                    e.printStackTrace();
+                    throw new RuntimeException("Failed to save image file", e);
+                }
+            } else {
+                System.out.println("No new image file provided, keeping existing image URL: " + product.getImageUrl());
+            }
+            
+            // Save the updated product
+            Product updatedProduct = productRepository.save(product);
+            System.out.println("===== PRODUCT UPDATED SUCCESSFULLY =====");
+            System.out.println("Product ID: " + updatedProduct.getId());
+            System.out.println("Product Name: " + updatedProduct.getName());
+            System.out.println("Product Category: " + (updatedProduct.getCategory() != null ? updatedProduct.getCategory().getName() : "No Category"));
+            System.out.println("Product Image URL: " + updatedProduct.getImageUrl());
+            
+            return new ResponseEntity<>(updatedProduct, HttpStatus.OK);
+            
+        } catch (Exception e) {
+            System.err.println("===== PRODUCT UPDATE ERROR =====");
+            System.err.println("Error details: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Detailed error response
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("error", e.getClass().getSimpleName());
+            
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+        }
+    }
+
     @PutMapping("/users/{id}/coupons")
     public ResponseEntity<?> assignCouponToUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
         String couponCode = request.get("couponCode");
@@ -390,51 +525,47 @@ public class AdminController {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
-    @GetMapping("/products/{id}/debug")
-    public ResponseEntity<?> debugProductImage(@PathVariable Long id) {
-        try {
-            // Find the product
-            Optional<Product> productOpt = productRepository.findById(id);
-            if (!productOpt.isPresent()) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            Product product = productOpt.get();
-            Map<String, Object> response = new HashMap<>();
-            
-            // Basic product info
-            response.put("id", product.getId());
-            response.put("name", product.getName());
-            
-            // Image info
-            response.put("imageUrl", product.getImageUrl());
-            
-            // Check if image file exists
-            if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
-                String imagePath = product.getImageUrl();
-                if (imagePath.startsWith("/uploads/products/")) {
-                    String filename = imagePath.substring("/uploads/products/".length());
-                    File imageFile = new File("backend/uploads/products/" + filename);
-                    
-                    response.put("filename", filename);
-                    response.put("fileExists", imageFile.exists());
-                    response.put("absolutePath", imageFile.getAbsolutePath());
-                    response.put("fileSize", imageFile.exists() ? imageFile.length() : 0);
-                    
-                    // Check if directory exists and is accessible
-                    File dir = new File("backend/uploads/products");
-                    response.put("directoryExists", dir.exists());
-                    response.put("directoryCanRead", dir.canRead());
-                    response.put("directoryAbsolutePath", dir.getAbsolutePath());
-                }
-            }
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-        }
+    @PostMapping("/categories")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Category> createCategory(@Valid @RequestBody Category category) {
+        Category createdCategory = categoryService.createCategory(category);
+        return new ResponseEntity<>(createdCategory, HttpStatus.CREATED);
     }
+
+    @PutMapping("/categories/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Category> updateCategory(
+            @PathVariable Long id,
+            @Valid @RequestBody Category categoryDetails) {
+        Category updatedCategory = categoryService.updateCategory(id, categoryDetails);
+        return ResponseEntity.ok(updatedCategory);
+    }
+
+    @DeleteMapping("/categories/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+        categoryService.deleteCategory(id);
+        return ResponseEntity.noContent().build();
+    }
+    @PostMapping("/categories/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Category>> getAllCategoriesAdmin(@RequestBody(required = false) Map<String, Object> params) {
+        // Log request for debugging
+        System.out.println("Fetching all categories for admin with params: " + params);
+
+        // Get all categories including inactive ones
+        List<Category> allCategories = categoryService.getAllCategories();
+
+        System.out.println("Found " + allCategories.size() + " categories in total");
+
+        // Log how many are inactive
+        long inactiveCount = allCategories.stream()
+                .filter(c -> c.getIsActive() != null && !c.getIsActive())
+                .count();
+        System.out.println("Found " + inactiveCount + " inactive categories");
+
+        return ResponseEntity.ok(allCategories);
+    }
+
+
 }

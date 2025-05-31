@@ -56,9 +56,9 @@ public class Product {
     @Column(name = "image_url")
     private String imageUrl;
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnoreProperties("product")
-    private Set<ProductImage> images = new HashSet<>();
+//    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+//    @JsonIgnoreProperties("product")
+//    private Set<ProductImage> images = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id")
@@ -101,15 +101,15 @@ public class Product {
         updatedAt = LocalDateTime.now();
     }
 
-    public void addImage(ProductImage image) {
-        images.add(image);
-        image.setProduct(this);
-    }
-
-    public void removeImage(ProductImage image) {
-        images.remove(image);
-        image.setProduct(null);
-    }
+//    public void addImage(ProductImage image) {
+//        images.add(image);
+//        image.setProduct(this);
+//    }
+//
+//    public void removeImage(ProductImage image) {
+//        images.remove(image);
+//        image.setProduct(null);
+//    }
 
     public void addReview(Review review) {
         reviews.add(review);

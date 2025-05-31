@@ -1,50 +1,6 @@
 import api from './api';
 import { API_URL } from '../config';
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: Category;
-  stock: number;
-  imageUrl: string;
-  rating: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  description?: string;
-}
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  roles: string[];
-  enabled: boolean;
-  coupons: string[];
-  createdAt: string;
-}
-
-interface Order {
-  id: string;
-  userId: string;
-  user: {
-    id: string;
-    username: string;
-    fullName: string;
-    email: string;
-  };
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  items: any[];
-}
+import { Category, Product, User, Order } from '../types';
 
 interface Page<T> {
   content: T[];
@@ -265,8 +221,24 @@ class AdminService {
 
   async updateProduct(id: string, productData: FormData) {
     try {
-      return await api.put(`/admin/products/${id}`, productData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      console.log(`Updating product ${id} with FormData`);
+      
+      // Log FormData contents for debugging
+      productData.forEach((value, key) => {
+        console.log(`${key}: ${value instanceof File ? '[File: ' + value.name + ']' : value}`);
+      });
+      
+      // Ensure productId is included in the FormData
+      productData.append('id', id);
+      
+      // Use POST instead of PUT since backend doesn't support PUT for this endpoint
+      return await api.post(`/admin/products/update/${id}`, productData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json'
+        },
+        // Important: Don't transform the request data
+        transformRequest: (data) => data
       });
     } catch (error: any) {
       console.error(`Error updating product ${id}:`, error.message);
@@ -291,16 +263,78 @@ class AdminService {
   // Categories
   async getAllCategories() {
     try {
-      return await api.get<Category[]>('/categories');
+      // For product form and other places that need all categories
+      // This uses the new getAllCategoriesAdmin method to ensure we get ALL categories
+      return this.getAllCategoriesAdmin();
     } catch (error: any) {
       console.error('Error fetching categories:', error.message);
       throw error;
     }
   }
 
+  async getAllCategoriesAdmin() {
+    try {
+      console.log('Fetching ALL categories for admin (including inactive)');
+      
+      // Use POST method instead of GET since backend doesn't support GET for this endpoint
+      const response = await api.post<any[]>('/admin/categories/all', { 
+        includeInactive: true, 
+        showAll: true,
+        all: true
+      });
+      
+      console.log('Admin categories response:', response);
+      
+      // Properly handle the response without modifying the IDs
+      if (response && response.data) {
+        // Ensure each category has the correct fields, but don't modify the original IDs
+        if (Array.isArray(response.data)) {
+          response.data = response.data.map(cat => ({
+            ...cat,
+            id: cat.id, // Keep original ID
+            isActive: cat.isActive === undefined ? true : Boolean(cat.isActive) // Ensure isActive is a boolean
+          }));
+        }
+      }
+      
+      return response;
+    } catch (error: any) {
+      console.error('Error fetching all admin categories:', error.message);
+      
+      // Fallback to the regular categories endpoint if the admin endpoint fails
+      console.log('Falling back to regular categories endpoint');
+      try {
+        // Regular categories endpoint (without injecting fake inactive categories)
+        return await api.get<Category[]>('/categories');
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        throw error; // Throw the original error
+      }
+    }
+  }
+
   async getCategories(params?: any) {
     try {
-      return await api.get<string[]>('/categories', { params });
+      // Determine if this is an admin request
+      const isAdminRequest = params?.admin;
+      
+      if (isAdminRequest) {
+        // For admin requests, use POST method to get all categories
+        console.log('Using admin categories endpoint with POST method');
+        
+        // Extract parameters
+        const requestData = { 
+          includeInactive: params?.includeInactive ?? true,
+          showAll: params?.showAll ?? true,
+          all: true
+        };
+        
+        return await api.post('/admin/categories/all', requestData);
+      } else {
+        // For regular requests, use GET method
+        console.log('Using regular categories endpoint with GET method');
+        return await api.get<any[]>('/categories', { params });
+      }
     } catch (error: any) {
       console.error('Error fetching categories:', error.message);
       throw error;
@@ -327,7 +361,15 @@ class AdminService {
 
   async updateCategory(id: string, categoryData: any) {
     try {
-      return await api.put(`/admin/categories/${id}`, categoryData);
+      console.log(`Updating category ID=${id} with data:`, categoryData);
+      
+      // Make sure the isActive flag is sent correctly to the backend
+      const payload = {
+        ...categoryData,
+        isActive: categoryData.isActive === undefined ? true : Boolean(categoryData.isActive)
+      };
+      
+      return await api.put(`/admin/categories/${id}`, payload);
     } catch (error: any) {
       console.error(`Error updating category ${id}:`, error.message);
       throw error;
@@ -339,6 +381,24 @@ class AdminService {
       return await api.delete(`/admin/categories/${id}`);
     } catch (error: any) {
       console.error(`Error deleting category ${id}:`, error.message);
+      throw error;
+    }
+  }
+
+  async checkCategoryHasProducts(id: string) {
+    try {
+      console.log(`Checking if category ${id} has products`);
+      const response = await api.get(`/categories/${id}/products`);
+      console.log(`Category ${id} products check response:`, response.data);
+      
+      // If the response contains products, the category has associated products
+      return {
+        hasProducts: Array.isArray(response.data) && response.data.length > 0,
+        productCount: Array.isArray(response.data) ? response.data.length : 0,
+        products: response.data
+      };
+    } catch (error: any) {
+      console.error(`Error checking if category ${id} has products:`, error.message);
       throw error;
     }
   }

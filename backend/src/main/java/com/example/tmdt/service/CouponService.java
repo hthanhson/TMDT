@@ -195,7 +195,7 @@ public class CouponService {
         
         // Kiểm tra giá trị đơn hàng tối thiểu
         if (orderAmount < coupon.getMinPurchaseAmount().doubleValue()) {
-            throw new RuntimeException("Order amount does not meet minimum required for this coupon");
+            throw new RuntimeException("Số tiền đặt hàng không đạt mức tối thiểu yêu cầu cho phiếu giảm giá này");
         }
         
         return coupon;

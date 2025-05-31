@@ -113,6 +113,7 @@ public class SecurityConfig {
                 .antMatchers("/api/reviews/**").permitAll()
                 .antMatchers("/api/files/**").permitAll()
                 .antMatchers("/api/public/**").permitAll()
+                .antMatchers("/actuator/health").permitAll()
                 .antMatchers("/api/notifications/**").permitAll()
                 // Chat related endpoints
                 .antMatchers("/api/chat/sessions/**").permitAll()

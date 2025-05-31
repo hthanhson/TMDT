@@ -67,6 +67,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .setCachePeriod(3600) // Cache for 1 hour
                 .resourceChain(true);
                 
+        // Add resource handlers for refund images
+        registry.addResourceHandler("/uploads/refunds/**")
+                .addResourceLocations("file:backend/uploads/refunds/", "file:uploads/refunds/");
+        
+        // Add resource handlers for general uploads
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:backend/uploads/", "file:uploads/");
+                
         logger.info("Added resource handlers for product images");
     }
 
