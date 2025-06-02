@@ -690,53 +690,8 @@ const AdminDashboard: React.FC = () => {
         </Grid>
       </Box>
 
-      {/* Notifications */}
-      <Box mt={4}>
-        <Card>
-          <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">
-                Thông báo gần đây
-              </Typography>
-              <Badge badgeContent={notifications.length} color="primary">
-                <NotificationsIcon />
-              </Badge>
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-            
-            {notificationLoading ? (
-              <Box display="flex" justifyContent="center" py={2}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : notifications.length > 0 ? (
-              <List>
-                {notifications.slice(0, 5).map((notification) => (
-                  <ListItem key={notification.id} divider>
-                    <ListItemIcon>
-                      {getNotificationIcon(notification.type)}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={notification.title}
-                      secondary={
-                        <>
-                          {notification.content}
-                          <Typography variant="caption" display="block" color="textSecondary">
-                            {formatTime(notification.createdAt)}
-                          </Typography>
-                        </>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <Typography color="textSecondary" align="center">
-                Không có thông báo mới
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
-      </Box>
+      
+      
     </Box>
   );
 };

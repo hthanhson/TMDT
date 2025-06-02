@@ -335,11 +335,8 @@ const OrderDetail: React.FC = () => {
     
     // Try alternative paths
     const alternativeUrls = [
-      `http://localhost:8080/api/files/${imageUrl.split('/').pop()}`,
-      `http://localhost:8080/api/files/refund/${imageUrl.split('/').pop()}`,
-      `http://localhost:8080/api/files/refunds/${imageUrl.split('/').pop()}`,
-      `http://localhost:8080/api/files/download/${imageUrl.split('/').pop()}`,
-      `http://localhost:8080/uploads/refund/${imageUrl.split('/').pop()}`
+      `http://localhost:8080/uploads/refunds/${imageUrl.split('/').pop()}`,
+
     ];
     
     // Try the next URL in the list
@@ -354,7 +351,7 @@ const OrderDetail: React.FC = () => {
       imgElement.dataset.retryCount = (retryCount + 1).toString();
     } else {
       // Use a default placeholder after all retries failed
-      imgElement.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
+      // imgElement.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
     }
   };
 
@@ -565,11 +562,7 @@ const OrderDetail: React.FC = () => {
                         console.error(`Failed to load image: ${imageUrl}`);
                         // Try alternative paths
                         const alternativeUrls = [
-                          `http://localhost:8080/api/files/${imageUrl.split('/').pop()}`,
-                          `http://localhost:8080/api/files/refund/${imageUrl.split('/').pop()}`,
-                          `http://localhost:8080/api/files/refunds/${imageUrl.split('/').pop()}`,
-                          `http://localhost:8080/api/files/download/${imageUrl.split('/').pop()}`,
-                          `http://localhost:8080/uploads/refund/${imageUrl.split('/').pop()}`
+                          `http://localhost:8080/uploads/refunds/${imageUrl.split('/').pop()}`,
                         ];
                         
                         const imgElement = event.currentTarget;

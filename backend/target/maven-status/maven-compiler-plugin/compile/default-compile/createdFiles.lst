@@ -15,7 +15,6 @@ com\example\tmdt\payload\request\CouponCreateRequest.class
 com\example\tmdt\service\RefundService.class
 com\example\tmdt\model\VNPayStatus.class
 com\example\tmdt\config\VNPayConfig.class
-com\example\tmdt\service\ShipmentTrackingService.class
 com\example\tmdt\controller\ReviewController.class
 com\example\tmdt\util\OrderStatusConverter.class
 com\example\tmdt\controller\ChatController.class
@@ -33,9 +32,7 @@ com\example\tmdt\exception\GlobalExceptionHandler.class
 com\example\tmdt\payload\request\LoginRequest.class
 com\example\tmdt\controller\CategoryController.class
 com\example\tmdt\controller\ShipperController.class
-com\example\tmdt\controller\LoggingDemoController.class
 com\example\tmdt\model\RefundRequest$RefundStatus.class
-com\example\tmdt\config\WebConfig.class
 com\example\tmdt\model\Category.class
 com\example\tmdt\model\ChatMessage.class
 com\example\tmdt\security\jwt\AuthEntryPointJwt.class
@@ -49,7 +46,6 @@ com\example\tmdt\payload\request\OrderItemRequest.class
 com\example\tmdt\repository\ReviewRepository.class
 com\example\tmdt\model\OrderStatus.class
 com\example\tmdt\config\SecurityConfig.class
-com\example\tmdt\config\websocket\CustomWebSocketServer.class
 com\example\tmdt\payload\response\MessageResponse.class
 com\example\tmdt\model\ReviewHelpful.class
 com\example\tmdt\model\ERole.class
@@ -57,12 +53,10 @@ com\example\tmdt\model\ChatSession$SessionStatus.class
 com\example\tmdt\repository\WishlistRepository.class
 com\example\tmdt\security\services\UserDetailsServiceImpl.class
 com\example\tmdt\controller\OrderController.class
-com\example\tmdt\controller\TestController.class
 com\example\tmdt\payload\request\ReviewRequest.class
 com\example\tmdt\config\WebSocketConfig.class
 com\example\tmdt\config\SecurityConfig$1.class
 com\example\tmdt\repository\ChatMessageRepository.class
-com\example\tmdt\service\impl\ShipmentTrackingServiceImpl.class
 com\example\tmdt\exception\ErrorResponse$ErrorResponseBuilder.class
 com\example\tmdt\TmdtApplication.class
 com\example\tmdt\model\Coupon$DiscountType.class
@@ -73,7 +67,6 @@ com\example\tmdt\service\ShipmentService.class
 com\example\tmdt\model\Notification$NotificationType.class
 com\example\tmdt\service\FileStorageService.class
 com\example\tmdt\model\BalanceTransaction.class
-com\example\tmdt\controller\ShipmentController.class
 com\example\tmdt\controller\RefundController.class
 com\example\tmdt\model\Order$OrderStatus.class
 com\example\tmdt\payload\request\DepositRequest.class

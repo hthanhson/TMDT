@@ -228,55 +228,28 @@ const AdminOrders: React.FC = () => {
   const prepareImageUrl = (url: string): string[] => {
     if (!url) return [];
     
-    // Debugging - log full URL info
-    console.log("Original URL:", url);
-    
     // Backend server URL (port 8080)
     const backendUrl = 'http://localhost:8080';
     
-    // Comprehensive URL generation attempts
-    const urlAttempts: string[] = [
-      // Direct file download endpoint
-      `${backendUrl}/api/files/download/${url.split('/').pop() || url}`,
-      
-      // Various potential upload paths
-      `${backendUrl}/uploads/refunds/${url.split('/').pop() || url}`,
-      `${backendUrl}/refunds/${url.split('/').pop() || url}`,
-      `${backendUrl}/upload/refunds/${url.split('/').pop() || url}`,
-      
-      // If it's a relative path
-      url.startsWith('/') ? `${backendUrl}${url}` : `${backendUrl}/${url}`,
-      
-      // If it's a full URL already
-      url.startsWith('http') ? url : `${backendUrl}/${url}`
-    ].filter(Boolean); // Remove any empty strings
+    // Extract filename from path - handle multiple formats
+    let filename = url;
+    if (url.includes('/')) {
+      filename = url.split('/').pop() || url;
+    }
     
-    // Log all potential URLs for debugging
-    console.log("URL Attempts:", urlAttempts);
+    // Use only the direct uploads/refunds path as requested
+    const imageUrl = `${backendUrl}/uploads/refunds/${filename}`;
+    console.log("Using refund image URL:", imageUrl);
     
-    return urlAttempts;
+    return [imageUrl];
   };
 
   // In the image rendering sections, update the error handling
-  const handleImageError = (
-    e: React.SyntheticEvent<HTMLImageElement>, 
-    urlAttempts: string[]
-  ) => {
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     console.error(`Failed to load image URL: ${e.currentTarget.src}`);
     
-    // Create a copy of URL attempts to avoid mutating the original
-    const currentUrlAttempts = [...urlAttempts];
-    
-    // Remove the failed URL from attempts
-    currentUrlAttempts.shift();
-    
-    // Try next URL if available
-    if (currentUrlAttempts.length > 0) {
-      e.currentTarget.src = currentUrlAttempts[0];
-    } else {
-      // Fallback to SVG placeholder
-      e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
-    }
+    // Use a fallback image when the refund image can't be loaded
+    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
   };
 
   // Mở hình ảnh trong chế độ preview
@@ -419,6 +392,24 @@ const AdminOrders: React.FC = () => {
     }
   };
 
+  // Hàm chuyển đổi trạng thái hoàn tiền sang tiếng Việt
+  const getRefundStatusTranslation = (status: string): string => {
+    switch (status) {
+      case 'REQUESTED':
+        return 'Yêu cầu hoàn tiền';
+      case 'APPROVED':
+        return 'Đã duyệt hoàn tiền';
+      case 'REJECTED':
+        return 'Không hoàn tiền';
+      case 'COMPLETED':
+        return 'Đã hoàn tiền';
+      case 'REVIEWING':
+        return 'Đang xem xét';
+      default:
+        return status || 'Không có';
+    }
+  };
+
   if (loading && orders.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -473,12 +464,7 @@ const AdminOrders: React.FC = () => {
                   <TableCell>
                     {order.refundStatus && order.refundStatus !== 'NONE' ? (
                       <Chip
-                        label={
-                          order.refundStatus === 'REQUESTED' ? 'Process Refund' :
-                          order.refundStatus === 'APPROVED' ? 'Refund Complete' :
-                          order.refundStatus === 'REJECTED' ? 'Refund Failed' :
-                          order.refundStatus
-                        }
+                        label={getRefundStatusTranslation(order.refundStatus)}
                         color={getRefundStatusColor(order.refundStatus)}
                         size="small"
                       />
@@ -548,12 +534,7 @@ const AdminOrders: React.FC = () => {
               />
               {selectedOrder.refundStatus && selectedOrder.refundStatus !== 'NONE' && (
                 <Chip
-                  label={
-                    selectedOrder.refundStatus === 'REQUESTED' ? 'Process Refund' :
-                    selectedOrder.refundStatus === 'APPROVED' ? 'Refund Complete' :
-                    selectedOrder.refundStatus === 'REJECTED' ? 'Refund Failed' :
-                    `Hoàn tiền: ${selectedOrder.refundStatus}`
-                  }
+                  label={getRefundStatusTranslation(selectedOrder.refundStatus)}
                   color={getRefundStatusColor(selectedOrder.refundStatus)}
                   size="small"
                   sx={{ ml: 1 }}
@@ -605,12 +586,7 @@ const AdminOrders: React.FC = () => {
                         Yêu cầu hoàn tiền
                       </Typography>
                       <Typography variant="body2">
-                        <strong>Trạng thái:</strong> {
-                          selectedOrder.refundRequest.status === 'REQUESTED' ? 'Chờ xử lý' :
-                          selectedOrder.refundRequest.status === 'APPROVED' ? 'Đã chấp nhận' :
-                          selectedOrder.refundRequest.status === 'REJECTED' ? 'Đã từ chối' :
-                          selectedOrder.refundRequest.status
-                        }
+                        <strong>Trạng thái:</strong> {getRefundStatusTranslation(selectedOrder.refundRequest.status)}
                         {selectedOrder.refundRequest.status === 'APPROVED' && (
                           <Chip 
                             label="Refund Complete" 
@@ -652,8 +628,8 @@ const AdminOrders: React.FC = () => {
                           </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                             {selectedOrder.refundRequest.imageUrls.map((url: string, index: number) => {
-                              // Generate multiple URL attempts
-                              const urlAttempts = prepareImageUrl(url);
+                              // Get the direct refund image URL
+                              const imageUrl = prepareImageUrl(url)[0];
                               
                               return (
                                 <Box 
@@ -674,19 +650,19 @@ const AdminOrders: React.FC = () => {
                                   onClick={(e) => {
                                     e.preventDefault(); 
                                     e.stopPropagation();
-                                    // Open the first valid URL
-                                    openImagePreview(urlAttempts[0]);
+                                    // Open image in a new tab
+                                    openImagePreview(imageUrl);
                                   }}
                                 >
                                   <img
-                                    src={urlAttempts[0]}
+                                    src={imageUrl}
                                     alt={`Refund evidence ${index + 1}`}
                                     style={{ 
                                       maxWidth: '100%', 
                                       maxHeight: '100%', 
                                       objectFit: 'cover'
                                     }}
-                                    onError={(e) => handleImageError(e, urlAttempts)}
+                                    onError={handleImageError}
                                   />
                                 </Box>
                               );
@@ -821,8 +797,8 @@ const AdminOrders: React.FC = () => {
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                           {selectedOrder.refundRequest.imageUrls.map((url: string, index: number) => {
-                            // Generate multiple URL attempts
-                            const urlAttempts = prepareImageUrl(url);
+                            // Get the direct refund image URL
+                            const imageUrl = prepareImageUrl(url)[0];
                             
                             return (
                               <Box 
@@ -843,19 +819,19 @@ const AdminOrders: React.FC = () => {
                                 onClick={(e) => {
                                   e.preventDefault(); 
                                   e.stopPropagation();
-                                  // Open the first valid URL
-                                  openImagePreview(urlAttempts[0]);
+                                  // Open image in a new tab
+                                  openImagePreview(imageUrl);
                                 }}
                               >
                                 <img
-                                  src={urlAttempts[0]}
+                                  src={imageUrl}
                                   alt={`Refund evidence ${index + 1}`}
                                   style={{ 
                                     maxWidth: '100%', 
                                     maxHeight: '100%', 
                                     objectFit: 'cover'
                                   }}
-                                  onError={(e) => handleImageError(e, urlAttempts)}
+                                  onError={handleImageError}
                                 />
                               </Box>
                             );

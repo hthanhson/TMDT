@@ -177,7 +177,8 @@ public class ShipmentServiceImpl implements ShipmentService {
         } catch (Exception e) {
             // Log but don't fail the operation if notification sending fails
             // We could add a retry mechanism here
-            log.error("Failed to send notification for order {}: {}", orderId, e.getMessage());
+            log.error("Failed to send notification for order " + orderId + ": " + e.getMessage());
+
         }
         
         return updatedOrder;

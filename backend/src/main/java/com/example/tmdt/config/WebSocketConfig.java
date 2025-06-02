@@ -13,9 +13,11 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.server.standard.ServerEndpointExporter;
+import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.apache.catalina.connector.Connector;
+import org.apache.tomcat.websocket.server.WsSci;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -71,13 +73,26 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer, WebSoc
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> servletContainerCustomizer() {
         return factory -> {
-            // Only create second connector if ports are different
-            if (webSocketPort != serverPort) {
-                Connector connector = new Connector("org.apache.coyote.http11.Http11NioProtocol");
-                connector.setPort(webSocketPort);
-                factory.addAdditionalTomcatConnectors(connector);
-            }
+            Connector connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
+            connector.setPort(webSocketPort);
+            factory.addAdditionalTomcatConnectors(connector);
+            
+            // Add WebSocket processor to the context
+            factory.addContextCustomizers(context -> {
+                context.addServletContainerInitializer(new WsSci(), null);
+            });
+            
+            System.out.println("WebSocket server configured to run on port: " + webSocketPort);
         };
+    }
+    
+    // Configure WebSocket container
+    @Bean
+    public ServletServerContainerFactoryBean createWebSocketContainer() {
+        ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
+        container.setMaxTextMessageBufferSize(8192);
+        container.setMaxBinaryMessageBufferSize(8192);
+        return container;
     }
     
     @Bean

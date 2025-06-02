@@ -1033,7 +1033,7 @@ const AdminChat: React.FC = () => {
         <Box sx={{ width: 300, borderRight: 1, borderColor: 'divider', overflow: 'auto' }}>
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
             <Tab label="Active" icon={<ChatBubbleIcon />} />
-            <Tab label="History" icon={<HistoryIcon />} />
+            {/* <Tab label="History" icon={<HistoryIcon />} /> */}
           </Tabs>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>

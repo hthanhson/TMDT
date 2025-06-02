@@ -128,6 +128,7 @@ public class SecurityConfig {
                 // Role specific endpoints
                 .antMatchers("/api/shipper/**").hasRole("SHIPPER")
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
+                .antMatchers("/uploads/refunds/**").permitAll()
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             );

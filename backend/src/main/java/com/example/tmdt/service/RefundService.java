@@ -156,6 +156,9 @@ public class RefundService {
                 order.getPaymentMethod().equals("credit")) {
                 userBalanceService.refundOrderPayment(order.getUser(), order.getTotalAmount(), order.getId());
             }
+            if (order.getPaymentMethod().equals("cod")) {
+                order.setPaymentStatus("No PAID");
+            }
             
             // Cập nhật trạng thái đơn hàng thành RETURNED
             order.setStatus(OrderStatus.RETURNED);
@@ -172,13 +175,13 @@ public class RefundService {
         // Create notification for user
         String notificationMessage;
         if (status == RefundRequest.RefundStatus.APPROVED) {
-            notificationMessage = "Your refund request for order #" + order.getId() + " has been approved. The refund amount of " + order.getTotalAmount() + " has been credited to your account.";
+            notificationMessage = "yêu cầu hoàn trả đơn hàng số  #" + order.getId() + " đã được chấp nhận. Số tiền " + order.getTotalAmount() + " sẽ được hoàn trả nếu bạn đã thanh toán";
         } else if (status == RefundRequest.RefundStatus.REJECTED) {
-            notificationMessage = "Your refund request for order #" + order.getId() + " has been rejected.";
+            notificationMessage = "yêu cầu hoàn trả đơn hàng số #" + order.getId() + " đã bị từ chối.";
         } else if (status == RefundRequest.RefundStatus.COMPLETED) {
-            notificationMessage = "Your refund for order #" + order.getId() + " has been processed.";
+            notificationMessage = "yêu cầu hoàn trả đơn hàng số  #" + order.getId() + " đã được xử lý.";
         } else {
-            notificationMessage = "Your refund request for order #" + order.getId() + " is under review.";
+            notificationMessage = "yêu cầu hoàn trả đơn hàng số #" + order.getId() + " đang được xem xét";
         }
         
         Map<String, Object> additionalData = new HashMap<>();
