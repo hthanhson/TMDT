@@ -25,7 +25,8 @@ import {
   Button,
   Chip,
   Autocomplete,
-  Alert
+  Alert,
+  Pagination
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -35,6 +36,7 @@ import {
   Clear as ClearIcon
 } from '@mui/icons-material';
 import ProductList from '../components/Products/ProductList';
+import ProductCard from '../components/Products/ProductCard';
 import ProductService from '../services/productService';
 import { Product } from '../types/product';
 import TopProducts from '../components/Products/TopProducts';
@@ -94,15 +96,21 @@ const Products: React.FC = () => {
   
   // State cho tìm kiếm nâng cao
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 10000000 });
-  const [maxPrice, setMaxPrice] = useState(10000000);
+  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 100000000 });
+  const [maxPrice, setMaxPrice] = useState(100000000);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(10);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Cập nhật tổng số trang mỗi khi tổng sản phẩm hoặc kích thước trang thay đổi
+  useEffect(() => {
+    setTotalPages(Math.ceil(totalProducts / pageSize));
+  }, [totalProducts, pageSize]);
 
   // Fetch products with current filters
   const fetchProducts = useCallback(async () => {
@@ -137,12 +145,14 @@ const Products: React.FC = () => {
         console.log('Filtering by category:', selectedCategory);
       }
       
-      if (priceRange.min > 0) {
+      if (priceRange.min > 0 || priceRange.max < maxPrice) {
         params.minPrice = priceRange.min.toString();
-      }
-      
-      if (priceRange.max < maxPrice) {
         params.maxPrice = priceRange.max.toString();
+      } else {
+        // Ngay cả khi người dùng không chọn khoảng giá,
+        // vẫn cần gửi giá trị mặc định để backend hiểu là đang lọc theo giá
+        params.minPrice = '0';
+        params.maxPrice = maxPrice.toString();
       }
       
       if (selectedRating !== null) {
@@ -169,9 +179,19 @@ const Products: React.FC = () => {
           if ('content' in response.data && Array.isArray(response.data.content)) {
             // É uma resposta paginada
             productsData = response.data.content;
+            
+            // Lấy thông tin phân trang từ API cho phân trang,
+            // Không qua trình filter sau ở frontend
             total = 'totalElements' in response.data && typeof response.data.totalElements === 'number' 
               ? response.data.totalElements 
               : response.data.content.length;
+              
+            // Lấy thông tin phân trang từ API
+            if ('totalPages' in response.data && typeof response.data.totalPages === 'number') {
+              setTotalPages(response.data.totalPages);
+            } else {
+              setTotalPages(Math.ceil(total / pageSize));
+            }
           } else {
             // Objeto desconhecido - tentar extrair informações úteis
             console.warn('Unexpected response format, trying to extract products:', response.data);
@@ -281,13 +301,11 @@ const Products: React.FC = () => {
         
         // Definir produtos filtrados e total
         setProducts(filteredProducts);
-        setTotalProducts(filteredProducts.length);
         
-        // Se aplicamos filtros e o resultado é diferente do total retornado pela API,
-        // atualizamos mensagens de log para o desenvolvedor
-        if (filteredProducts.length !== total) {
-          console.log(`Frontend filtering applied: ${filteredProducts.length} of ${total} products match criteria`);
-        }
+        // Nobuf có phân trang từ API, dùng giá trị cũ cho totalProducts
+        // như vậy hiển thị số lượng sản phẩm hiện tại
+        console.log(`Setting totalProducts to ${total} (API total) instead of ${filteredProducts.length} (filtered count)`);
+        setTotalProducts(total);
       } else {
         // Resposta vazia
         setProducts([]);
@@ -431,8 +449,8 @@ const Products: React.FC = () => {
       } catch (err) {
         console.error('Error fetching max price:', err);
         // Usar valor padrão em caso de erro
-        setMaxPrice(10000000);
-        setPriceRange({ min: 0, max: 10000000 });
+        setMaxPrice(100000000);
+        setPriceRange({ min: 0, max: 100000000 });
       }
     };
     
@@ -454,7 +472,7 @@ const Products: React.FC = () => {
     fetchRecommendedProducts();
   }, []);
   
-  // Fetch search suggestions - usando debounce para reduzir número de requisições
+  // Fetch search suggestions - sử dụng debounce để giảm số lượng yêu cầu
   const fetchSuggestionsImpl = async (term: string) => {
     if (term.length < 2) {
       setSearchSuggestions([]);
@@ -465,19 +483,19 @@ const Products: React.FC = () => {
       const response = await ProductService.getSearchSuggestions(term);
       if (response.data) {
         if (Array.isArray(response.data)) {
-          // Extrair nomes para exibição
+          // Trích xuất tên để hiển thị
           const suggestions = response.data.map((item: any) => 
             typeof item === 'string' ? item : item.name || ''
           );
           setSearchSuggestions(suggestions);
         } else if (response.data.content && Array.isArray(response.data.content)) {
-          // Resposta paginada - usar content
+          // Phản hồi phân trang - sử dụng nội dung
           const suggestions = response.data.content.map((item: any) =>
             typeof item === 'string' ? item : item.name || ''
           );
           setSearchSuggestions(suggestions);
         } else {
-          // Formato desconhecido - resetar sugestões
+          // Định dạng không xác định - đặt lại gợi ý
           setSearchSuggestions([]);
         }
       } else {
@@ -489,10 +507,10 @@ const Products: React.FC = () => {
     }
   };
 
-  // Use our custom debounce hook
+  // Sử dụng hook debounce tùy chỉnh
   const fetchSearchSuggestions = useDebounce(fetchSuggestionsImpl, 500);
   
-  // Handle search input change
+  // Xử lý thay đổi đầu vào tìm kiếm
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const term = event.target.value;
     setSearchTerm(term);
@@ -543,17 +561,17 @@ const Products: React.FC = () => {
     }
   };
   
-  // Helper function để lấy tên danh mục
+  // Hàm trợ giúp để lấy tên danh mục
   const getCategoryName = (category: Category): string => {
     return category.name || '';
   };
   
-  // Helper function để lấy giá trị danh mục
+  // Hàm trợ giúp để lấy giá trị danh mục
   const getCategoryValue = (category: Category): string => {
     return category.name ? category.name.toLowerCase() : '';
   };
   
-  // Helper function để lấy label của sort option
+  // Hàm trợ giúp để lấy nhãn của tùy chọn sắp xếp
   const getSortLabel = (value: string): string => {
     switch (value) {
       case 'newest':
@@ -571,7 +589,7 @@ const Products: React.FC = () => {
     }
   };
   
-  // Function để quản lý active filters
+  // Hàm quản lý bộ lọc đang hoạt động
   const addActiveFilter = (filter: string) => {
     const filterType = filter.split(':')[0];
     setActiveFilters(prev => {
@@ -587,7 +605,7 @@ const Products: React.FC = () => {
   const handleRemoveFilter = (filter: string) => {
     const filterType = filter.split(':')[0];
     
-    // Xóa filter khỏi active filters
+    // Xóa bộ lọc khỏi bộ lọc đang hoạt động
     removeActiveFilter(filterType);
     
     // Reset giá trị tương ứng
@@ -628,13 +646,9 @@ const Products: React.FC = () => {
     handleApplyFilters();
   };
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setPage(0); // Reset to first page when changing page size
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, newPage: number) => {
+    setPage(newPage - 1); // MUI Pagination bắt đầu từ 1, nhưng API bắt đầu từ 0
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // Cuộn lên đầu trang khi chuyển trang
   };
 
   const handleApplyFilters = () => {
@@ -656,10 +670,16 @@ const Products: React.FC = () => {
     if (priceRange.min > 0 || priceRange.max < maxPrice) {
       searchParams.append('minPrice', priceRange.min.toString());
       searchParams.append('maxPrice', priceRange.max.toString());
+    } else {
+      // Ngay cả khi người dùng không chọn khoảng giá,
+      // vẫn cần gửi giá trị mặc định để backend hiểu là đang lọc theo giá
+      searchParams.append('minPrice', '0');
+      searchParams.append('maxPrice', maxPrice.toString());
     }
     
     if (selectedRating !== null) {
-      searchParams.append('rating', selectedRating.toString());
+      // Thay đổi 'rating' thành 'minRating' cho phù hợp với backend và fetchProducts
+      searchParams.append('minRating', selectedRating.toString());
     }
     
     if (inStockOnly) {
@@ -670,12 +690,12 @@ const Products: React.FC = () => {
       searchParams.append('sort', sortBy);
     }
     
-    // Log dos filtros aplicados
+    // Log các bộ lọc được áp dụng
     console.log('Applying filters:', {
       category: selectedCategory,
       search: searchTerm,
       priceRange,
-      rating: selectedRating,
+      minRating: selectedRating, // Thay đổi tên tham số trong log
       inStock: inStockOnly,
       sort: sortBy
     });
@@ -910,14 +930,31 @@ const Products: React.FC = () => {
             ) : products.length === 0 ? (
               <Alert severity="info" sx={{ my: 2 }}>Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</Alert>
             ) : (
-              <ProductList 
-                products={products}
-                totalItems={totalProducts}
-                page={page}
-                pageSize={pageSize}
-                onPageChange={handlePageChange}
-                onPageSizeChange={handlePageSizeChange}
-              />
+              <>
+                {/* Hiển thị sản phẩm dạng lưới */}
+                <Grid container spacing={3}>
+                  {products.map((product) => (
+                    <Grid item xs={12} sm={6} md={4} key={product.id}>
+                      <ProductCard product={product} />
+                    </Grid>
+                  ))}
+                </Grid>
+                
+                {/* Phân trang */}
+                {totalPages > 0 && (
+                  <Box display="flex" justifyContent="center" mt={4}>
+                    <Pagination 
+                      count={totalPages}
+                      page={page + 1} // MUI Pagination bắt đầu từ 1
+                      onChange={handlePageChange}
+                      color="primary"
+                      showFirstButton 
+                      showLastButton
+                      size="large"
+                    />
+                  </Box>
+                )}
+              </>
             )}
           </Box>
         </Grid>
@@ -930,7 +967,7 @@ const Products: React.FC = () => {
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Box sx={{ mb: 4, display: { xs: 'none', md: 'block' } }}>
-              <TopProducts title="" maxItems={4} />
+              <TopProducts title="" maxItems={4} useMonthlyStats={true} />
             </Box>
             
             <Typography variant="h5" gutterBottom>
@@ -950,7 +987,7 @@ const Products: React.FC = () => {
               Sản Phẩm Bán Chạy
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            <TopProducts title="" maxItems={4} />
+            <TopProducts title="" maxItems={4} useMonthlyStats={true} />
           </Paper>
         </Grid>
         

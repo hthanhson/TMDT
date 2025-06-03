@@ -67,6 +67,8 @@ E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\config\JacksonConfig.java
 E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\payload\response\JwtResponse.java
 E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\service\ReviewService.java
 E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\config\WebMvcConfig.java
+E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\payload\request\ChangePasswordRequest.java
+E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\payload\request\UpdateProfileRequest.java
 E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\payload\response\PagedResponse.java
 E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\config\CorsConfig.java
 E:\tmdt\TMDT\backend\src\main\java\com\example\tmdt\repository\RefundRequestRepository.java

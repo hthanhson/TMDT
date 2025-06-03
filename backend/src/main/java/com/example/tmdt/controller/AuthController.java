@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.tmdt.payload.request.LoginRequest;
 import com.example.tmdt.payload.request.SignupRequest;
+import com.example.tmdt.payload.request.UpdateProfileRequest;
+import com.example.tmdt.payload.request.ChangePasswordRequest;
 import com.example.tmdt.payload.response.JwtResponse;
 import com.example.tmdt.payload.response.MessageResponse;
 import com.example.tmdt.repository.RoleRepository;
@@ -142,4 +144,79 @@ public class AuthController {
 
         return ResponseEntity.ok(new MessageResponse("Shipper registered successfully!"));
     }
-} 
+
+    @PostMapping("/update-profile")
+    public ResponseEntity<?> updateUserProfile(@Valid @RequestBody UpdateProfileRequest updateRequest,
+                                              Authentication authentication) {
+        logger.info("Attempting to update profile for user");
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            User user = userRepository.findById(userDetails.getId())
+                    .orElseThrow(() -> new RuntimeException("Error: User not found."));
+            
+            // Verify password
+            if (!encoder.matches(updateRequest.getPassword(), user.getPassword())) {
+                logger.warn("Password verification failed for user: {}", userDetails.getUsername());
+                return ResponseEntity.badRequest().body(new MessageResponse("Error: Incorrect password!"));
+            }
+            
+            // Update user information
+            if (updateRequest.getEmail() != null && !updateRequest.getEmail().equals(user.getEmail())) {
+                if (userRepository.existsByEmail(updateRequest.getEmail())) {
+                    return ResponseEntity.badRequest()
+                            .body(new MessageResponse("Error: Email is already in use!"));
+                }
+                user.setEmail(updateRequest.getEmail());
+            }
+            
+            if (updateRequest.getFullName() != null) {
+                user.setFullName(updateRequest.getFullName());
+            }
+            
+            if (updateRequest.getAddress() != null) {
+                user.setAddress(updateRequest.getAddress());
+            }
+            
+            if (updateRequest.getPhoneNumber() != null) {
+                user.setPhoneNumber(updateRequest.getPhoneNumber());
+            }
+            
+            userRepository.save(user);
+            logger.info("User profile updated successfully for user: {}", userDetails.getUsername());
+            
+            return ResponseEntity.ok(new MessageResponse("User profile updated successfully!"));
+        } catch (Exception e) {
+            logger.error("Profile update failed - Error: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Failed to update profile!"));
+        }
+    }
+    
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest changePasswordRequest,
+                                           Authentication authentication) {
+        logger.info("Attempting to change password for user");
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            User user = userRepository.findById(userDetails.getId())
+                    .orElseThrow(() -> new RuntimeException("Error: User not found."));
+            
+            // Verify current password
+            if (!encoder.matches(changePasswordRequest.getCurrentPassword(), user.getPassword())) {
+                logger.warn("Current password verification failed for user: {}", userDetails.getUsername());
+                return ResponseEntity.badRequest().body(new MessageResponse("Error: Current password is incorrect!"));
+            }
+            
+            // Update with new password
+            user.setPassword(encoder.encode(changePasswordRequest.getNewPassword()));
+            userRepository.save(user);
+            
+            logger.info("Password changed successfully for user: {}", userDetails.getUsername());
+            return ResponseEntity.ok(new MessageResponse("Password changed successfully!"));
+        } catch (Exception e) {
+            logger.error("Password change failed - Error: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: Failed to change password!"));
+        }
+    }
+}

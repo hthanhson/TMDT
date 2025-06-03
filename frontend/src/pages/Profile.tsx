@@ -65,6 +65,14 @@ const Profile: React.FC = () => {
     address: user?.address || '',
     phoneNumber: user?.phoneNumber || '',
   });
+  const [verificationPassword, setVerificationPassword] = useState('');
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [userBalance, setUserBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [depositAmount, setDepositAmount] = useState<string>('');
@@ -82,6 +90,89 @@ const Profile: React.FC = () => {
       ...profileData,
       [name]: value,
     });
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData({
+      ...passwordData,
+      [name]: value,
+    });
+    
+    // Clear password error when user types
+    if (passwordError) {
+      setPasswordError(null);
+    }
+  };
+  
+  const handleVerificationPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVerificationPassword(e.target.value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!showPasswordField) {
+      setShowPasswordField(true);
+      return;
+    }
+    
+    if (!verificationPassword) {
+      alert('Vui lòng nhập mật khẩu để xác thực');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      await UserService.updateProfileWithVerification({
+        ...profileData,
+        password: verificationPassword
+      });
+      alert('Thông tin cá nhân đã được cập nhật thành công!');
+      setShowPasswordField(false);
+      setVerificationPassword('');
+    } catch (error) {
+      console.error('Lỗi khi cập nhật thông tin:', error);
+      alert('Mật khẩu không chính xác. Vui lòng kiểm tra lại mật khẩu của bạn.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('Mật khẩu mới và xác nhận mật khẩu không khớp');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError('Mật khẩu mới phải có ít nhất 6 ký tự');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      await UserService.changePasswordWithVerification({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      alert('Mật khẩu đã được thay đổi thành công!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setPasswordError(null);
+    } catch (error) {
+      console.error('Lỗi khi thay đổi mật khẩu:', error);
+      setPasswordError('Không thể thay đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDepositAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,21 +194,6 @@ const Profile: React.FC = () => {
     setDepositError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      await UserService.updateProfile(profileData);
-      alert('Profile updated successfully!');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Failed to update profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDeposit = async () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0) {
       setDepositError('Please enter a valid amount');
@@ -130,7 +206,7 @@ const Profile: React.FC = () => {
     try {
       const response = await UserService.deposit({
         amount: depositAmount,
-        description: 'Manual deposit'
+        description: 'Nạp tiền thủ công'
       });
       
       setUserBalance(response.data.balance);
@@ -275,6 +351,7 @@ const Profile: React.FC = () => {
             >
               <Tab label="Thông tin cá nhân" />
               <Tab label="Lịch sử giao dịch" />
+              <Tab label="Đổi mật khẩu" />
             </Tabs>
             
             <TabPanel value={tabValue} index={0}>
@@ -295,8 +372,9 @@ const Profile: React.FC = () => {
                       label="Email"
                       name="email"
                       value={profileData.email}
-                      InputProps={{ readOnly: true }}
-                      disabled
+                      onChange={handleInputChange}
+                      // InputProps={{ readOnly: true }}
+                      // disabled
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -319,6 +397,17 @@ const Profile: React.FC = () => {
                       onChange={handleInputChange}
                     />
                   </Grid>
+                  {showPasswordField && (
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Nhập mật khẩu để xác nhận thông tin"
+                        type="password"
+                        value={verificationPassword}
+                        onChange={handleVerificationPasswordChange}
+                      />
+                    </Grid>
+                  )}
                   <Grid item xs={12}>
                     <Divider sx={{ my: 2 }} />
                     <Button
@@ -384,6 +473,56 @@ const Profile: React.FC = () => {
                   <Typography variant="body1">Chưa có giao dịch nào</Typography>
                 </Box>
               )}
+            </TabPanel>
+            
+            <TabPanel value={tabValue} index={2}>
+              <form onSubmit={handlePasswordSubmit}>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Mật khẩu hiện tại"
+                      type="password"
+                      name="currentPassword"
+                      value={passwordData.currentPassword}
+                      onChange={handlePasswordChange}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Mật khẩu mới"
+                      type="password"
+                      name="newPassword"
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordChange}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Xác nhận mật khẩu mới"
+                      type="password"
+                      name="confirmPassword"
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordChange}
+                      error={!!passwordError}
+                      helperText={passwordError}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }} />
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      disabled={loading}
+                    >
+                      {loading ? <CircularProgress size={24} /> : 'Đổi mật khẩu'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              </form>
             </TabPanel>
           </Paper>
         </Grid>

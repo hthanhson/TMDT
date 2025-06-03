@@ -51,8 +51,13 @@ const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onC
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await NotificationService.getNotifications();
-      setNotifications(response.data);
+      // Lấy 5 thông báo gần nhất
+      const response = await NotificationService.getRecentNotifications(5);
+      // Thông báo được sắp xếp từ server, nhưng để đảm bảo, vẫn sắp xếp lại ở client
+      const sortedNotifications = response.data.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setNotifications(sortedNotifications);
       setError(null);
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -74,7 +79,7 @@ const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onC
       }
 
       // Chuyển hướng dựa trên loại thông báo
-      if (notification.type === 'ORDER') {
+      if (notification.type === 'ORDER' || notification.type === 'ORDER_STATUS_CHANGE') {
         navigate(`/orders/${notification.additionalData?.orderId || ''}`);
       } else if (notification.type === 'PROMOTION') {
         navigate(`/products?promotion=${notification.additionalData?.promotionId || ''}`);
@@ -97,9 +102,13 @@ const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onC
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'ORDER':
+      case 'ORDER_STATUS_CHANGE':
         return <ShoppingBagIcon color="primary" />;
       case 'PROMOTION':
         return <OfferIcon color="secondary" />;
+      case 'SYSTEM':
+      case 'SYSTEM_ANNOUNCEMENT':
+        return <InfoIcon color="info" />;
       default:
         return <InfoIcon color="info" />;
     }
@@ -225,4 +234,4 @@ const NotificationMenu: React.FC<NotificationMenuProps> = ({ anchorEl, open, onC
   );
 };
 
-export default NotificationMenu; 
+export default NotificationMenu;

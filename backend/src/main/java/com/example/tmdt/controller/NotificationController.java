@@ -24,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.tmdt.repository.UserRepository;
 import com.example.tmdt.security.services.UserDetailsImpl;
+import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/notifications")
@@ -50,6 +51,19 @@ public class NotificationController {
     public ResponseEntity<?> getAllNotifications(@AuthenticationPrincipal User user) {
         List<Notification> notifications = notificationService.getNotificationsByUser(user);
         return ResponseEntity.ok(notifications);
+    }
+    
+    // Lấy thông báo của người dùng có phân trang, mỗi trang 10 thông báo, sắp xếp mới nhất trước
+    @GetMapping("/paginated")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<?> getPaginatedNotifications(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<Notification> notificationsPage = notificationService.getNotificationsPageByUser(user, page, size);
+        
+        return ResponseEntity.ok(notificationsPage);
     }
     
     // Lấy các thông báo gần đây
@@ -272,4 +286,4 @@ public class NotificationController {
         notificationService.markAllAsRead(user);
         return ResponseEntity.ok(Map.of("success", true));
     }
-} 
+}

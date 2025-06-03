@@ -1,10 +1,35 @@
 import api from './api';
 import { Notification } from '../types/notification';
 
+// Response type for paginated notifications
+interface PaginatedResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number; // current page
+  first: boolean;
+  last: boolean;
+}
+
 // Dịch vụ thông báo kết nối với backend
 const NotificationService = {
-  getNotifications: async () => {
-    return api.get<Notification[]>('/notifications');
+  getNotifications: async (page = 0, size = 10) => {
+    return api.get<Notification[]>('/notifications', {
+      params: { page, size }
+    });
+  },
+
+  getNotificationsWithPagination: async (page = 0, size = 10) => {
+    return api.get<PaginatedResponse<Notification>>('/notifications/paginated', {
+      params: { page, size }
+    });
+  },
+
+  getRecentNotifications: async (limit = 5) => {
+    return api.get<Notification[]>('/notifications/recent', {
+      params: { limit }
+    });
   },
 
   getUnreadCount: async () => {
@@ -41,4 +66,4 @@ const NotificationService = {
   }
 };
 
-export default NotificationService; 
+export default NotificationService;

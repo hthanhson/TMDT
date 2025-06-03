@@ -69,114 +69,47 @@ const ProductService = {
   
   // Método para buscar produtos com suporte a tratamento de erros
   searchProductsSafe(params: Record<string, string>) {
-    // Obter parâmetros específicos de busca
-    const keyword = params.keyword || params.search || params.query || '';
-    const category = params.category || '';
+    console.log('Searching products with params:', params);
     
-    // Log de informações sobre a busca
-    if (keyword) console.log(`Searching for products with keyword: ${keyword}`);
-    if (category) console.log(`Filtering by category: ${category}`);
+    // Kiểm tra xem có tham số lọc nâng cao không
+    const hasAdvancedFilters = params.minPrice || params.maxPrice || params.minRating || params.inStock;
     
-    // Array de promises para tentar diferentes endpoints
-    const searchPromises: Promise<any>[] = [];
-    
-    // 1. Tentar o endpoint principal de busca
-    searchPromises.push(
-      this.searchProducts(params)
-        .catch(error => {
-          console.log('Primary search endpoint failed:', error.message);
-          return Promise.reject(error);
-        })
-    );
-    
-    // 2. Tentar busca por categoria (se a categoria estiver especificada)
-    if (category) {
-      searchPromises.push(
-        api.get(`${API_URL}/products/category/${category}`, {
-          params: { keyword, page: params.page, size: params.size }
-        }).catch(error => {
-          console.log('Category search endpoint failed:', error.message);
-          return Promise.reject(error);
-        })
-      );
+    // Nếu có lọc nâng cao, sử dụng endpoint mới
+    if (hasAdvancedFilters) {
+      console.log('Using advanced search endpoint with filters');
+      return api.get(`${API_URL}/products/search/advanced`, { params });
     }
     
-    // 3. Tentar busca geral
-    searchPromises.push(
-      api.get(`${API_URL}/products`, { 
-        params: { 
-          keyword, 
-          category,
-          page: params.page || 0,
-          size: params.size || 12,
-          sort: params.sort
+    // Trước hết, tìm kiếm sử dụng endpoint /search trước
+    return api.get(`${API_URL}/products/search`, { params })
+      .catch(error => {
+        console.log('Primary search endpoint failed:', error.message);
+        
+        // Nếu có category, thử endpoint category
+        if (params.category && params.category !== 'all') {
+          console.log('Trying category endpoint as fallback');
+          return api.get(`${API_URL}/products/category/${params.category}`, {
+            params: { 
+              keyword: params.keyword || params.search || '', 
+              page: params.page, 
+              size: params.size,
+              sort: params.sort
+            }
+          });
         }
-      }).catch(error => {
-        console.log('General products endpoint failed:', error.message);
-        return Promise.reject(error);
-      })
-    );
-    
-    // Tentar cada endpoint em sequência, até que um deles funcione
-    return new Promise<any>((resolve) => {
-      // Tentar o primeiro endpoint
-      searchPromises[0]
-        .then((response: any) => {
-          console.log('Primary search endpoint succeeded');
-          resolve(response);
-        })
-        .catch(() => {
-          // Se falhar, tentar o próximo endpoint
-          if (searchPromises.length > 1) {
-            searchPromises[1]
-              .then((response: any) => {
-                console.log('Alternative search endpoint succeeded');
-                resolve(response);
-              })
-              .catch(() => {
-                // Se falhar, tentar o último endpoint
-                if (searchPromises.length > 2) {
-                  searchPromises[2]
-                    .then((response: any) => {
-                      console.log('Fallback search endpoint succeeded');
-                      resolve(response);
-                    })
-                    .catch(() => {
-                      // Se todos falharem, retornar uma resposta vazia
-                      console.error('All search endpoints failed');
-                      resolve({
-                        data: [],
-                        status: 200,
-                        statusText: 'OK',
-                        headers: {},
-                        config: {} as any
-                      });
-                    });
-                } else {
-                  // Se não houver terceiro endpoint, retornar uma resposta vazia
-                  console.error('All search endpoints failed');
-                  resolve({
-                    data: [],
-                    status: 200,
-                    statusText: 'OK',
-                    headers: {},
-                    config: {} as any
-                  });
-                }
-              });
-          } else {
-            // Se só houver um endpoint, retornar uma resposta vazia
-            console.error('Search endpoint failed');
-            resolve({
-              data: [],
-              status: 200,
-              statusText: 'OK',
-              headers: {},
-              config: {} as any
-            });
+        
+        // Nếu không, thử endpoint chính
+        console.log('Trying main products endpoint as fallback');
+        return api.get(`${API_URL}/products`, { 
+          params: { 
+            keyword: params.keyword || params.search || '',
+            category: params.category,
+            page: params.page || '0',
+            size: params.size || '12',
+            sort: params.sort
           }
         });
-    });
+      });
   },
 
   getRecommendedProducts() {
@@ -249,7 +182,7 @@ const ProductService = {
       .catch(() => {
         // Retornar um valor padrão em caso de erro, com estrutura AxiosResponse
         return Promise.resolve({
-          data: { maxPrice: 10000000 },
+          data: { maxPrice: 100000000 },
           status: 200,
           statusText: 'OK',
           headers: {},
@@ -264,16 +197,36 @@ const ProductService = {
   },
 
   getTopProducts(limit: number = 4) {
-    return api.get<Product[]>(`/products/top?limit=${limit}`);
+    return api.get<Product[]>(`${API_URL}/products/top?limit=${limit}`);
+  },
+
+  // Lấy sản phẩm bán chạy nhất theo tháng và năm
+  getTopProductsByMonth(month?: number, year?: number, limit: number = 10) {
+    // Nếu không có tháng, lấy tháng trước
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentYear = now.getFullYear();
+    
+    // Nếu không có tháng, lấy tháng trước
+    const targetMonth = month || (currentMonth === 1 ? 12 : currentMonth - 1);
+    // Nếu không có năm, lấy năm trước
+    const targetYear = year || (month ? currentYear : (currentMonth === 1 ? currentYear - 1 : currentYear));
+    
+    return api.get<Product[]>(`${API_URL}/products/top-by-month`, {
+      params: {
+        month: targetMonth,
+        year: targetYear,
+        limit
+      }
+    });
   },
 
   getFeaturedProducts() {
-    return api.get<Product[]>('/products/recommended');
+    return api.get<Product[]>(`${API_URL}/products/recommended`);
   },
 
   getRelatedProducts(productId: string, limit = 4) {
-    // Sử dụng API khuyến nghị sản phẩm thay vì API related không tồn tại
-    return api.get<Product[]>('/products/recommended', { params: { limit } });
+    return api.get<Product[]>(`${API_URL}/products/recommended`, { params: { limit } });
   },
 
   // Favorites management

@@ -147,7 +147,7 @@ public class UserBalanceService {
         transaction.setUser(user);
         transaction.setAmount(amount.negate()); // Negative amount for payment
         transaction.setType(BalanceTransaction.TransactionType.ORDER_PAYMENT);
-        transaction.setDescription("Payment for order " );
+        transaction.setDescription("Thanh toán đơn hàng " );
         transaction.setReferenceId(orderId);
         transaction.setReferenceType("ORDER");
         transaction.setBalanceAfter(userBalance.getBalance());
@@ -176,7 +176,7 @@ public class UserBalanceService {
         transaction.setUser(user);
         transaction.setAmount(amount); // Positive amount for refund
         transaction.setType(BalanceTransaction.TransactionType.REFUND);
-        transaction.setDescription("Refund for cancelled order #" + orderId);
+        transaction.setDescription("Hoàn tiền cho đơn hàng  #" + orderId);
         transaction.setReferenceId(orderId);
         transaction.setReferenceType("ORDER");
         transaction.setBalanceAfter(userBalance.getBalance());

@@ -7,6 +7,15 @@ interface ProfileData {
   phoneNumber: string;
 }
 
+interface ProfileUpdateData extends ProfileData {
+  password: string; // For verification
+}
+
+interface PasswordChangeData {
+  currentPassword: string;
+  newPassword: string;
+}
+
 interface DepositRequest {
   amount: string;
   description: string;
@@ -21,8 +30,21 @@ const UserService = {
     return api.put('/user/profile', profileData);
   },
   
+  updateProfileWithVerification(profileData: ProfileUpdateData) {
+    return api.post('/auth/update-profile', profileData);
+  },
+  
+  // Phương thức đổi mật khẩu chính
   changePassword(oldPassword: string, newPassword: string) {
-    return api.put('/user/change-password', { oldPassword, newPassword });
+    return api.post('/auth/change-password', { 
+      currentPassword: oldPassword, 
+      newPassword: newPassword 
+    });
+  },
+  
+  // Phương thức đổi mật khẩu xem xét
+  changePasswordWithVerification(passwordData: PasswordChangeData) {
+    return api.post('/auth/change-password', passwordData);
   },
   
   // Balance-related methods

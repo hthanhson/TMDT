@@ -9,7 +9,7 @@ const AuthService = {
     console.log('Login request:', { username, password: '******' });
     try {
       // Sử dụng axios trực tiếp thay vì api instance để tránh vấn đề với baseURL
-      const response = await axios.post(`${API_URL}/auth/signin`, {
+      const response = await axios.post(`http://localhost:8080/auth/signin`, {
         username,
         password,
       });
@@ -79,7 +79,7 @@ const AuthService = {
     
     try {
       // Sử dụng axios trực tiếp với URL đầy đủ
-      const response = await axios.post(`${API_URL}/auth/signup`, userData);
+      const response = await axios.post(`http://localhost:8080/auth/signup`, userData);
       console.log('Register response:', response.data);
       return response.data;
     } catch (error) {
@@ -101,7 +101,7 @@ const AuthService = {
     
     try {
       // Sử dụng axios trực tiếp với URL đầy đủ
-      const response = await axios.post(`${API_URL}/auth/signup/shipper`, userData);
+      const response = await axios.post(`http://localhost:8080/auth/signup/shipper`, userData);
       console.log('Register shipper response:', response.data);
       return response.data;
     } catch (error) {

@@ -53,6 +53,7 @@ com\example\tmdt\model\ChatSession$SessionStatus.class
 com\example\tmdt\repository\WishlistRepository.class
 com\example\tmdt\security\services\UserDetailsServiceImpl.class
 com\example\tmdt\controller\OrderController.class
+com\example\tmdt\payload\request\ChangePasswordRequest.class
 com\example\tmdt\payload\request\ReviewRequest.class
 com\example\tmdt\config\WebSocketConfig.class
 com\example\tmdt\config\SecurityConfig$1.class
@@ -74,6 +75,7 @@ com\example\tmdt\model\RefundRequest.class
 com\example\tmdt\model\UserBalance.class
 com\example\tmdt\repository\ProductRepository.class
 com\example\tmdt\service\UserService.class
+com\example\tmdt\payload\request\UpdateProfileRequest.class
 com\example\tmdt\repository\CategoryRepository.class
 com\example\tmdt\model\Order.class
 com\example\tmdt\security\jwt\JwtUtils.class

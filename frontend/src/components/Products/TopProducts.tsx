@@ -21,25 +21,54 @@ import { Product } from '../../types/product';
 import ProductService from '../../services/productService';
 import { formatCurrency } from '../../utils/formatters';
 
+// URL mặc định khi hình ảnh không tải được
+const DEFAULT_IMAGE_URL = '/assets/images/product-placeholder.jpg';
+
 interface TopProductsProps {
   title?: string;
   maxItems?: number;
+  useMonthlyStats?: boolean; // thêm tham số để lựa chọn top rating hoặc top selling
+  month?: number; // tham số tháng (không bắt buộc)
+  year?: number; // tham số năm (không bắt buộc)
 }
 
 const TopProducts: React.FC<TopProductsProps> = ({ 
   title = 'Sản Phẩm Bán Chạy Nhất', 
-  maxItems = 8
+  maxItems = 8,
+  useMonthlyStats = false,
+  month,
+  year
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [currentMonth, setCurrentMonth] = useState<number>(0);
+  const [currentYear, setCurrentYear] = useState<number>(0);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Lấy tháng, năm hiện tại
+    const now = new Date();
+    setCurrentMonth(month || (now.getMonth() + 1 === 1 ? 12 : now.getMonth())); // tháng trước (0-11)
+    setCurrentYear(year || (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()));
+  }, [month, year]);
 
   useEffect(() => {
     const fetchTopProducts = async () => {
       try {
-        // In production, uncomment and use the API call
-        const response = await ProductService.getTopProducts(maxItems);
+        setLoading(true);
+        
+        let response;
+        if (useMonthlyStats) {
+          // Lấy sản phẩm bán chạy theo tháng
+          response = await ProductService.getTopProductsByMonth(currentMonth, currentYear, maxItems);
+          console.log(`Sản phẩm bán chạy tháng ${currentMonth}/${currentYear}:`, response.data);
+        } else {
+          // Lấy sản phẩm theo rating (cách cũ)
+          response = await ProductService.getTopProducts(maxItems);
+        }
+
         setProducts(response.data.map(product => ({
           ...product,
           // Ensure nested objects are handled properly
@@ -62,10 +91,30 @@ const TopProducts: React.FC<TopProductsProps> = ({
     };
 
     fetchTopProducts();
-  }, [maxItems]);
+  }, [maxItems, useMonthlyStats, currentMonth, currentYear]);
 
   const handleProductClick = (productId: string) => {
     navigate(`/products/${productId}`);
+  };
+
+  // Hàm lấy URL hình ảnh từ API, giữ nguyên cho ProductCard
+  const getImageUrl = (product: Product) => {
+    if (!product || !product.id) {
+      return DEFAULT_IMAGE_URL;
+    }
+
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+    
+    // Sử dụng API endpoint trực tiếp cho hình ảnh sản phẩm
+    return `${baseUrl}/products/images/product/${product.id}`;
+  };
+
+  // Xử lý lỗi hình ảnh
+  const handleImageError = (productId: string) => {
+    setImageErrors(prev => ({
+      ...prev,
+      [productId]: true
+    }));
   };
 
   if (error) {
@@ -122,8 +171,9 @@ const TopProducts: React.FC<TopProductsProps> = ({
                       <CardMedia
                         component="img"
                         sx={{ width: 100, height: 100, objectFit: 'cover' }}
-                        image={product.imageUrl}
+                        image={imageErrors[product.id] ? DEFAULT_IMAGE_URL : getImageUrl(product)}
                         alt={product.name}
+                        onError={() => handleImageError(product.id)}
                       />
                       <CardContent sx={{ flex: '1 0 auto', p: 2 }}>
                         <Typography variant="subtitle1" component="h3" noWrap>
@@ -181,9 +231,10 @@ const TopProducts: React.FC<TopProductsProps> = ({
                       <CardMedia
                         component="img"
                         height={160}
-                        image={product.imageUrl}
+                        image={imageErrors[product.id] ? DEFAULT_IMAGE_URL : getImageUrl(product)}
                         alt={product.name}
                         sx={{ objectFit: 'cover' }}
+                        onError={() => handleImageError(product.id)}
                       />
                       <CardContent>
                         <Typography gutterBottom variant="h6" component="h3" noWrap>

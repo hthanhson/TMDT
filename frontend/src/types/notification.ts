@@ -4,7 +4,7 @@ export interface Notification {
   message: string;
   title?: string;
   content?: string;
-  type: 'ORDER' | 'SYSTEM' | 'PROMOTION' | 'warning' | 'error' | 'success';
+  type: 'ORDER' | 'ORDER_STATUS_CHANGE' | 'SYSTEM' | 'SYSTEM_ANNOUNCEMENT' | 'PROMOTION' | 'warning' | 'error' | 'success';
   isRead: boolean;
   read?: boolean;
   createdAt: string;

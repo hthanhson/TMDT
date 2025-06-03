@@ -7,8 +7,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,14 @@ public class NotificationService {
     public List<Notification> getRecentNotificationsByUser(User user, int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable).getContent();
+    }
+    
+    /**
+     * Lấy thông báo của người dùng có phân trang, sắp xếp theo thời gian tạo mới nhất trước
+     */
+    public Page<Notification> getNotificationsPageByUser(User user, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable);
     }
     
     public List<Notification> getUnreadNotificationsByUser(User user) {
@@ -184,4 +194,4 @@ public class NotificationService {
         
         return notificationRepository.save(notification);
     }
-} 
+}
