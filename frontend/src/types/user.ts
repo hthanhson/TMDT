@@ -32,5 +32,7 @@ export interface User {
   fullName?: string;
   roles?: string[];
   token?: string;
+  phoneNumber?: string;
+  address?: string;
   profileImageUrl?: string;
 }

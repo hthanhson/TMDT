@@ -81,8 +81,12 @@ public class AuthController {
                     userDetails.getUsername(),
                     userDetails.getEmail(),
                     userDetails.getFullName(),
+
                     roles,
-                    primaryRole));
+                    primaryRole,
+                    userDetails.getAddress(),
+                    userDetails.getPhoneNumber()
+            ));
         } catch (Exception e) {
             logger.error("Authentication failed for user: {} - Error: {}", loginRequest.getUsername(), e.getMessage());
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Invalid username or password"));

@@ -10,6 +10,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
+import com.example.tmdt.model.*;
 import com.example.tmdt.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -33,10 +34,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
-import com.example.tmdt.model.Order;
-import com.example.tmdt.model.Product;
-import com.example.tmdt.model.User;
-import com.example.tmdt.model.Coupon;
 import com.example.tmdt.repository.OrderRepository;
 import com.example.tmdt.repository.ProductRepository;
 import com.example.tmdt.repository.UserRepository;
@@ -44,7 +41,6 @@ import com.example.tmdt.repository.CouponRepository;
 import com.example.tmdt.service.OrderService;
 import java.time.LocalDateTime;
 import com.example.tmdt.service.ProductService;
-import com.example.tmdt.model.Category;
 import com.example.tmdt.repository.CategoryRepository;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -101,6 +97,7 @@ public class AdminController {
         
         // Calculate total revenue
         List<Order> orders = orderRepository.findAll();
+        List<Object[]> orderItems=orderRepository.findItemWithOrder();
         double totalRevenue = orders.stream()
                 .filter(order -> order.getStatus() == Order.OrderStatus.DELIVERED)
                 .mapToDouble(order -> order.getTotalAmount().doubleValue())
@@ -122,7 +119,6 @@ public class AdminController {
         // Get top selling products
         List<Map<String, Object>> productPerformance = productRepository.findAll().stream()
                 .sorted((p1, p2) -> p1.getStock().compareTo(p2.getStock()))
-                .limit(5)
                 .map(product -> {
                     Map<String, Object> productMap = new HashMap<>();
                     productMap.put("id", product.getId());
@@ -134,10 +130,28 @@ public class AdminController {
                     productMap.put("category", product.getCategory() != null ? product.getCategory().getName() : "Không phân loại");
                     // Tính doanh thu giả định (số lượng bán * giá)
                     productMap.put("revenue", 0);
+                    productMap.put("sales", 0);
                     return productMap;
                 })
                 .collect(Collectors.toList());
-        
+        List<Map<String,Object>> totalOrderItem=orderItems.stream()
+                .map(obj -> {
+                    OrderItem orderItem = (OrderItem) obj[0];
+                    Order order = (Order) obj[1];
+                    Map<String , Object> orderMap = new HashMap<>();
+                    orderMap.put("id", orderItem.getProduct().getId());
+                    orderMap.put("date", order.getCreatedAt().toString());
+                    orderMap.put("productName", orderItem.getProduct().getName());
+                    orderMap.put("orderId", order.getId());
+                    orderMap.put("category", orderItem.getProduct().getCategory().getName());
+                    orderMap.put("imageUrl", orderItem.getProduct().getImageUrl());
+                    orderMap.put("stock", orderItem.getProduct().getPrice());
+                    orderMap.put("quantity", orderItem.getQuantity());
+                    return orderMap;
+                })
+                .collect(Collectors.toList());
+
+        response.put("totalOrderItem",totalOrderItem);
         response.put("totalUsers", totalUsers);
         response.put("totalOrders", totalOrders);
         response.put("totalProducts", totalProducts);

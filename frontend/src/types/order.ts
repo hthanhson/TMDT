@@ -17,6 +17,7 @@ export interface RefundRequest {
   imageUrls?: string[];
   createdAt: string;
   updatedAt: string;
+  adminNotes?: string;
 }
 
 export interface Order {

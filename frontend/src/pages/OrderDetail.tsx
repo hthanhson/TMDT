@@ -587,6 +587,24 @@ const OrderDetail: React.FC = () => {
               </ImageList>
             </>
           )}
+          {(order.refundReason || (order.refundRequest && order.refundRequest.reason)) && (() => {
+            const adminNotes =
+              order.refundRequest && order.refundRequest.adminNotes != null
+              ? order.refundRequest.adminNotes
+              : "Không có ghi chú";
+
+            return (
+              <>
+              <Typography variant="subtitle1" sx={{ mt: 3, fontWeight: 'bold' }}>
+                Admin ghi chú:
+              </Typography>
+              <Typography variant="body1" sx={{ mt: 1 }}>
+                {adminNotes}
+              </Typography>
+              </>
+              );
+            })()}
+
         </Paper>
       )}
 

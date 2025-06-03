@@ -54,6 +54,7 @@ function TabPanel(props: TabPanelProps) {
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
+  console.log("abc",user);
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);

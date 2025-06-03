@@ -2,6 +2,7 @@ package com.example.tmdt.repository;
 
 import com.example.tmdt.model.Order;
 import com.example.tmdt.model.Order.OrderStatus;
+import com.example.tmdt.model.OrderItem;
 import com.example.tmdt.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -76,4 +77,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // Tìm đơn hàng sẵn sàng cho shipper (đã được admin xác nhận hoặc đánh dấu sẵn sàng giao hàng, chưa được gán cho shipper)
     @Query("SELECT o FROM Order o WHERE (o.status = 'PROCESSING' OR o.status = 'CONFIRMED' OR o.status = 'READY_TO_SHIP') AND (o.shipperId IS NULL OR o.shipperId = 0)")
     List<Order> findExpandedOrdersReadyToShip();
+    @Query("SELECT i, o FROM OrderItem i JOIN i.order o")
+    List<Object[]> findItemWithOrder();
+
+
+
 } 

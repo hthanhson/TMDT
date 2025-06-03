@@ -19,6 +19,9 @@ export interface Order {
   updatedAt: Date;
   shippingAddress: string;
   recipientName: string;
+  phoneNumber: string;
+  paymentStatus: string;
+  paymentMethod: string;
   shipperId?: number;
   totalAmount: number;
   orderItems: any[];
@@ -46,6 +49,14 @@ export interface PagedResponse<T> {
   first: boolean;
   last: boolean;
   empty: boolean;
+}
+export interface PagedResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
 }
 
 export interface ApiResponse<T> {

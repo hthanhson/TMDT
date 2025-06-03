@@ -22,7 +22,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Pagination,
+  IconButton
 } from '@mui/material';
 import {
   ShoppingBag as OrderIcon,
@@ -35,7 +41,8 @@ import {
   TrendingUp as TrendingUpIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  FilterAlt as FilterIcon
+  FilterAlt as FilterIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import AdminService from '../../services/AdminService';
 import NotificationService from '../../services/NotificationService';
@@ -135,9 +142,30 @@ interface DashboardApiResponse {
   totalOrders: number;
   totalProducts: number;
   totalRevenue: number;
+  totalOrderItem: totalOrderItem[];
   recentOrders: OrderData[];
   productPerformance: ProductData[];
   [key: string]: any; // Cho phép các trường khác
+}
+
+interface totalOrderItem {
+  id: string;
+  date?: string;
+  productName?: string;
+  orderId?: string;
+  category?: string;
+  imageUrl?: string;
+  stock?: number;
+  quantity?: number;
+  [key: string]: any;
+}
+
+// Interface cho sản phẩm bán chạy
+interface TopProductSales {
+  productName: string;
+  quantitySold: number;
+  category?: string;
+  imageUrl?: string;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -151,8 +179,10 @@ const AdminDashboard: React.FC = () => {
     recentOrders: [],
     topProducts: [],
     stats: {},
-    salesData: []
+    salesData: [],
+    totalOrderItem: []
   });
+  console.log("dashboardData",dashboardData);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +194,12 @@ const AdminDashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [filteredSalesData, setFilteredSalesData] = useState<any[]>([]);
   const [filteredDeliveredRevenue, setFilteredDeliveredRevenue] = useState<number>(0);
+
+  // State cho modal sản phẩm bán chạy
+  const [topProductsData, setTopProductsData] = useState<TopProductSales[]>([]);
+  const [showAllProductsModal, setShowAllProductsModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const productsPerPage = 10;
 
   useEffect(() => {
     fetchDashboardData();
@@ -180,6 +216,18 @@ const AdminDashboard: React.FC = () => {
     setSelectedYear(event.target.value as number);
   };
 
+  // Hàm xử lý phân trang
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+  };
+
+  // Tính toán dữ liệu cho trang hiện tại
+  const getCurrentPageProducts = () => {
+    const startIndex = (currentPage - 1) * productsPerPage;
+    const endIndex = startIndex + productsPerPage;
+    return topProductsData.slice(startIndex, endIndex);
+  };
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -192,18 +240,61 @@ const AdminDashboard: React.FC = () => {
       const dashboardResponse = await AdminService.getDashboardStats() as DashboardApiResponse;
       
       console.log("Dashboard response:", dashboardResponse);
-      
+      console.log("abc",dashboardResponse.totalOrderItem)
       // Lấy danh sách đơn hàng
       let recentOrders: OrderData[] = Array.isArray(dashboardResponse.recentOrders) 
         ? dashboardResponse.recentOrders 
         : [];
         
       // Lấy danh sách sản phẩm bán chạy
-      const topProducts: ProductData[] = Array.isArray(dashboardResponse.productPerformance) 
-        ? dashboardResponse.productPerformance 
+      const topProducts: totalOrderItem[] = Array.isArray(dashboardResponse.totalOrderItem) 
+        ? dashboardResponse.totalOrderItem
         : [];
+        // Bước 1: Lọc sản phẩm theo tháng
+      const filteredOrdersItem = topProducts.filter((orderItem: totalOrderItem) => {
+        if (!orderItem.date) return false;
+
+        const orderDate = new Date(orderItem.date);
+          return (
+             orderDate.getMonth() + 1 === selectedMonth &&
+              orderDate.getFullYear() === selectedYear
+          );
+        });
+
+// Bước 2: Nhóm theo productName và cộng quantity
+      const productSalesMap: Record<string, { quantity: number; category?: string; imageUrl?: string }> = {};
+
+      filteredOrdersItem.forEach((item) => {
+        const name = item.productName ?? 'Unknown';
+        const quantity = item.quantity ?? 0;
+        
+        if (!productSalesMap[name]) {
+          productSalesMap[name] = {
+            quantity: 0,
+            category: item.category,
+            imageUrl: item.imageUrl
+          };
+        }
+        productSalesMap[name].quantity += quantity;
+      });
+
+// Bước 3: Chuyển sang mảng và sắp xếp theo số lượng bán giảm dần
+      const saleByProduct: TopProductSales[] = Object.entries(productSalesMap)
+        .map(([productName, data]) => ({
+          productName,
+          quantitySold: data.quantity,
+          category: data.category,
+          imageUrl: data.imageUrl
+        }))
+        .sort((a, b) => b.quantitySold - a.quantitySold);
+
+      console.log(`Sản phẩm bán trong ${selectedMonth}/${selectedYear}:`, saleByProduct);
       
-      console.log("Raw data:", { recentOrders, topProducts });
+      // Cập nhật state cho sản phẩm bán chạy
+      setTopProductsData(saleByProduct);
+      setCurrentPage(1); // Reset về trang đầu khi thay đổi bộ lọc
+      
+      // console.log("Raw data:", { recentOrders, topProducts });
       
       // Lọc đơn hàng theo tháng/năm được chọn
       const filteredOrders: OrderData[] = recentOrders.filter((order: OrderData) => {
@@ -542,65 +633,170 @@ const AdminDashboard: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Sản phẩm bán chạy
+                Sản phẩm bán chạy (Tháng {selectedMonth}/{selectedYear})
               </Typography>
               <Divider sx={{ my: 1 }} />
-              {Array.isArray(dashboardData.topProducts) && dashboardData.topProducts.length > 0 ? (
-                dashboardData.topProducts.map((product: any) => (
-                  <Box key={product.id} sx={{ mb: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={1}>
-                        <Avatar
-                          alt={product.name}
-                          src={product.imageUrl}
-                          variant="rounded"
-                          sx={{ width: 40, height: 40 }}
-                        />
+              {topProductsData.length > 0 ? (
+                <>
+                  {topProductsData.slice(0, 6).map((product, index) => (
+                    <Box key={`${product.productName}-${index}`} sx={{ mb: 2 }}>
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={1}>
+                          <Avatar
+                            alt={product.productName}
+                            src={product.imageUrl}
+                            variant="rounded"
+                            sx={{ width: 40, height: 40 }}
+                          >
+                            {product.productName.charAt(0)}
+                          </Avatar>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" noWrap>
+                            {product.productName}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {product.category || 'Chưa phân loại'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="body2" fontWeight="bold" color="primary">
+                            Đã bán: {product.quantitySold}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={2}>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              bgcolor: 'primary.light', 
+                              color: 'primary.contrastText',
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 1,
+                              display: 'inline-block'
+                            }}
+                          >
+                            #{index + 1}
+                          </Typography>
+                        </Grid>
                       </Grid>
-                      <Grid item xs={5}>
-                        <Typography variant="body2" noWrap>
-                          {product.name}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {product.category}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={3}>
-                        <Typography variant="body2" fontWeight="bold">
-                          {formatCurrency(safeParseFloat(product.price))}
-                        </Typography>
-                        <Typography variant="caption">
-                          Đã bán: {product.sales || 0}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={3}>
-                        <Typography 
-                          variant="body2" 
-                          color={product.stock > 10 ? "success.main" : (product.stock > 0 ? "warning.main" : "error.main")}
-                        >
-                          Còn: {product.stock || 0}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                ))
+                    </Box>
+                  ))}
+                  {topProductsData.length > 6 && (
+                    <Button
+                      onClick={() => setShowAllProductsModal(true)}
+                      size="small"
+                      variant="outlined"
+                      sx={{ mt: 1 }}
+                    >
+                      Xem tất cả sản phẩm ({topProductsData.length})
+                    </Button>
+                  )}
+                </>
               ) : (
                 <Typography variant="body2" color="textSecondary">
-                  Không có dữ liệu sản phẩm
+                  Không có dữ liệu sản phẩm bán chạy trong tháng này
                 </Typography>
               )}
-              <Button
-                component={RouterLink}
-                to="/admin/products"
-                size="small"
-                sx={{ mt: 1 }}
-              >
-                Xem tất cả sản phẩm
-              </Button>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {/* Modal hiển thị tất cả sản phẩm bán chạy */}
+      <Dialog 
+        open={showAllProductsModal} 
+        onClose={() => setShowAllProductsModal(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              Tất cả sản phẩm bán chạy (Tháng {selectedMonth}/{selectedYear})
+            </Typography>
+            <IconButton onClick={() => setShowAllProductsModal(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ minHeight: 400 }}>
+            {getCurrentPageProducts().map((product, index) => {
+              const globalIndex = (currentPage - 1) * productsPerPage + index;
+              return (
+                <Box key={`${product.productName}-${globalIndex}`} sx={{ mb: 2, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={1}>
+                      <Typography 
+                        variant="body2" 
+                        fontWeight="bold"
+                        sx={{ 
+                          bgcolor: 'primary.main', 
+                          color: 'white',
+                          width: 30,
+                          height: 30,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '50%',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        {globalIndex + 1}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={1}>
+                      <Avatar
+                        alt={product.productName}
+                        src={product.imageUrl}
+                        variant="rounded"
+                        sx={{ width: 45, height: 45 }}
+                      >
+                        {product.productName.charAt(0)}
+                      </Avatar>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="body1" fontWeight="medium">
+                        {product.productName}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {product.category || 'Chưa phân loại'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="h6" color="primary" fontWeight="bold">
+                          {product.quantitySold}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          sản phẩm đã bán
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Box>
+              );
+            })}
+          </Box>
+          
+          {/* Phân trang */}
+          {topProductsData.length > productsPerPage && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination
+                count={Math.ceil(topProductsData.length / productsPerPage)}
+                page={currentPage}
+                onChange={handlePageChange}
+                color="primary"
+                size="medium"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          )}
+        </DialogContent>
+        
+      </Dialog>
 
       {/* Sales Report Section */}
       <Box mt={4}>
@@ -689,9 +885,6 @@ const AdminDashboard: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-
-      
-      
     </Box>
   );
 };

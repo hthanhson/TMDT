@@ -28,8 +28,16 @@ import {
   Divider,
   TextField,
   Stack,
+  Card,
+  CardContent,
+  FormControlLabel,
+  Checkbox,
+  IconButton,
+  Pagination,
 } from '@mui/material';
-import { format } from 'date-fns';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ClearIcon from '@mui/icons-material/Clear';
+import { format, parse, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import AdminService from '../../services/AdminService';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -58,6 +66,7 @@ interface Page<T> {
 
 const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -65,10 +74,80 @@ const AdminOrders: React.FC = () => {
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [refundProcessing, setRefundProcessing] = useState(false);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterMonth, setFilterMonth] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterRefundStatus, setFilterRefundStatus] = useState<string>('');
+  const [filterRefundRequested, setFilterRefundRequested] = useState<boolean>(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [paginatedOrders, setPaginatedOrders] = useState<any[]>([]);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Hàm dịch trạng thái đơn hàng
+  const getStatusTranslation = (status: string): string => {
+    const statusMap: { [key: string]: string } = {
+      'PENDING': 'Chờ xác nhận',
+      'CONFIRMED': 'Đã xác nhận',
+      'PROCESSING': 'Đang xử lý',
+      'READY_TO_SHIP': 'Sẵn sàng giao hàng',
+      'PICKED_UP': 'Đã lấy hàng',
+      'IN_TRANSIT': 'Đang vận chuyển',
+      'ARRIVED_AT_STATION': 'Đến trạm trung chuyển',
+      'OUT_FOR_DELIVERY': 'Đang giao hàng',
+      'DELIVERED': 'Đã giao hàng',
+      'COMPLETED': 'Hoàn tất',
+      'CANCELLED': 'Đã hủy',
+      'RETURNED': 'Hoàn trả',
+      'SHIPPED': 'Đã gửi hàng',
+      'REFUNDED': 'Đã hoàn tiền',
+      'ON_HOLD': 'Tạm giữ'
+    };
+    return statusMap[status] || status;
+  };
+
+  // Hàm dịch trạng thái hoàn tiền
+  const getRefundStatusTranslation = (status: string): string => {
+    const refundStatusMap: { [key: string]: string } = {
+      'REQUESTED': 'Yêu cầu hoàn tiền',
+      'APPROVED': 'Đã duyệt hoàn tiền',
+      'REJECTED': 'Từ chối hoàn tiền',
+      // 'COMPLETED': 'Hoàn tiền hoàn tất',
+      // 'REVIEWING': 'Đang xem xét',
+      'NONE': 'Không có'
+    };
+    return refundStatusMap[status] || status || 'Không có';
+  };
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Apply filters whenever filter criteria change
+  useEffect(() => {
+    applyFilters();
+  }, [orders, filterMonth, filterStatus, filterRefundStatus, filterRefundRequested]);
+
+  // Update pagination when filtered orders change
+  useEffect(() => {
+    updatePagination();
+  }, [filteredOrders, currentPage]);
+
+  const updatePagination = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedData = filteredOrders.slice(startIndex, endIndex);
+    setPaginatedOrders(paginatedData);
+    setTotalPages(Math.ceil(filteredOrders.length / itemsPerPage));
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+  };
 
   const fetchOrders = async () => {
     try {
@@ -198,19 +277,72 @@ const AdminOrders: React.FC = () => {
         );
         
         setOrders(ordersWithRefundStatus);
+        setFilteredOrders(ordersWithRefundStatus); // Initially set filtered orders to all orders
       } else {
         console.warn('No data in response:', response);
         setOrders([]);
+        setFilteredOrders([]);
       }
       
       setError(null);
     } catch (err: any) {
       console.error('Error fetching orders:', err);
-      setError(err.response?.data?.message || 'Failed to fetch orders');
+      setError(err.response?.data?.message || 'Không thể tải danh sách đơn hàng');
       setOrders([]);
+      setFilteredOrders([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Apply filters to the orders
+  const applyFilters = () => {
+    let result = [...orders];
+    
+    // Filter by month
+    if (filterMonth) {
+      try {
+        const date = parse(filterMonth, 'yyyy-MM', new Date());
+        if (isValid(date)) {
+          const monthStart = startOfMonth(date);
+          const monthEnd = endOfMonth(date);
+          
+          result = result.filter(order => {
+            const orderDate = new Date(order.createdAt);
+            return orderDate >= monthStart && orderDate <= monthEnd;
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing date:', error);
+      }
+    }
+
+    // Filter by order status
+    if (filterStatus) {
+      result = result.filter(order => order.status === filterStatus);
+    }
+    
+    // Filter by refund status
+    if (filterRefundStatus) {
+      result = result.filter(order => order.refundStatus === filterRefundStatus);
+    }
+    
+    // Filter for orders with any refund request
+    if (filterRefundRequested) {
+      result = result.filter(order => order.refundStatus && order.refundStatus !== 'NONE');
+    }
+    
+    setFilteredOrders(result);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Reset all filters
+  const resetFilters = () => {
+    setFilterMonth('');
+    setFilterStatus('');
+    setFilterRefundStatus('');
+    setFilterRefundRequested(false);
+    setCurrentPage(1); // Reset to first page when filters are reset
   };
 
   // Lấy chi tiết refund request cho một đơn hàng
@@ -249,7 +381,7 @@ const AdminOrders: React.FC = () => {
     console.error(`Failed to load image URL: ${e.currentTarget.src}`);
     
     // Use a fallback image when the refund image can't be loaded
-    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
+    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3ELỗi hình ảnh%3C/text%3E%3C/svg%3E";
   };
 
   // Mở hình ảnh trong chế độ preview
@@ -290,7 +422,7 @@ const AdminOrders: React.FC = () => {
 
   const handleStatusChange = async (orderId: string, newStatus: string, currentStatus: string) => {
     if (!isValidStatusTransition(currentStatus, newStatus)) {
-      setError(`Invalid status transition from ${currentStatus} to ${newStatus}`);
+      setError(`Không thể chuyển trạng thái từ ${getStatusTranslation(currentStatus)} sang ${getStatusTranslation(newStatus)}`);
       return;
     }
 
@@ -300,7 +432,7 @@ const AdminOrders: React.FC = () => {
       setError(null);
     } catch (err: any) {
       console.error('Error updating order status:', err);
-      setError(err.response?.data?.message || 'Failed to update order status');
+      setError(err.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng');
     }
   };
 
@@ -348,7 +480,7 @@ const AdminOrders: React.FC = () => {
       setError(null);
     } catch (err: any) {
       console.error('Error processing refund:', err);
-      setError(err.response?.data?.message || 'Failed to process refund request');
+      setError(err.response?.data?.message || 'Không thể xử lý yêu cầu hoàn tiền');
     } finally {
       setRefundProcessing(false);
     }
@@ -359,10 +491,11 @@ const AdminOrders: React.FC = () => {
       case 'PENDING':
         return 'warning';
       case 'PROCESSING':
+      case 'CONFIRMED':
         return 'info';
       case 'SHIPPED':
-        return 'primary';
       case 'DELIVERED':
+      case 'COMPLETED':
         return 'success';
       case 'CANCELLED':
         return 'error';
@@ -380,33 +513,14 @@ const AdminOrders: React.FC = () => {
       case 'REQUESTED':
         return 'warning';
       case 'APPROVED':
+      case 'COMPLETED':
         return 'success';
       case 'REJECTED':
         return 'error';
-      case 'COMPLETED':
-        return 'info';
       case 'REVIEWING':
         return 'primary';
       default:
         return 'default';
-    }
-  };
-
-  // Hàm chuyển đổi trạng thái hoàn tiền sang tiếng Việt
-  const getRefundStatusTranslation = (status: string): string => {
-    switch (status) {
-      case 'REQUESTED':
-        return 'Yêu cầu hoàn tiền';
-      case 'APPROVED':
-        return 'Đã duyệt hoàn tiền';
-      case 'REJECTED':
-        return 'Không hoàn tiền';
-      case 'COMPLETED':
-        return 'Đã hoàn tiền';
-      case 'REVIEWING':
-        return 'Đang xem xét';
-      default:
-        return status || 'Không có';
     }
   };
 
@@ -426,12 +540,123 @@ const AdminOrders: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
+      {/* Filter Section */}
+      <Box sx={{ mb: 3 }}>
+        <Button 
+          startIcon={<FilterListIcon />} 
+          variant="outlined" 
+          onClick={() => setShowFilters(!showFilters)}
+          sx={{ mb: 2 }}
+        >
+          {showFilters ? 'Ẩn bộ lọc' : 'Hiển thị bộ lọc'}
+        </Button>
+        
+        {showFilters && (
+          <Card variant="outlined" sx={{ mb: 2 }}>
+            <CardContent>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Tháng/Năm"
+                    type="month"
+                    value={filterMonth}
+                    onChange={(e) => setFilterMonth(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+                {/* <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Trạng thái đơn hàng</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label="Trạng thái đơn hàng"
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <MenuItem value="">Tất cả</MenuItem>
+                      <MenuItem value="PENDING">Chờ xác nhận</MenuItem>
+                      <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
+                      <MenuItem value="PROCESSING">Đang xử lý</MenuItem>
+                      <MenuItem value="READY_TO_SHIP">Sẵn sàng giao hàng</MenuItem>
+                      <MenuItem value="PICKED_UP">Đã lấy hàng</MenuItem>
+                      <MenuItem value="IN_TRANSIT">Đang vận chuyển</MenuItem>
+                      <MenuItem value="ARRIVED_AT_STATION">Đến trạm trung chuyển</MenuItem>
+                      <MenuItem value="OUT_FOR_DELIVERY">Đang giao hàng</MenuItem>
+                      <MenuItem value="DELIVERED">Đã giao hàng</MenuItem>
+                      <MenuItem value="COMPLETED">Hoàn tất</MenuItem>
+                      <MenuItem value="CANCELLED">Đã hủy</MenuItem>
+                      <MenuItem value="RETURNED">Hoàn trả</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid> */}
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Trạng thái hoàn tiền</InputLabel>
+                    <Select
+                      value={filterRefundStatus}
+                      label="Trạng thái hoàn tiền"
+                      onChange={(e) => setFilterRefundStatus(e.target.value)}
+                    >
+                      <MenuItem value="">Tất cả</MenuItem>
+                      <MenuItem value="REQUESTED">Yêu cầu hoàn tiền</MenuItem>
+                      <MenuItem value="APPROVED">Đã duyệt hoàn tiền</MenuItem>
+                      <MenuItem value="REJECTED">Từ chối hoàn tiền</MenuItem>
+                      {/* <MenuItem value="COMPLETED">Hoàn tiền hoàn tất</MenuItem>
+                      <MenuItem value="REVIEWING">Đang xem xét</MenuItem> */}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                {/* <Grid item xs={12} sm={6} md={3}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox 
+                        checked={filterRefundRequested} 
+                        onChange={(e) => setFilterRefundRequested(e.target.checked)}
+                      />
+                    }
+                    label="Chỉ đơn có yêu cầu hoàn tiền"
+                  />
+                </Grid> */}
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={applyFilters}
+                  >
+                    Áp dụng bộ lọc
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<ClearIcon />}
+                    onClick={resetFilters}
+                  >
+                    Xóa bộ lọc
+                  </Button>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Filter summary */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Hiển thị {paginatedOrders.length} trên tổng {filteredOrders.length} đơn hàng 
+            (Trang {currentPage} / {totalPages})
+            {filterMonth && ` | Tháng: ${filterMonth}`}
+            {filterStatus && ` | Trạng thái: ${getStatusTranslation(filterStatus)}`}
+            {filterRefundStatus && ` | Hoàn tiền: ${getRefundStatusTranslation(filterRefundStatus)}`}
+            {filterRefundRequested && ` | Chỉ đơn có yêu cầu hoàn tiền`}
+          </Typography>
+        </Box>
+      </Box>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>Mã đơn hàng</TableCell>
-              <TableCell>Ngày</TableCell>
+              <TableCell>Ngày đặt</TableCell>
               <TableCell>Khách hàng</TableCell>
               <TableCell>Tổng tiền</TableCell>
               <TableCell>Trạng thái</TableCell>
@@ -440,12 +665,12 @@ const AdminOrders: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(orders) && orders.length > 0 ? (
-              orders.map((order) => (
+            {Array.isArray(paginatedOrders) && paginatedOrders.length > 0 ? (
+              paginatedOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell>#{order.id}</TableCell>
                   <TableCell>
-                    {order.createdAt && format(new Date(order.createdAt), 'MMM d, yyyy')}
+                    {order.createdAt && format(new Date(order.createdAt), 'dd/MM/yyyy')}
                   </TableCell>
                   <TableCell>
                     {order.user && order.user.displayName ? order.user.displayName : 
@@ -453,6 +678,7 @@ const AdminOrders: React.FC = () => {
                        (order.user.fullName || order.user.username || order.username || `Khách hàng #${order.userId || order.user.id || 'Unknown'}`) : 
                        `Khách hàng #${order.userId || 'Unknown'}`)}
                   </TableCell>
+                  <TableCell>{formatCurrency(Number(order.totalAmount) || 0)}</TableCell>
                   <TableCell>{formatCurrency(Number(order.totalAmount) || 0)}</TableCell>
                   <TableCell>
                     <Chip
@@ -512,13 +738,28 @@ const AdminOrders: React.FC = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  No orders found
+                  {loading ? 'Đang tải dữ liệu...' : 'Không tìm thấy đơn hàng nào'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            size="large"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      )}
 
       {/* Order Details Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
