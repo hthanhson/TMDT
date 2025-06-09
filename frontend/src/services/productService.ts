@@ -350,7 +350,14 @@ const ProductService = {
     if (filters.size !== undefined) params.size = filters.size.toString();
     
     return params;
+  },
+  getDailyCouponIds(){ 
+    return api.get(`${API_URL}/products/daily-coupons`); 
+  },
+  getDailyCoupon(productId: string) {
+    return api.get(`${API_URL}/products/${productId}/daily-coupon`);
   }
+
 };
 
 export default ProductService;

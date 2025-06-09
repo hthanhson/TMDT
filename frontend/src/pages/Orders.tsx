@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getProductImageUrl, FALLBACK_IMAGE } from '../utils/imageHelpers';
 import {
   Container,
   Typography,
@@ -28,12 +29,99 @@ import {
   CheckCircle, 
   Cancel, 
   Receipt,
-  PaymentOutlined
+  PaymentOutlined,
+  Image as ImageIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import OrderService from '../services/OrderService';
 import { Order } from '../types/order';
+import { ImageWithFallback } from '../components/ImageWithFallback';
+
+// Component để debug ảnh
+const DebugImage: React.FC<{ src: string; alt: string; productId: any }> = ({ src, alt, productId }) => {
+  const [imageStatus, setImageStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [actualSrc, setActualSrc] = useState(src);
+
+  useEffect(() => {
+    console.log('Debug Image - Product ID:', productId);
+    console.log('Debug Image - Generated URL:', src);
+    
+    // Test image load
+    const img = new Image();
+    img.onload = () => {
+      console.log('Image loaded successfully:', src);
+      setImageStatus('success');
+    };
+    img.onerror = () => {
+      console.log('Image failed to load:', src);
+      console.log('Falling back to:', FALLBACK_IMAGE);
+      setImageStatus('error');
+      setActualSrc(FALLBACK_IMAGE);
+    };
+    img.src = src;
+  }, [src, productId]);
+
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Box
+        component="img"
+        src={actualSrc}
+        alt={alt}
+        loading="lazy"
+        onError={(e: any) => {
+          console.log('Image onError triggered for:', e.currentTarget.src);
+          setImageStatus('error');
+          if (e.currentTarget.src !== FALLBACK_IMAGE) {
+            e.currentTarget.src = FALLBACK_IMAGE;
+            setActualSrc(FALLBACK_IMAGE);
+          }
+        }}
+        sx={{
+          width: 60,
+          height: 60,
+          objectFit: 'cover',
+          borderRadius: 1,
+          backgroundColor: imageStatus === 'error' ? 'grey.200' : 'background.paper',
+          border: '1px solid',
+          borderColor: imageStatus === 'error' ? 'error.light' : 'divider',
+          transition: 'opacity 0.3s ease',
+          opacity: imageStatus === 'loading' ? 0.5 : 1,
+        }}
+      />
+      
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Box sx={{ 
+          position: 'absolute', 
+          top: -20, 
+          left: 0, 
+          fontSize: '8px',
+          color: imageStatus === 'error' ? 'red' : 'green',
+          backgroundColor: 'white',
+          padding: '2px',
+          borderRadius: '2px',
+          zIndex: 1
+        }}>
+          {imageStatus}
+        </Box>
+      )}
+      
+      {imageStatus === 'error' && (
+        <ImageIcon 
+          sx={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'grey.400',
+            fontSize: 20
+          }} 
+        />
+      )}
+    </Box>
+  );
+};
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -64,7 +152,18 @@ const Orders: React.FC = () => {
       try {
         setLoading(true);
         const response = await OrderService.getOrders();
+        console.log('Fetched orders:', response.data);
         setOrders(response.data);
+        
+        // Debug: Log các product IDs
+        response.data.forEach((order: Order) => {
+          console.log(`Order ${order.id} items:`, order.orderItems.map(item => ({
+            id: item.id,
+            productId: item.productId,
+            productName: item.productName,
+            imageUrl: getProductImageUrl(item.productId)
+          })));
+        });
         
         // Hiển thị thông báo đơn hàng thành công
         const successfulOrders = response.data.filter(order => order.status === 'DELIVERED');
@@ -84,6 +183,7 @@ const Orders: React.FC = () => {
         
         setError('');
       } catch (err: any) {
+        console.error('Error fetching orders:', err);
         setError(err.response?.data?.message || 'Failed to fetch orders');
       } finally {
         setLoading(false);
@@ -267,6 +367,16 @@ const Orders: React.FC = () => {
         </Alert>
       )}
       
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="caption">
+            API URL: {process.env.REACT_APP_API_URL || 'http://localhost:8080'}<br/>
+            Fallback Image: {FALLBACK_IMAGE}
+          </Typography>
+        </Alert>
+      )}
+      
       {orders.length === 0 ? (
         <Box textAlign="center" py={6}>
           <ShoppingBag sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
@@ -307,26 +417,44 @@ const Orders: React.FC = () => {
                 <Grid container spacing={2}>
                   {order.orderItems.map((item) => (
                     <Grid item xs={12} sm={6} md={4} key={item.id}>
-                      <Box display="flex" alignItems="center">
-                        <Box 
-                          component="img" 
-                          src={item.productImageUrl || '/placeholder.png'} 
-                          alt={item.productName}
-                          sx={{
-                            width: 60,
-                            height: 60,
-                            objectFit: 'cover',
-                            mr: 1,
-                            borderRadius: 1
-                          }}
-                        />
-                        <Box>
-                          <Typography variant="body2" noWrap>
+                      <Box 
+                        display="flex" 
+                        alignItems="center"
+                        sx={{
+                          p: 1,
+                          borderRadius: 1,
+                          '&:hover': {
+                            backgroundColor: 'action.hover'
+                          }
+                        }}
+                      >
+                        <Box sx={{ position: 'relative', mr: 2 }}>
+                          <DebugImage
+                            src={getProductImageUrl(item.productId)}
+                            alt={item.productName}
+                            productId={item.productId}
+                          />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography 
+                            variant="body2" 
+                            noWrap 
+                            sx={{ 
+                              fontWeight: 500,
+                              mb: 0.5 
+                            }}
+                          >
                             {item.productName}
                           </Typography>
                           <Typography variant="caption" color="textSecondary">
                             {item.quantity} x {formatCurrency(item.price)}
                           </Typography>
+                          {/* Debug info */}
+                          {process.env.NODE_ENV === 'development' && (
+                            <Typography variant="caption" display="block" color="primary">
+                              ID: {item.productId}
+                            </Typography>
+                          )}
                         </Box>
                       </Box>
                     </Grid>

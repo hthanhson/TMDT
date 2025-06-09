@@ -28,7 +28,7 @@ import {
 } from '@mui/icons-material';
 import AdminService from '../../services/AdminService';
 import { useTheme } from '@mui/material/styles';
-
+import { getProductImageUrl, FALLBACK_IMAGE } from '../../utils/imageHelpers';
 interface Product {
   id: string;
   name: string;
@@ -428,9 +428,9 @@ const AdminProducts: React.FC = () => {
                   <TableCell>
                     <Box
                       component="img"
-                      sx={{ width: 50, height: 50, objectFit: 'contain' }}
-                      src={product.imageUrl || 'https://via.placeholder.com/50'}
-                      alt={product.name || 'Product image'}
+                      src={getProductImageUrl(product.id)}
+                      onError={(e: any) => (e.currentTarget.src = FALLBACK_IMAGE)}
+                      sx={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 1 }}
                     />
                   </TableCell>
                   <TableCell>{product.name || 'Unnamed product'}</TableCell>

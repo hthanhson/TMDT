@@ -30,6 +30,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Product } from '../types/product';
 import { formatCurrency } from '../utils/formatters';
+import { getProductImageUrl, FALLBACK_IMAGE } from '../utils/imageHelpers';
 
 const Wishlist: React.FC = () => {
   const navigate = useNavigate();
@@ -87,7 +88,7 @@ const Wishlist: React.FC = () => {
       id: product.id,
       name: product.name,
       price: product.price,
-      imageUrl: product.imageUrl,
+      imageUrl: getProductImageUrl(product.id),
       quantity: 1
     });
     showSnackbar('Product added to cart', 'success');
@@ -170,7 +171,8 @@ const Wishlist: React.FC = () => {
                   <CardMedia
                     component="img"
                     height="200"
-                    image={product.imageUrl}
+                    image={getProductImageUrl(product.id)}
+                    onError={(e: any) => (e.currentTarget.src = FALLBACK_IMAGE)}
                     alt={product.name}
                     sx={{ 
                       objectFit: 'cover',

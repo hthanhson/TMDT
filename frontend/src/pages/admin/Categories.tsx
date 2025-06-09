@@ -262,7 +262,7 @@ const AdminCategories: React.FC = () => {
   return (
     <Box sx={{ py: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Categories Management</Typography>
+        <Typography variant="h4">Quản lý danh mục</Typography>
         <Button
           variant="contained"
           color="primary"

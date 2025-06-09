@@ -368,13 +368,13 @@ const AdminCoupons: React.FC = () => {
           >
             Tạo mã giảm giá
           </Button>
-          <Button
+          {/* <Button
             variant="outlined"
             startIcon={<LocalOffer />}
             onClick={handleOpenAssignDialog}
           >
             Tặng mã giảm giá
-          </Button>
+          </Button> */}
         </Box>
       </Box>
 
@@ -409,9 +409,9 @@ const AdminCoupons: React.FC = () => {
                   <TableCell>
                     {coupon.discountType === 'PERCENTAGE'
                       ? `${coupon.discountValue}%`
-                      : `$${coupon.discountValue.toFixed(2)}`}
+                      : `${coupon.discountValue.toFixed(2)} VND`}
                   </TableCell>
-                  <TableCell>${coupon.minPurchaseAmount.toFixed(2)}</TableCell>
+                  <TableCell>{coupon.minPurchaseAmount.toFixed(2)} VND</TableCell>
                   <TableCell>
                     {coupon.startDate && formatDate(coupon.startDate)} - {coupon.endDate && formatDate(coupon.endDate)}
                   </TableCell>
@@ -594,7 +594,7 @@ const AdminCoupons: React.FC = () => {
                   />
                 </LocalizationProvider>
               </Grid>
-              <Grid item xs={12}>
+              {/* <Grid item xs={12}>
                 <FormControl fullWidth>
                   <InputLabel>Người dùng cụ thể (để trống = áp dụng cho tất cả)</InputLabel>
                   <Select
@@ -610,7 +610,7 @@ const AdminCoupons: React.FC = () => {
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
+              </Grid> */}
             </Grid>
           </Box>
         </DialogContent>

@@ -301,7 +301,7 @@ const AdminUsers: React.FC = () => {
   return (
     <Box sx={{ py: 4 }}>
       <Typography variant="h4" gutterBottom>
-        User Management
+       Quản lý người dùng
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -353,13 +353,13 @@ const AdminUsers: React.FC = () => {
                     >
                       <DeleteIcon />
                     </IconButton>
-                    <IconButton
+                    {/* <IconButton
                       onClick={() => handleToggleUserStatus(user.id, !user.enabled)}
                       color={user.enabled ? "error" : "success"}
                       disabled={hasAdminRole(user.roles)}
                     >
                       {user.enabled ? <BlockIcon /> : <CheckCircleIcon />}
-                    </IconButton>
+                    </IconButton> */}
                   </TableCell>
                   {!(hasShiperRole(user.roles) || hasAdminRole(user.roles)) && (
                   <TableCell >

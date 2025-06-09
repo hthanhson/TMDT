@@ -43,7 +43,24 @@ const OrderService = {
 
   getOrderSummary() {
     return api.get<OrderSummary>(`/orders/summary`);
-  }
+  },
+
+  // Get all refund requests for the current user
+  getRefundRequests: async () => {
+    try {
+      // Fetch only current user's orders (USER or ADMIN allowed)
+      const response = await api.get('/orders/my-orders');
+      // Filter orders that have a refundStatus (requested or processed)
+      const refundOrders: Order[] = (response.data as Order[]).filter(
+        (order) => order.refundStatus !== undefined && order.refundStatus !== null
+      );
+      return { data: refundOrders };
+    } catch (error: any) {
+      console.error('Error fetching refund requests:', error);
+      console.error('Error details:', error.response?.status, error.response?.data, error.response?.headers);
+      throw error;
+    }
+  },
 };
 
 export default OrderService; 

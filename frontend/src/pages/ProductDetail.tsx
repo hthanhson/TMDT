@@ -88,6 +88,7 @@ const getImageUrl = (product: any): string => {
 };
 
 const ProductDetail: React.FC = () => {
+  const [hasCoupon, setHasCoupon]   = useState(false);
   const { productId } = useParams<{ productId: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -593,7 +594,7 @@ const ProductDetail: React.FC = () => {
       } else if (review.user && review.user.fullName) {
         userName = review.user.fullName;
         console.log(`Review ${index}: Using fullName from user object: ${userName}`);
-      } else if (review.userName && review.userName !== "Không xác định") {
+      } else if (review.userName && review.userName !== "Người dùng ẩn danh" && review.userName !== 'Không xác định') {
         userName = review.userName;
         console.log(`Review ${index}: Using userName directly: ${userName}`);
       } else if (review.fullName) {
@@ -704,6 +705,24 @@ const ProductDetail: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to load product details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    ProductService.getDailyCouponIds()
+      .then(r => setHasCoupon(r.data.includes(Number(productId))))
+      .catch(() => setHasCoupon(false));
+  }, [productId]);
+  const handleGetCoupon = async () => {
+    try {
+      const res = await ProductService.getDailyCoupon(productId as string);
+      const code = res.data.couponCode;
+      await navigator.clipboard.writeText(code);
+      toast.success(`Bạn đã nhận mã giảm giá: ${code}`);
+      // Ẩn nút nhận mã sau khi đã nhận
+      setHasCoupon(false);
+    } catch {
+      toast.error('Sản phẩm này hiện không có mã giảm giá');
     }
   };
 
@@ -861,7 +880,7 @@ const ProductDetail: React.FC = () => {
 
       // Determine proper user name display
       let displayName = 'Người dùng ẩn danh';
-      if (review.userName && review.userName !== 'Người dùng ẩn danh' && review.userName !== 'Không xác định') {
+      if (review.userName && review.userName !== "Người dùng ẩn danh" && review.userName !== 'Không xác định') {
         displayName = review.userName;
       } else if (reviewUser.fullName) {
         displayName = reviewUser.fullName;
@@ -1033,7 +1052,16 @@ const ProductDetail: React.FC = () => {
                 Danh mục: {product.category}
               </Typography>
             </Box>
-
+            {hasCoupon && (
+              <Button
+                variant="contained"
+                color="secondary"
+                sx={{ mt: 2 }}
+                onClick={handleGetCoupon}
+              >
+                Nhận mã giảm giá 10%
+              </Button>
+            )}
             <Box display="flex" alignItems="center" mb={3}>
               <Box display="flex" alignItems="center" sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mr: 2 }}>
                 <IconButton

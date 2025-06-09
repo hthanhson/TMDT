@@ -74,10 +74,10 @@ const Home: React.FC = () => {
                 Mua Sắm Ngay
               </Button>
             </Grid>
-            <Grid item xs={12} md={6}>
+            {/* <Grid item xs={12} md={6}>
               <Box
                 component="img"
-                src="https://via.placeholder.com/600x400?text=Shop+Now"
+                src="https://stock.adobe.com/vn/images/trolley-shopping-cart-ecommerce-solid-icons-and-symbols-png-illustrator/603580850"
                 alt="Shopping"
                 sx={{
                   width: '100%',
@@ -85,7 +85,7 @@ const Home: React.FC = () => {
                   borderRadius: 2,
                 }}
               />
-            </Grid>
+            </Grid> */}
           </Grid>
         </Container>
       </Box>

@@ -99,11 +99,9 @@ const OrderDetail: React.FC = () => {
         // If order has refund images, set the URLs
         // Check both direct refundImages property and refundRequest.imageUrls
         if (response.data.refundImages && response.data.refundImages.length > 0) {
-          // Log the original images
           console.log("Original refundImages from backend:", response.data.refundImages);
           
           const imageUrls = response.data.refundImages.map((image: string) => {
-            // Use the correct file serving endpoint
             if (!image.includes('/')) {
               return `${backendUrl}/api/files/${image}`;
             }
@@ -113,11 +111,9 @@ const OrderDetail: React.FC = () => {
           console.log("Prepared refund image URLs:", imageUrls);
         } else if (response.data.refundRequest && response.data.refundRequest.imageUrls && 
                   response.data.refundRequest.imageUrls.length > 0) {
-          // Log the original images from refund request
           console.log("Original refundRequest.imageUrls from backend:", response.data.refundRequest.imageUrls);
           
           const imageUrls = response.data.refundRequest.imageUrls.map((image: string) => {
-            // Use the correct file serving endpoint
             if (!image.includes('/')) {
               return `${backendUrl}/api/files/${image}`;
             }
@@ -137,13 +133,12 @@ const OrderDetail: React.FC = () => {
               setActiveStep(2);
               break;
             case RefundStatus.APPROVED:
-              setActiveStep(3); // Hoàn tiền thành công
+              setActiveStep(3);
               break;
             case RefundStatus.COMPLETED:
-              setActiveStep(3); // Hoàn tiền thành công
+              setActiveStep(3);
               break;
             case RefundStatus.REJECTED:
-              // Trong trường hợp bị từ chối, không cập nhật step
               setActiveStep(1);
               break;
             default:
@@ -171,28 +166,20 @@ const OrderDetail: React.FC = () => {
     try {
       if (!id) return;
       
-      // First, cancel the order
       await OrderService.cancelOrder(Number(id));
 
-      // Hoàn tiền vào tài khoản
       try {
         await OrderService.refundOrder(Number(id));
         setRefundSuccess(true);
       } catch (refundErr) {
         console.error('Error refunding order:', refundErr);
-        // Vẫn tiếp tục với việc hủy đơn hàng ngay cả khi hoàn tiền thất bại
       }
       
-      // After successful order cancellation, use multiple approaches to refresh notifications
       console.log("Order cancelled successfully, refreshing notifications...");
       
-      // 1. Call the global refresh function from Header component
       refreshHeaderNotifications();
-      
-      // 2. Call the context refresh function (most reliable approach)
       await refreshNotifications();
       
-      // 3. Direct service call with small delay as a fallback
       setTimeout(() => {
         try {
           NotificationService.getNotifications()
@@ -207,7 +194,6 @@ const OrderDetail: React.FC = () => {
         }
       }, 300);
       
-      // Refresh order data
       const response = await OrderService.getOrderById(id);
       setOrder(response.data);
     } catch (err: any) {
@@ -216,7 +202,6 @@ const OrderDetail: React.FC = () => {
     }
   };
 
-  // Mở dialog yêu cầu hoàn tiền
   const handleOpenRefundDialog = () => {
     setOpenRefundDialog(true);
     setRefundReason('');
@@ -225,26 +210,21 @@ const OrderDetail: React.FC = () => {
     setRefundError(null);
   };
 
-  // Xử lý khi người dùng tải ảnh lên
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const fileArray = Array.from(event.target.files);
       
-      // Giới hạn tối đa 3 ảnh
       const newFiles = [...refundImages, ...fileArray].slice(0, 3);
       setRefundImages(newFiles);
       
-      // Tạo URL preview cho ảnh
       const newPreviews = newFiles.map(file => URL.createObjectURL(file));
       
-      // Xóa các URL preview cũ để tránh memory leak
       refundImagePreviews.forEach(url => URL.revokeObjectURL(url));
       
       setRefundImagePreviews(newPreviews);
     }
   };
 
-  // Xóa ảnh đã chọn
   const handleRemoveImage = (index: number) => {
     URL.revokeObjectURL(refundImagePreviews[index]);
     
@@ -257,9 +237,7 @@ const OrderDetail: React.FC = () => {
     setRefundImagePreviews(newPreviews);
   };
 
-  // Gửi yêu cầu hoàn tiền
   const handleSubmitRefund = async () => {
-    // Validate form
     if (!refundReason.trim()) {
       setReasonError(true);
       return;
@@ -276,26 +254,49 @@ const OrderDetail: React.FC = () => {
       formData.append('reason', refundReason);
       formData.append('additionalInfo', refundAdditionalInfo);
       
-      // Thêm ảnh vào formData
       refundImages.forEach((image, index) => {
         formData.append('images', image);
       });
       
-      // Gọi API để tạo yêu cầu hoàn tiền
-      await OrderService.requestRefund(Number(id), formData);
+      const response = await OrderService.requestRefund(Number(id), formData);
       
-      // Cập nhật UI
       setRefundSuccess(true);
       setOpenRefundDialog(false);
-      setActiveStep(1); // Cập nhật trạng thái sang "Đang xem xét"
+      setActiveStep(1);
       
-      // Refresh thông báo
+      // Update order data
+      const orderResponse = await OrderService.getOrderById(id);
+      setOrder(orderResponse.data);
+      
+      // Update refund images URLs
+      const backendUrl = 'http://localhost:8080';
+      let newImageUrls: string[] = [];
+      if (orderResponse.data.refundImages && orderResponse.data.refundImages.length > 0) {
+        newImageUrls = orderResponse.data.refundImages.map((image: string) => {
+          if (!image.includes('/')) {
+            return `${backendUrl}/api/files/${image}`;
+          }
+          return image.startsWith('http') ? image : `${backendUrl}${image.startsWith('/') ? '' : '/'}${image}`;
+        });
+      } else if (orderResponse.data.refundRequest && orderResponse.data.refundRequest.imageUrls && 
+                orderResponse.data.refundRequest.imageUrls.length > 0) {
+        newImageUrls = orderResponse.data.refundRequest.imageUrls.map((image: string) => {
+          if (!image.includes('/')) {
+            return `${backendUrl}/api/files/${image}`;
+          }
+          return image.startsWith('http') ? image : `${backendUrl}${image.startsWith('/') ? '' : '/'}${image}`;
+        });
+      }
+      setRefundImagesUrls(newImageUrls);
+      console.log("Updated refund image URLs after submission:", newImageUrls);
+      
+      // Clear preview images to avoid memory leaks
+      refundImagePreviews.forEach(url => URL.revokeObjectURL(url));
+      setRefundImagePreviews([]);
+      setRefundImages([]);
+      
       refreshHeaderNotifications();
       await refreshNotifications();
-      
-      // Refresh dữ liệu đơn hàng
-      const response = await OrderService.getOrderById(id);
-      setOrder(response.data);
       
     } catch (err: any) {
       console.error('Error requesting refund:', err);
@@ -305,7 +306,6 @@ const OrderDetail: React.FC = () => {
     }
   };
 
-  // Hàm để lấy các bước hoàn tiền dựa vào trạng thái hiện tại
   const getRefundSteps = () => {
     if (order?.refundStatus === 'REJECTED') {
       return ['Yêu cầu hoàn tiền', 'Đang xem xét', 'Hoàn tiền thất bại'];
@@ -313,33 +313,26 @@ const OrderDetail: React.FC = () => {
     return ['Yêu cầu hoàn tiền', 'Đang xem xét', 'Hoàn tiền thành công'];
   };
 
-  // Function to handle opening the image viewer
   const handleOpenImageViewer = (imageUrl: string) => {
     setSelectedImage(imageUrl);
     setOpenImageViewer(true);
   };
 
-  // Function to close the image viewer
   const handleCloseImageViewer = () => {
     setOpenImageViewer(false);
     setSelectedImage('');
   };
 
-  // Function to handle image load errors
   const handleImageError = (event: React.SyntheticEvent<HTMLImageElement>, imageUrl: string) => {
     const imgElement = event.currentTarget;
     console.error(`Failed to load image: ${imageUrl}`);
     
-    // Backend server URL
     const backendUrl = 'http://localhost:8080';
     
-    // Try alternative paths
     const alternativeUrls = [
       `http://localhost:8080/uploads/refunds/${imageUrl.split('/').pop()}`,
-
     ];
     
-    // Try the next URL in the list
     if (imgElement.dataset.retryCount === undefined) {
       imgElement.dataset.retryCount = "0";
     }
@@ -349,9 +342,6 @@ const OrderDetail: React.FC = () => {
       console.log(`Retrying with alternative URL: ${alternativeUrls[retryCount]}`);
       imgElement.src = alternativeUrls[retryCount];
       imgElement.dataset.retryCount = (retryCount + 1).toString();
-    } else {
-      // Use a default placeholder after all retries failed
-      // imgElement.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
     }
   };
 
@@ -439,13 +429,10 @@ const OrderDetail: React.FC = () => {
     }
   };
 
-  // Kiểm tra xem đơn hàng có đủ điều kiện để yêu cầu hoàn tiền không
   const canRequestRefund = order.status === 'DELIVERED' || order.status === 'COMPLETED';
   
-  // Kiểm tra xem đã có yêu cầu hoàn tiền chưa
   const hasRefundRequest = order.refundStatus !== undefined && order.refundStatus !== null;
 
-  // Kiểm tra trạng thái hiển thị refund
   const getRefundStatusDisplay = () => {
     if (!order?.refundStatus) return null;
     
@@ -499,7 +486,6 @@ const OrderDetail: React.FC = () => {
         />
       </Box>
 
-      {/* Hiển thị stepper cho quy trình hoàn tiền nếu đã có yêu cầu */}
       {hasRefundRequest && (
         <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
@@ -528,7 +514,6 @@ const OrderDetail: React.FC = () => {
             ))}
           </Stepper>
           
-          {/* Display refund reason if available */}
           {(order.refundReason || (order.refundRequest && order.refundRequest.reason)) && (
             <>
               <Typography variant="subtitle1" sx={{ mt: 3, fontWeight: 'bold' }}>
@@ -540,7 +525,6 @@ const OrderDetail: React.FC = () => {
             </>
           )}
           
-          {/* Display refund images if available */}
           {refundImagesUrls.length > 0 && (
             <>
               <Typography variant="subtitle1" sx={{ mt: 3, fontWeight: 'bold' }}>
@@ -558,29 +542,7 @@ const OrderDetail: React.FC = () => {
                       alt={`Refund image ${index + 1}`}
                       loading="lazy"
                       style={{ height: '100%', objectFit: 'cover' }}
-                      onError={(event) => {
-                        console.error(`Failed to load image: ${imageUrl}`);
-                        // Try alternative paths
-                        const alternativeUrls = [
-                          `http://localhost:8080/uploads/refunds/${imageUrl.split('/').pop()}`,
-                        ];
-                        
-                        const imgElement = event.currentTarget;
-                        // Try the next URL in the list
-                        if (imgElement.dataset.retryCount === undefined) {
-                          imgElement.dataset.retryCount = "0";
-                        }
-                        
-                        const retryCount = parseInt(imgElement.dataset.retryCount);
-                        if (retryCount < alternativeUrls.length) {
-                          console.log(`Retrying with alternative URL ${retryCount + 1}: ${alternativeUrls[retryCount]}`);
-                          imgElement.src = alternativeUrls[retryCount];
-                          imgElement.dataset.retryCount = (retryCount + 1).toString();
-                        } else {
-                          // Use a default placeholder after all retries failed
-                          imgElement.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' text-anchor='middle' dominant-baseline='middle' fill='%23999'%3EImage Error%3C/text%3E%3C/svg%3E";
-                        }
-                      }}
+                      onError={(event) => handleImageError(event, imageUrl)}
                     />
                   </ImageListItem>
                 ))}
@@ -700,7 +662,6 @@ const OrderDetail: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Image viewer modal */}
       <Modal
         open={openImageViewer}
         onClose={handleCloseImageViewer}
@@ -753,7 +714,6 @@ const OrderDetail: React.FC = () => {
         </Box>
       </Modal>
 
-      {/* Dialog yêu cầu hoàn tiền */}
       <Dialog 
         open={openRefundDialog} 
         onClose={() => setOpenRefundDialog(false)}
@@ -819,7 +779,6 @@ const OrderDetail: React.FC = () => {
                 </Typography>
               </Box>
               
-              {/* Hiển thị preview ảnh */}
               {refundImagePreviews.length > 0 && (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
                   {refundImagePreviews.map((preview, index) => (
@@ -890,4 +849,4 @@ const OrderDetail: React.FC = () => {
   );
 };
 
-export default OrderDetail; 
+export default OrderDetail;

@@ -43,8 +43,9 @@ import Products from './pages/Products';
 import Wishlist from './pages/Wishlist';
 import ProductForm from './pages/admin/ProductForm';
 import AdminCoupons from './pages/admin/Coupons';
+import RefundRequests from './pages/RefundRequests'; // Import RefundRequests page
 
-// Shipper Pages - Tạm thời nhập từ components đến khi tạo các pages riêng
+// Shipper Pages - Tạm thởi nhập từ components đến khi tạo các pages riêng
 import ShipperDashboard from './components/ShipperDashboard';
 
 // Contexts
@@ -158,6 +159,10 @@ const App: React.FC = () => {
                     <Route 
                       path="wishlist" 
                       element={<ProtectedRoute adminOnly={false}><Wishlist /></ProtectedRoute>} 
+                    />
+                    <Route 
+                      path="refund-requests" 
+                      element={<ProtectedRoute adminOnly={false}><RefundRequests /></ProtectedRoute>} 
                     />
                   </Route>
                   

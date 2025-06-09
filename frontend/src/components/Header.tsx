@@ -35,7 +35,8 @@ import {
   Login as LoginIcon,
   Notifications as NotificationsIcon,
   History as HistoryIcon,
-  AdminPanelSettings as AdminPanelSettingsIcon
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  FileCopy as FileCopyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -319,7 +320,7 @@ const Header: React.FC = () => {
             to="/"
             sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit', fontWeight: 'bold' }}
           >
-            {/* TMDT Shop */}
+            Home
           </Typography>
           
           {/* Chỉ hiển thị search bar khi không phải admin */}
@@ -597,6 +598,9 @@ const Header: React.FC = () => {
                     </MenuItem>
                     <MenuItem component={Link} to="/wishlist">
                       <FavoriteIcon sx={{ mr: 1 }} /> Danh sách yêu thích
+                    </MenuItem>
+                    <MenuItem component={Link} to="/refund-requests">
+                      <FileCopyIcon sx={{ mr: 1 }} /> Yêu cầu đổi/trả hàng
                     </MenuItem>
                     <Divider />
                     <MenuItem onClick={handleLogout}>

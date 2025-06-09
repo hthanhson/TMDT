@@ -110,35 +110,47 @@ const Profile: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!showPasswordField) {
-      setShowPasswordField(true);
-      return;
-    }
-    
-    if (!verificationPassword) {
-      alert('Vui lòng nhập mật khẩu để xác thực');
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      await UserService.updateProfileWithVerification({
-        ...profileData,
-        password: verificationPassword
-      });
-      alert('Thông tin cá nhân đã được cập nhật thành công!');
-      setShowPasswordField(false);
-      setVerificationPassword('');
-    } catch (error) {
-      console.error('Lỗi khi cập nhật thông tin:', error);
-      alert('Mật khẩu không chính xác. Vui lòng kiểm tra lại mật khẩu của bạn.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
+
+  if (!showPasswordField) {
+    setShowPasswordField(true);
+    return;
+  }
+
+  if (!verificationPassword) {
+    alert('Vui lòng nhập mật khẩu để xác thực');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await UserService.updateProfileWithVerification({
+      ...profileData,
+      password: verificationPassword,
+    });
+
+    // Update localStorage with new profile data
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const updatedUser = {
+      ...currentUser,
+      fullName: profileData.fullName,
+      email: profileData.email,
+      address: profileData.address,
+      phoneNumber: profileData.phoneNumber,
+    };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+
+    alert('Thông tin cá nhân đã được cập nhật thành công!');
+    setShowPasswordField(false);
+    setVerificationPassword('');
+  } catch (error) {
+    console.error('Lỗi khi cập nhật thông tin:', error);
+    alert('Mật khẩu không chính xác. Vui lòng kiểm tra lại mật khẩu của bạn.');
+  } finally {
+    setLoading(false);
+  }
+};
   
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
