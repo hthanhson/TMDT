@@ -129,6 +129,7 @@ public class SecurityConfig {
                 .antMatchers("/api/shipper/**").hasRole("SHIPPER")
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
                 .antMatchers("/uploads/refunds/**").permitAll()
+                .antMatchers("/orders/**").permitAll()
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             );

@@ -312,6 +312,16 @@ public class AdminController {
             // Handle image file if provided
             if (imageFile != null && !imageFile.isEmpty()) {
                 try {
+                    // Delete old image file if exists
+                    if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+                        String oldImagePath = "uploads" + product.getImageUrl().replace("/uploads", "");
+                        File oldImageFile = new File(oldImagePath);
+                        if (oldImageFile.exists()) {
+                            oldImageFile.delete();
+                            System.out.println("Deleted old image file: " + oldImagePath);
+                        }
+                    }
+                    
                     // Create the directory structure
                     File uploadDir = new File("uploads/products");
                     if (!uploadDir.exists()) {
@@ -444,6 +454,16 @@ public class AdminController {
             // Handle image file if provided
             if (imageFile != null && !imageFile.isEmpty()) {
                 try {
+                    // Delete old image file if exists
+                    if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+                        String oldImagePath = "uploads" + product.getImageUrl().replace("/uploads", "");
+                        File oldImageFile = new File(oldImagePath);
+                        if (oldImageFile.exists()) {
+                            oldImageFile.delete();
+                            System.out.println("Deleted old image file: " + oldImagePath);
+                        }
+                    }
+                    
                     // Create the directory structure
                     File uploadDir = new File("uploads/products");
                     if (!uploadDir.exists()) {

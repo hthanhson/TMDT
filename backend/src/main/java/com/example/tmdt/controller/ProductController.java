@@ -1,5 +1,6 @@
 package com.example.tmdt.controller;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,12 +35,20 @@ import com.example.tmdt.payload.request.ReviewRequest;
 import com.example.tmdt.payload.response.MessageResponse;
 import com.example.tmdt.repository.ProductRepository;
 import com.example.tmdt.repository.OrderRepository;
+import com.example.tmdt.repository.CouponRepository;
 import com.example.tmdt.service.ReviewService;
 import com.example.tmdt.service.UserService;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
+import java.util.Random;
+import java.util.Collections;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Stream;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -56,12 +65,94 @@ public class ProductController {
     
     @Autowired
     private OrderRepository orderRepository;
+    
+    @Autowired
+    private CouponRepository couponRepository;
 
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
         List<Product> products = productRepository.findAll();
         return new ResponseEntity<>(products, HttpStatus.OK);
     }
+    private static LocalDate couponDate;
+    private static Set<Long> couponProductIds = new HashSet<>();
+    private static final int DISCOUNT_PCT = 10;
+
+    private void ensureTodayCoupons() {
+        LocalDate today = LocalDate.now();
+        if (!today.equals(couponDate)) {
+            couponDate = today;
+            // Random 10% product IDs mỗi ngày
+            List<Long> allIds = productRepository.findAll()
+                    .stream()
+                    .map(Product::getId)
+                    .collect(Collectors.toList());
+            int quota = Math.max(1, allIds.size() / 10);
+            Collections.shuffle(allIds, new Random());
+            couponProductIds = new HashSet<>(allIds.subList(0, quota));
+        }
+    }
+    // list of product IDs that hold today’s coupon
+    @GetMapping("/daily-coupons")
+    public ResponseEntity<?> getDailyCouponIds() {
+        ensureTodayCoupons();
+        return ResponseEntity.ok(couponProductIds);
+    }
+
+    // redeem / fetch the coupon for one product
+    @GetMapping("/{id}/daily-coupon")
+    public ResponseEntity<?> getDailyCoupon(@PathVariable Long id) {
+        ensureTodayCoupons();
+        if (!couponProductIds.contains(id)) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
+        // Truy vấn lấy bất kỳ coupon 10% hợp lệ (áp dụng toàn sàn)
+        List<Coupon> coupons = couponRepository.findAllValidCoupons(LocalDateTime.now())
+                .stream()
+
+                .filter(c -> c.getDiscountType() == Coupon.DiscountType.PERCENTAGE)
+                .filter(c -> c.getDiscountValue().intValue() == DISCOUNT_PCT)
+                .collect(Collectors.toList());
+
+        if (coupons.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
+        Coupon baseCoupon = coupons.get(new Random().nextInt(coupons.size()));
+
+        // Lấy user hiện tại
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Bạn cần đăng nhập để nhận mã giảm giá"));
+        }
+        User user = userService.getUserByUsername(auth.getName());
+
+        String personalizedCode = baseCoupon.getCode() + "-" + user.getId();
+
+        // Kiểm tra nếu đã tồn tại coupon dành riêng cho user
+        Coupon userCoupon = couponRepository.findByCode(personalizedCode).orElse(null);
+        if (userCoupon == null) {
+            userCoupon = new Coupon();
+            userCoupon.setCode(personalizedCode);
+            userCoupon.setDescription(baseCoupon.getDescription());
+            userCoupon.setUser(user);
+            userCoupon.setDiscountType(baseCoupon.getDiscountType());
+            userCoupon.setDiscountValue(baseCoupon.getDiscountValue());
+            userCoupon.setMinPurchaseAmount(baseCoupon.getMinPurchaseAmount());
+            userCoupon.setStartDate(baseCoupon.getStartDate());
+            userCoupon.setEndDate(baseCoupon.getEndDate());
+            userCoupon.setIsActive(true);
+            couponRepository.save(userCoupon);
+        }
+
+        Map<String, Object> payload = Map.of(
+                "couponCode", userCoupon.getCode(),
+                "discountPct", DISCOUNT_PCT,
+                "validDate", userCoupon.getEndDate().toLocalDate().toString()
+        );
+        return ResponseEntity.ok(payload);
+    }
+
 
     @GetMapping("/recommended")
     public ResponseEntity<List<Product>> getRecommendedProducts(@RequestParam(defaultValue = "10") int limit) {
@@ -101,6 +192,10 @@ public class ProductController {
             if (product.getReviews() != null) {
                 for (Review review : product.getReviews()) {
                     Map<String, Object> reviewMap = new HashMap<>();
+                    int helpful  = reviewService.countHelpful(review);
+                    int notHelp  = reviewService.countNotHelpful(review);
+                    reviewMap.put("helpfulCount",     helpful);
+                    reviewMap.put("notHelpfulCount",  notHelp);
                     reviewMap.put("id", review.getId());
                     reviewMap.put("title", review.getTitle());
                     reviewMap.put("rating", review.getRating());

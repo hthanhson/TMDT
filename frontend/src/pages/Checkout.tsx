@@ -519,7 +519,7 @@ const Checkout: React.FC = (): JSX.Element => {
                     control={<Radio />} 
                     label={
                       <Box>
-                        <Typography variant="subtitle1">Thẻ điện tử</Typography>
+                        <Typography variant="subtitle1">Ví điện tử</Typography>
                         <Typography variant="body2" color="text.secondary">
                           Thanh toán an toàn với VNPAY
                         </Typography>
