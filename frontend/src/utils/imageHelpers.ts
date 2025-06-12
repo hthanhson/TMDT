@@ -3,31 +3,22 @@ const FALLBACK_IMAGE = '/assets/images/product-placeholder.jpg';
 
 export const getProductImageUrl = (productId?: string | number) => {
   console.log('Getting image URL for product ID:', productId);
-  
+
   if (!productId) {
-    console.log('No product ID provided, using fallback');
+    console.warn('No product ID provided, using fallback');
     return FALLBACK_IMAGE;
   }
-  
+
   try {
     const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8080';
-    console.log('Base URL:', baseUrl);
-    
-    // Tạo URL một cách an toàn
-    let imageUrl;
-    if (baseUrl.endsWith('/')) {
-      imageUrl = `${baseUrl}products/images/product/${productId}`;
-    } else {
-      imageUrl = `${baseUrl}/products/images/product/${productId}`;
-    }
-    
+    const url = new URL(`/products/images/product/${productId}`, baseUrl);
+
     // Thêm timestamp để tránh cache
-    const url = new URL(imageUrl);
     url.searchParams.append('t', Date.now().toString());
-    
+
     const finalUrl = url.toString();
     console.log('Generated image URL:', finalUrl);
-    
+
     return finalUrl;
   } catch (error) {
     console.error('Error creating product image URL:', error);

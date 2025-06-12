@@ -68,13 +68,13 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const DEBUG = false;
+// const DEBUG = false;
 
-function debugLog(...args: any[]) {
-  if (DEBUG) {
-    console.log(...args);
-  }
-}
+// function debugLog(...args: any[]) {
+//   if (DEBUG) {
+//     console.log(...args);
+//   }
+// }
 
 const getImageUrl = (product: any): string => {
   if (!product || !product.id) {

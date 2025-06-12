@@ -413,11 +413,11 @@ const AdminProducts: React.FC = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Image</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Price</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Stock</TableCell>
+              <TableCell>Ảnh</TableCell>
+              <TableCell>Tên</TableCell>
+              <TableCell>Giá</TableCell>
+              <TableCell>Danh mục</TableCell>
+              <TableCell>Số lượng</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -495,7 +495,7 @@ const AdminProducts: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Name"
+                  label="Tên sản phẩm "
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
@@ -506,7 +506,7 @@ const AdminProducts: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Category"
+                  label="Danh mục"
                   name="category"
                   value={formData.category}
                   onChange={handleInputChange}
@@ -517,7 +517,7 @@ const AdminProducts: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Price"
+                  label="Giá"
                   name="price"
                   type="number"
                   inputProps={{ min: 0, step: 0.01 }}
@@ -530,7 +530,7 @@ const AdminProducts: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Stock"
+                  label="Số lượng"
                   name="stock"
                   type="number"
                   inputProps={{ min: 0 }}
@@ -543,7 +543,7 @@ const AdminProducts: React.FC = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Description"
+                  label="Mô tả"
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
@@ -569,7 +569,7 @@ const AdminProducts: React.FC = () => {
                   </Typography>
                 ) : currentProduct?.imageUrl ? (
                   <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>
-                    Current image will be kept
+                    Ảnh sẽ được giữ lại
                   </Typography>
                 ) : null}
               </Grid>

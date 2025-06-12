@@ -29,99 +29,12 @@ import {
   CheckCircle, 
   Cancel, 
   Receipt,
-  PaymentOutlined,
-  Image as ImageIcon
+  PaymentOutlined
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import OrderService from '../services/OrderService';
 import { Order } from '../types/order';
-import { ImageWithFallback } from '../components/ImageWithFallback';
-
-// Component để debug ảnh
-const DebugImage: React.FC<{ src: string; alt: string; productId: any }> = ({ src, alt, productId }) => {
-  const [imageStatus, setImageStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [actualSrc, setActualSrc] = useState(src);
-
-  useEffect(() => {
-    console.log('Debug Image - Product ID:', productId);
-    console.log('Debug Image - Generated URL:', src);
-    
-    // Test image load
-    const img = new Image();
-    img.onload = () => {
-      console.log('Image loaded successfully:', src);
-      setImageStatus('success');
-    };
-    img.onerror = () => {
-      console.log('Image failed to load:', src);
-      console.log('Falling back to:', FALLBACK_IMAGE);
-      setImageStatus('error');
-      setActualSrc(FALLBACK_IMAGE);
-    };
-    img.src = src;
-  }, [src, productId]);
-
-  return (
-    <Box sx={{ position: 'relative' }}>
-      <Box
-        component="img"
-        src={actualSrc}
-        alt={alt}
-        loading="lazy"
-        onError={(e: any) => {
-          console.log('Image onError triggered for:', e.currentTarget.src);
-          setImageStatus('error');
-          if (e.currentTarget.src !== FALLBACK_IMAGE) {
-            e.currentTarget.src = FALLBACK_IMAGE;
-            setActualSrc(FALLBACK_IMAGE);
-          }
-        }}
-        sx={{
-          width: 60,
-          height: 60,
-          objectFit: 'cover',
-          borderRadius: 1,
-          backgroundColor: imageStatus === 'error' ? 'grey.200' : 'background.paper',
-          border: '1px solid',
-          borderColor: imageStatus === 'error' ? 'error.light' : 'divider',
-          transition: 'opacity 0.3s ease',
-          opacity: imageStatus === 'loading' ? 0.5 : 1,
-        }}
-      />
-      
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <Box sx={{ 
-          position: 'absolute', 
-          top: -20, 
-          left: 0, 
-          fontSize: '8px',
-          color: imageStatus === 'error' ? 'red' : 'green',
-          backgroundColor: 'white',
-          padding: '2px',
-          borderRadius: '2px',
-          zIndex: 1
-        }}>
-          {imageStatus}
-        </Box>
-      )}
-      
-      {imageStatus === 'error' && (
-        <ImageIcon 
-          sx={{ 
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: 'grey.400',
-            fontSize: 20
-          }} 
-        />
-      )}
-    </Box>
-  );
-};
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -155,17 +68,21 @@ const Orders: React.FC = () => {
         console.log('Fetched orders:', response.data);
         setOrders(response.data);
         
-        // Debug: Log các product IDs
         response.data.forEach((order: Order) => {
-          console.log(`Order ${order.id} items:`, order.orderItems.map(item => ({
-            id: item.id,
-            productId: item.productId,
-            productName: item.productName,
-            imageUrl: getProductImageUrl(item.productId)
-          })));
+          const orderItemsWithValidIds = order.orderItems.map(item => {
+            if (!item.product.id) {
+              console.warn(`Order ${order.id} has item with undefined productId`, item);
+            }
+            return {
+              id: item.id,
+              productId: item.product.id || 'undefined',
+              productName: item.productName,
+              imageUrl: item.product.imageUrl ? getProductImageUrl(item.product.id) : FALLBACK_IMAGE,
+            };
+          });
+          console.log(`Order ${order.id} items:`, orderItemsWithValidIds);
         });
         
-        // Hiển thị thông báo đơn hàng thành công
         const successfulOrders = response.data.filter(order => order.status === 'DELIVERED');
         if (successfulOrders.length > 0) {
           setSuccessMessage(`Bạn có ${successfulOrders.length} đơn hàng đã giao thành công!`);
@@ -173,7 +90,6 @@ const Orders: React.FC = () => {
           setSuccessMessage('');
         }
         
-        // Hiển thị thông báo đơn hàng bị hủy
         const cancelledOrders = response.data.filter(order => order.status === 'CANCELLED');
         if (cancelledOrders.length > 0) {
           setCancelledMessage(`Bạn có ${cancelledOrders.length} đơn hàng đã bị hủy`);
@@ -194,7 +110,6 @@ const Orders: React.FC = () => {
   }, [user, navigate]);
   
   const getStatusColor = (status: Order['status'], refundStatus?: string) => {
-    // Nếu đơn hàng đã được duyệt hoàn tiền, ưu tiên hiển thị màu này
     if (refundStatus === 'APPROVED' || refundStatus === 'COMPLETED') {
       return 'secondary';
     }
@@ -218,7 +133,6 @@ const Orders: React.FC = () => {
   };
   
   const getStatusIcon = (status: Order['status'], refundStatus?: string) => {
-    // Nếu đơn hàng đã được duyệt hoàn tiền, hiển thị biểu tượng tương ứng
     if (refundStatus === 'APPROVED' || refundStatus === 'COMPLETED') {
       return <LocalShipping />;
     }
@@ -246,7 +160,6 @@ const Orders: React.FC = () => {
   };
   
   const getStatusTranslation = (status: string, refundStatus?: string): string => {
-    // Nếu đơn hàng đã được duyệt hoàn tiền, ưu tiên hiển thị trạng thái này
     if (refundStatus === 'APPROVED' || refundStatus === 'COMPLETED') {
       return 'Đã trả hàng & hoàn tiền';
     }
@@ -282,7 +195,6 @@ const Orders: React.FC = () => {
   };
   
   const renderOrderTimeline = (order: Order) => {
-    // Nếu đơn hàng đã được hoàn tiền, hiển thị dưới dạng đơn hàng đã trả
     if (order.refundStatus === 'APPROVED' || order.refundStatus === 'COMPLETED') {
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
@@ -294,7 +206,6 @@ const Orders: React.FC = () => {
       );
     }
     
-    // Nếu đơn hàng đã bị hủy
     if (order.status === 'CANCELLED') {
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
@@ -367,15 +278,6 @@ const Orders: React.FC = () => {
         </Alert>
       )}
       
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="caption">
-            API URL: {process.env.REACT_APP_API_URL || 'http://localhost:8080'}<br/>
-            Fallback Image: {FALLBACK_IMAGE}
-          </Typography>
-        </Alert>
-      )}
       
       {orders.length === 0 ? (
         <Box textAlign="center" py={6}>
@@ -429,10 +331,11 @@ const Orders: React.FC = () => {
                         }}
                       >
                         <Box sx={{ position: 'relative', mr: 2 }}>
-                          <DebugImage
-                            src={getProductImageUrl(item.productId)}
+                          <img
+                            src={getProductImageUrl(item.product.id)}
                             alt={item.productName}
-                            productId={item.productId}
+                            onError={(e: any) => (e.currentTarget.src = FALLBACK_IMAGE)}
+                            style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
                           />
                         </Box>
                         <Box sx={{ minWidth: 0 }}>
@@ -449,12 +352,11 @@ const Orders: React.FC = () => {
                           <Typography variant="caption" color="textSecondary">
                             {item.quantity} x {formatCurrency(item.price)}
                           </Typography>
-                          {/* Debug info */}
-                          {process.env.NODE_ENV === 'development' && (
+                          {/* {process.env.NODE_ENV === 'development' && (
                             <Typography variant="caption" display="block" color="primary">
-                              ID: {item.productId}
+                              ID: {item.product.id}
                             </Typography>
-                          )}
+                          )} */}
                         </Box>
                       </Box>
                     </Grid>

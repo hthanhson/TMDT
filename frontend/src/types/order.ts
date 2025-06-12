@@ -1,11 +1,24 @@
 export interface OrderItem {
   id: number;
-  productId: number;
+  product: Product;
   productName: string;
   productImage?: string;
   productImageUrl?: string;
   price: number;
   quantity: number;
+}
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  category: string;
+  categoryId?: string | number;
+  categoryName?: string;
+  stock: number;
+  rating: number;
+
 }
 
 export interface RefundRequest {

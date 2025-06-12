@@ -281,9 +281,9 @@ const AdminCategories: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Tên</TableCell>
+              <TableCell>Mô tả</TableCell>
+              <TableCell>Trạng thái</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -340,14 +340,14 @@ const AdminCategories: React.FC = () => {
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {currentCategory ? 'Edit Category' : 'Add New Category'}
+          {currentCategory ? 'Chỉnh sửa danh mục' : 'Thêm Danh Mục Mới'}
         </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
             name="name"
-            label="Category Name"
+            label="Tên Danh mục"
             type="text"
             fullWidth
             variant="outlined"
@@ -358,7 +358,7 @@ const AdminCategories: React.FC = () => {
           <TextField
             margin="dense"
             name="description"
-            label="Description"
+            label="Mô tả"
             type="text"
             fullWidth
             variant="outlined"

@@ -60,7 +60,17 @@ public class OrderService {
     }
     
     public List<Order> getUserOrders(User user) {
-        return orderRepository.findByUserOrderByCreatedAtDesc(user);
+        List<Order> orders = orderRepository.findByUserOrderByCreatedAtDesc(user);
+
+        for (Order order : orders) {
+            for (OrderItem item : order.getOrderItems()) {
+                if (item.getProduct() == null || item.getProduct().getId() == null) {
+                    throw new RuntimeException("OrderItem is missing a valid productId: " + item);
+                }
+            }
+        }
+
+        return orders;
     }
 
     @Retryable(
@@ -503,4 +513,4 @@ public class OrderService {
         // Save and return the updated order
         return orderRepository.save(order);
     }
-} 
+}

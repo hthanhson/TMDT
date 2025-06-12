@@ -109,41 +109,41 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/signup/shipper")
-    public ResponseEntity<?> registerShipper(@Valid @RequestBody SignupRequest signUpRequest) {
-        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(new MessageResponse("Error: Username is already taken!"));
-        }
-
-        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(new MessageResponse("Error: Email is already in use!"));
-        }
-
-        // Create new user's account
-        User user = new User();
-        user.setUsername(signUpRequest.getUsername());
-        user.setEmail(signUpRequest.getEmail());
-        user.setPassword(encoder.encode(signUpRequest.getPassword()));
-        user.setFullName(signUpRequest.getFullName());
-        user.setAddress(signUpRequest.getAddress());
-        user.setPhoneNumber(signUpRequest.getPhoneNumber());
-
-        Set<Role> roles = new HashSet<>();
-
-        // Always assign ROLE_SHIPPER
-        Role shipperRole = roleRepository.findByName(Role.ERole.ROLE_SHIPPER)
-                .orElseThrow(() -> new RuntimeException("Error: Shipper Role is not found."));
-        roles.add(shipperRole);
-
-        user.setRoles(roles);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(new MessageResponse("Shipper registered successfully!"));
-    }
+//    @PostMapping("/signup/shipper")
+//    public ResponseEntity<?> registerShipper(@Valid @RequestBody SignupRequest signUpRequest) {
+//        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+//            return ResponseEntity
+//                    .badRequest()
+//                    .body(new MessageResponse("Error: Username is already taken!"));
+//        }
+//
+//        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+//            return ResponseEntity
+//                    .badRequest()
+//                    .body(new MessageResponse("Error: Email is already in use!"));
+//        }
+//
+//        // Create new user's account
+//        User user = new User();
+//        user.setUsername(signUpRequest.getUsername());
+//        user.setEmail(signUpRequest.getEmail());
+//        user.setPassword(encoder.encode(signUpRequest.getPassword()));
+//        user.setFullName(signUpRequest.getFullName());
+//        user.setAddress(signUpRequest.getAddress());
+//        user.setPhoneNumber(signUpRequest.getPhoneNumber());
+//
+//        Set<Role> roles = new HashSet<>();
+//
+//        // Always assign ROLE_SHIPPER
+//        Role shipperRole = roleRepository.findByName(Role.ERole.ROLE_SHIPPER)
+//                .orElseThrow(() -> new RuntimeException("Error: Shipper Role is not found."));
+//        roles.add(shipperRole);
+//
+//        user.setRoles(roles);
+//        userRepository.save(user);
+//
+//        return ResponseEntity.ok(new MessageResponse("Shipper registered successfully!"));
+//    }
 
     @PostMapping("/update-profile")
     public ResponseEntity<?> updateUserProfile(@Valid @RequestBody UpdateProfileRequest updateRequest,
