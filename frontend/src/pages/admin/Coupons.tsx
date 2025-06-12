@@ -110,6 +110,7 @@ const AdminCoupons: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/coupons');
+      console.log('Fetched coupons:', response);
       setCoupons(response.data);
     } catch (error) {
       console.error('Error fetching coupons:', error);

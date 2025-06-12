@@ -21,14 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 //import com.example.tmdt.model.ProductImage;
 import com.example.tmdt.payload.request.ReviewRequest;
@@ -100,25 +93,23 @@ public class ProductController {
     }
 
     // redeem / fetch the coupon for one product
-    @GetMapping("/{id}/daily-coupon")
+    @PutMapping("/{id}/daily-coupon")
     public ResponseEntity<?> getDailyCoupon(@PathVariable Long id) {
         ensureTodayCoupons();
+        int IsUser=0;
         if (!couponProductIds.contains(id)) {
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
-        // Truy vấn lấy bất kỳ coupon 10% hợp lệ (áp dụng toàn sàn)
+        couponProductIds.remove(id);
+        // Truy vấn lấy bất kỳ coupon hợp lệ (áp dụng toàn sàn)
         List<Coupon> coupons = couponRepository.findAllValidCoupons(LocalDateTime.now())
                 .stream()
-
                 .filter(c -> c.getDiscountType() == Coupon.DiscountType.PERCENTAGE)
-                .filter(c -> c.getDiscountValue().intValue() == DISCOUNT_PCT)
                 .collect(Collectors.toList());
 
         if (coupons.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
-        Coupon baseCoupon = coupons.get(new Random().nextInt(coupons.size()));
-
         // Lấy user hiện tại
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
@@ -126,30 +117,29 @@ public class ProductController {
                     .body(Map.of("message", "Bạn cần đăng nhập để nhận mã giảm giá"));
         }
         User user = userService.getUserByUsername(auth.getName());
+        List<Coupon> userCoupon = new ArrayList<>();
+        for (Coupon c : coupons) {
+            if (c.getUser() == null && c.getIsActive() == true) {
+                userCoupon.add(c);
+            }
 
-        String personalizedCode = baseCoupon.getCode() + "-" + user.getId();
-
-        // Kiểm tra nếu đã tồn tại coupon dành riêng cho user
-        Coupon userCoupon = couponRepository.findByCode(personalizedCode).orElse(null);
-        if (userCoupon == null) {
-            userCoupon = new Coupon();
-            userCoupon.setCode(personalizedCode);
-            userCoupon.setDescription(baseCoupon.getDescription());
-            userCoupon.setUser(user);
-            userCoupon.setDiscountType(baseCoupon.getDiscountType());
-            userCoupon.setDiscountValue(baseCoupon.getDiscountValue());
-            userCoupon.setMinPurchaseAmount(baseCoupon.getMinPurchaseAmount());
-            userCoupon.setStartDate(baseCoupon.getStartDate());
-            userCoupon.setEndDate(baseCoupon.getEndDate());
-            userCoupon.setIsActive(true);
-            couponRepository.save(userCoupon);
         }
 
-        Map<String, Object> payload = Map.of(
-                "couponCode", userCoupon.getCode(),
-                "discountPct", DISCOUNT_PCT,
-                "validDate", userCoupon.getEndDate().toLocalDate().toString()
-        );
+        Collections.shuffle(userCoupon, new Random());
+        Map<String,Object> payload=new HashMap<>();
+        if (!userCoupon.isEmpty()) {
+            Coupon canUseCoupon = userCoupon.get(0);
+            canUseCoupon.setUser(user);
+            couponRepository.save(canUseCoupon);
+            payload.put("couponCode",canUseCoupon.getCode());
+            payload.put("discountPct",canUseCoupon.getDiscountType());
+            payload.put("validDate",canUseCoupon.getEndDate().toLocalDate().toString());
+            // xử lý tiếp
+        } else {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .body(Map.of("message"," Hết Mã giảm giá dành cho bạn"));
+        }
+
         return ResponseEntity.ok(payload);
     }
 

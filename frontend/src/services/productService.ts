@@ -355,7 +355,7 @@ const ProductService = {
     return api.get(`${API_URL}/products/daily-coupons`); 
   },
   getDailyCoupon(productId: string) {
-    return api.get(`${API_URL}/products/${productId}/daily-coupon`);
+    return api.put(`${API_URL}/products/${productId}/daily-coupon`);
   }
 
 };

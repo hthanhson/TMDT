@@ -682,6 +682,8 @@ const ProductDetail: React.FC = () => {
 
       // Process the product to handle any object fields
       const processedProduct = processProduct(response.data);
+      // const ret =await ProductService.getDailyCoupon(productId as string);
+      // console.log("data", ret.data.couponCode);
       console.log('Product data processed successfully with', processedProduct.reviews?.length || 0, 'reviews');
 
       setProduct(processedProduct);
@@ -716,13 +718,18 @@ const ProductDetail: React.FC = () => {
   const handleGetCoupon = async () => {
     try {
       const res = await ProductService.getDailyCoupon(productId as string);
+      setHasCoupon(false)
+      if (res.status === 204 || !res.data?.couponCode) {
+        toast.error(res.data?.message || "Hết Mã giảm giá dành cho bạn");
+        return;
+      }
+
       const code = res.data.couponCode;
       await navigator.clipboard.writeText(code);
       toast.success(`Bạn đã nhận mã giảm giá: ${code}`);
-      // Ẩn nút nhận mã sau khi đã nhận
-      setHasCoupon(false);
-    } catch {
-      toast.error('Sản phẩm này hiện không có mã giảm giá');
+    } catch (error: any) {
+        const msg = error?.response?.data?.message || "Đã xảy ra lỗi khi nhận mã";
+        toast.error(msg);
     }
   };
 
@@ -767,6 +774,13 @@ const ProductDetail: React.FC = () => {
   };
 
   const handleAddToCart = () => {
+    if (!isAuthenticated) {
+      showSnackbar('Vui lòng đăng nhập để Thêm sản phẩm vào giỏ hàng', 'error');
+      setTimeout(() => {
+        navigate('/login', { state: { from: `/products/${productId}` } });
+      }, 1500);
+      return;
+    }
     if (product) {
       // Always use our standardized image URL
       const imageUrl = getImageUrl(product);
@@ -920,6 +934,13 @@ const ProductDetail: React.FC = () => {
 
   // Handle marking a review as helpful or not helpful
   const handleMarkHelpful = async (reviewId: string, isHelpful: boolean) => {
+    if (!isAuthenticated) {
+      showSnackbar('Vui lòng đăng nhập để Đánh giá', 'error');
+      setTimeout(() => {
+        navigate('/login', { state: { from: `/products/${productId}` } });
+      }, 1500);
+      return;
+    }
     try {
       await ProductService.markReviewHelpful(reviewId, isHelpful);
       // Refresh the product data to update the helpful counts
@@ -1059,7 +1080,7 @@ const ProductDetail: React.FC = () => {
                 sx={{ mt: 2 }}
                 onClick={handleGetCoupon}
               >
-                Nhận mã giảm giá 10%
+                Nhận mã giảm giá 
               </Button>
             )}
             <Box display="flex" alignItems="center" mb={3}>

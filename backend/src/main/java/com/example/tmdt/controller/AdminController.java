@@ -550,9 +550,9 @@ public class AdminController {
             
             // Thêm coupon vào danh sách coupons của user
             coupon.setUser(user);
-            user.getCoupons().add(coupon);
+//            user.getCoupons().add(coupon);
             couponRepository.save(coupon);
-            userRepository.save(user);
+//            userRepository.save(user);
             
             return new ResponseEntity<>(coupon, HttpStatus.OK);
         } catch (Exception e) {

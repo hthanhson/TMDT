@@ -29,11 +29,11 @@ public class Coupon {
 
     @NotBlank
     private String description;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
-    
+
     private String type;
 
     @Enumerated(EnumType.STRING)
@@ -69,7 +69,7 @@ public class Coupon {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-    
+
     @Column(name = "expiry_date")
     private LocalDateTime expiryDate;
 
@@ -96,15 +96,15 @@ public class Coupon {
     public boolean getIsActive() {
         return isActive;
     }
-    
+
     public LocalDateTime getExpiryDate() {
         return expiryDate != null ? expiryDate : endDate;
     }
-    
+
     public double getDiscountAmount() {
         return discountValue.doubleValue();
     }
-    
+
     public double getMinOrderValue() {
         return minPurchaseAmount.doubleValue();
     }
@@ -128,4 +128,4 @@ public class Coupon {
     public void setUsedCount(Integer usedCount) {
         this.usedCount = usedCount;
     }
-} 
+}
