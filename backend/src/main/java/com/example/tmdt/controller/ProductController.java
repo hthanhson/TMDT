@@ -119,7 +119,8 @@ public class ProductController {
         User user = userService.getUserByUsername(auth.getName());
         List<Coupon> userCoupon = new ArrayList<>();
         for (Coupon c : coupons) {
-            if (c.getUser() == null && c.getIsActive() == true) {
+            List<User> usersCoupon=c.getUsers();
+            if (!usersCoupon.contains(user)&& c.getIsActive() == true) {
                 userCoupon.add(c);
             }
 
@@ -129,7 +130,7 @@ public class ProductController {
         Map<String,Object> payload=new HashMap<>();
         if (!userCoupon.isEmpty()) {
             Coupon canUseCoupon = userCoupon.get(0);
-            canUseCoupon.setUser(user);
+            canUseCoupon.getUsers().add(user);
             couponRepository.save(canUseCoupon);
             payload.put("couponCode",canUseCoupon.getCode());
             payload.put("discountPct",canUseCoupon.getDiscountType());

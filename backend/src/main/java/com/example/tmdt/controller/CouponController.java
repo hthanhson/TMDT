@@ -86,9 +86,13 @@ public class CouponController {
         coupon.setType(request.getType());
         
         // Nếu coupon dành riêng cho 1 người dùng
-        if (request.getUserId() != null) {
-            User user = userService.getUserById(request.getUserId());
-            coupon.setUser(user);
+        List<User> userCoupons=request.getUsers();
+        if (userCoupons!= null && !userCoupons.isEmpty()) {
+            for (User users : userCoupons) {
+                User user = userService.getUserById(users.getId());
+                coupon.getUsers().add(user);
+            }
+
         }
         
         Coupon savedCoupon = couponService.createCoupon(coupon);

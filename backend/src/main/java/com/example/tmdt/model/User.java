@@ -74,7 +74,7 @@ public class User {
     @JsonIgnore
     private List<Order> orders = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ManyToMany(mappedBy = "users", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Coupon> coupons = new ArrayList<>();
 

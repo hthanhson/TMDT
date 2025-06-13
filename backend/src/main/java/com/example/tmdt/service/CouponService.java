@@ -33,11 +33,11 @@ public class CouponService {
     }
     
     public List<Coupon> getCouponsByUser(User user) {
-        return couponRepository.findByUser(user);
+        return couponRepository.findByUsersContaining(user);
     }
     
     public List<Coupon> getActiveCouponsByUser(User user) {
-        return couponRepository.findByUserAndIsActiveAndExpiryDateAfter(user, true, LocalDateTime.now());
+        return couponRepository.findByUsersContainingAndIsActiveAndExpiryDateAfter(user, true, LocalDateTime.now());
     }
     
     @Transactional
@@ -60,7 +60,7 @@ public class CouponService {
             LocalDateTime expiryDate, String type, String description) {
         
         Coupon coupon = new Coupon();
-        coupon.setUser(user);
+        coupon.getUsers().add(user);
         coupon.setCode(generateRandomCouponCode());
         coupon.setDiscountValue(BigDecimal.valueOf(discountAmount));
         coupon.setMinPurchaseAmount(BigDecimal.valueOf(minOrderValue));
@@ -94,45 +94,45 @@ public class CouponService {
         return savedCoupon;
     }
     
-    @Transactional
-    public Coupon createGeneralCoupon(double discountAmount, double minOrderValue, 
-            LocalDateTime expiryDate, String type, String description) {
-        
-        Coupon coupon = new Coupon();
-        coupon.setUser(null); // General coupon, not assigned to a specific user
-        coupon.setCode(generateRandomCouponCode());
-        coupon.setDiscountValue(BigDecimal.valueOf(discountAmount));
-        coupon.setMinPurchaseAmount(BigDecimal.valueOf(minOrderValue));
-        coupon.setExpiryDate(expiryDate);
-        coupon.setIsActive(true);
-        coupon.setType(type);
-        coupon.setDescription(description);
-        
-        Coupon savedCoupon = couponRepository.save(coupon);
-        
-        // Create notification for broadcast to all users
-        String title = "Mã giảm giá mới";
-        String message = String.format("Mã giảm giá mới: %s - %s. Hãy sử dụng mã này khi thanh toán để nhận ưu đãi!", 
-                coupon.getCode(), description);
-        
-        // Create additional data for notification
-        java.util.Map<String, Object> additionalData = new java.util.HashMap<>();
-        additionalData.put("couponCode", coupon.getCode());
-        additionalData.put("discountValue", discountAmount);
-        additionalData.put("type", type);
-        additionalData.put("expiryDate", expiryDate.toString());
-        additionalData.put("description", description);
-        
-        // Broadcast notification to all users
-        notificationService.createBroadcastNotification(
-            title, 
-            message, 
-            "PROMOTION", 
-            additionalData
-        );
-        
-        return savedCoupon;
-    }
+//    @Transactional
+//    public Coupon createGeneralCoupon(double discountAmount, double minOrderValue,
+//            LocalDateTime expiryDate, String type, String description) {
+//
+//        Coupon coupon = new Coupon();
+//        coupon.setUser(null); // General coupon, not assigned to a specific user
+//        coupon.setCode(generateRandomCouponCode());
+//        coupon.setDiscountValue(BigDecimal.valueOf(discountAmount));
+//        coupon.setMinPurchaseAmount(BigDecimal.valueOf(minOrderValue));
+//        coupon.setExpiryDate(expiryDate);
+//        coupon.setIsActive(true);
+//        coupon.setType(type);
+//        coupon.setDescription(description);
+//
+//        Coupon savedCoupon = couponRepository.save(coupon);
+//
+//        // Create notification for broadcast to all users
+//        String title = "Mã giảm giá mới";
+//        String message = String.format("Mã giảm giá mới: %s - %s. Hãy sử dụng mã này khi thanh toán để nhận ưu đãi!",
+//                coupon.getCode(), description);
+//
+//        // Create additional data for notification
+//        java.util.Map<String, Object> additionalData = new java.util.HashMap<>();
+//        additionalData.put("couponCode", coupon.getCode());
+//        additionalData.put("discountValue", discountAmount);
+//        additionalData.put("type", type);
+//        additionalData.put("expiryDate", expiryDate.toString());
+//        additionalData.put("description", description);
+//
+//        // Broadcast notification to all users
+//        notificationService.createBroadcastNotification(
+//            title,
+//            message,
+//            "PROMOTION",
+//            additionalData
+//        );
+//
+//        return savedCoupon;
+//    }
     
     private String generateRandomCouponCode() {
         Random random = new Random();
@@ -189,8 +189,9 @@ public class CouponService {
         }
         
         // Kiểm tra coupon có thuộc về user cụ thể không, nếu có thì kiểm tra user hiện tại
-        if (coupon.getUser() != null && !coupon.getUser().equals(user)) {
-            throw new RuntimeException("This coupon is not available for your account");
+        List<User> usersCoupon = coupon.getUsers();
+        if (usersCoupon != null && !usersCoupon.contains(user)) {
+            throw new RuntimeException("Mã giảm giá không dành cho tài khoản của bạn");
         }
         
         // Kiểm tra giá trị đơn hàng tối thiểu

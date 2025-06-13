@@ -549,7 +549,7 @@ public class AdminController {
             }
             
             // Thêm coupon vào danh sách coupons của user
-            coupon.setUser(user);
+            coupon.getUsers().add(user);
 //            user.getCoupons().add(coupon);
             couponRepository.save(coupon);
 //            userRepository.save(user);
