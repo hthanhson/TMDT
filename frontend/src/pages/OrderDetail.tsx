@@ -624,7 +624,7 @@ const OrderDetail: React.FC = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 1 }}>
                 <Typography variant="body1">Ngày đặt:</Typography>
                 <Typography variant="body1">
-                  {format(new Date(order.createdAt), 'PPP')}
+                  {format(new Date(order.createdAt), 'dd/MM/yyyy')}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 1 }}>

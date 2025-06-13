@@ -154,9 +154,8 @@ const Orders: React.FC = () => {
         return <ShoppingBag />;
     }
   };
-  
-  const formatDate = (dateStr: string) => {
-    return format(new Date(dateStr), 'dd MMM yyyy, HH:mm');
+    const formatDate = (dateStr: string) => {
+    return format(new Date(dateStr), 'dd/MM/yyyy');
   };
   
   const getStatusTranslation = (status: string, refundStatus?: string): string => {

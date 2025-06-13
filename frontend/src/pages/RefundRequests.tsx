@@ -148,9 +148,9 @@ const RefundRequests: React.FC = () => {
             <TableBody>
               {refundOrders.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell>#{order.id}</TableCell>
-                  <TableCell>
-                    {order.refundRequest && (order.refundRequest as any).createdAt ? format(new Date((order.refundRequest as any).createdAt), 'PPP') : 'N/A'}
+                  <TableCell>#{order.id}</TableCell>                  <TableCell>
+                    {order.refundRequest && (order.refundRequest as any).createdAt ? 
+                      format(new Date((order.refundRequest as any).createdAt), 'dd/MM/yyyy') : 'N/A'}
                   </TableCell>
                   <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                   <TableCell>

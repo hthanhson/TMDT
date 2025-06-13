@@ -555,14 +555,31 @@ const AdminOrders: React.FC = () => {
           <Card variant="outlined" sx={{ mb: 2 }}>
             <CardContent>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
+                <Grid item xs={12} sm={6} md={3}>                  <TextField
                     label="Tháng/Năm"
                     type="month"
                     value={filterMonth}
                     onChange={(e) => setFilterMonth(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    InputLabelProps={{ 
+                      shrink: true,
+                      sx: {
+                        '&.MuiInputLabel-shrink': {
+                          color: 'primary.main'
+                        }
+                      }
+                    }}
+                    inputProps={{
+                      lang: 'vi-VN'
+                    }}
                     fullWidth
+                    sx={{
+                      '& input::-webkit-calendar-picker-indicator': {
+                        cursor: 'pointer'
+                      },
+                      '& input[type="month"]::-webkit-input-placeholder': {
+                        color: 'rgba(0, 0, 0, 0.6)'
+                      }
+                    }}
                   />
                 </Grid>
                 {/* <Grid item xs={12} sm={6} md={3}>
@@ -643,7 +660,7 @@ const AdminOrders: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Hiển thị {paginatedOrders.length} trên tổng {filteredOrders.length} đơn hàng 
             (Trang {currentPage} / {totalPages})
-            {filterMonth && ` | Tháng: ${filterMonth}`}
+            {filterMonth && ` | ${new Date(filterMonth).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}`}
             {filterStatus && ` | Trạng thái: ${getStatusTranslation(filterStatus)}`}
             {filterRefundStatus && ` | Hoàn tiền: ${getRefundStatusTranslation(filterRefundStatus)}`}
             {filterRefundRequested && ` | Chỉ đơn có yêu cầu hoàn tiền`}
