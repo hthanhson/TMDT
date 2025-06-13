@@ -104,7 +104,7 @@ class AdminService {
     try {
       console.log('Fetching all users for admin');
       const response = await api.get('/admin/users', { params });
-      console.log('Admin users response:', response.data);
+      console.log('Admin users response:', response);
       return { data: response.data };
     } catch (error: any) {
       console.error('Error fetching admin users:', error.message);

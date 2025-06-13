@@ -725,10 +725,12 @@ const ProductDetail: React.FC = () => {
       }
 
       const code = res.data.couponCode;
+      console.log('Received coupon code:', code);
       await navigator.clipboard.writeText(code);
       toast.success(`Bạn đã nhận mã giảm giá: ${code}`);
     } catch (error: any) {
         const msg = error?.response?.data?.message || "Đã xảy ra lỗi khi nhận mã";
+        console.error('Error getting coupon:', msg);
         toast.error(msg);
     }
   };
