@@ -22,25 +22,11 @@ interface DepositRequest {
 }
 
 const UserService = {
-  getUserProfile() {
-    return api.get('/user/profile');
-  },
-  
-  updateProfile(profileData: ProfileData) {
-    return api.put('/user/profile', profileData);
-  },
   
   updateProfileWithVerification(profileData: ProfileUpdateData) {
     return api.post('/auth/update-profile', profileData);
   },
   
-  // Phương thức đổi mật khẩu chính
-  changePassword(oldPassword: string, newPassword: string) {
-    return api.post('/auth/change-password', { 
-      currentPassword: oldPassword, 
-      newPassword: newPassword 
-    });
-  },
   
   // Phương thức đổi mật khẩu xem xét
   changePasswordWithVerification(passwordData: PasswordChangeData) {

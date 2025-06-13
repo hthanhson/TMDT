@@ -621,13 +621,13 @@ const ProductDetail: React.FC = () => {
       const processedReview = {
         ...review,
         userName: userName,
-        userId: userId, // Đảm bảo luôn có userId
-        fullName: userName, // Đảm bảo cả fullName và userName đều có giá trị giống nhau
+        userId: userId, 
+        fullName: userName, 
         user: typeof review.user === 'object' ? {
           ...(userInfo || {}),
           ...review.user,
-          id: userId, // Đảm bảo user.id cũng tồn tại và trùng khớp
-          fullName: userName // Đảm bảo user.fullName cũng được thiết lập
+          id: userId, 
+          fullName: userName 
         } : { id: userId, fullName: userName }, // Nếu user không phải object, tạo object mới
         isAnonymous: isAnonymous || false
       };

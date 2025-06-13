@@ -101,7 +101,7 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         }
         couponProductIds.remove(id);
-        // Truy vấn lấy bất kỳ coupon hợp lệ (áp dụng toàn sàn)
+        // Truy vấn lấy bất kỳ coupon hợp lệ 
         List<Coupon> coupons = couponRepository.findAllValidCoupons(LocalDateTime.now())
                 .stream()
                 .filter(c -> c.getDiscountType() == Coupon.DiscountType.PERCENTAGE)

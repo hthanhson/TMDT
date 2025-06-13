@@ -33,41 +33,12 @@ interface ReviewData {
 }
 
 const ProductService = {
-  getAllProducts(params?: ProductQueryParams) {
-    return api.get<Product[]>(`${API_URL}/products`, { params });
-  },
 
   getProductById(id: string) {
     return api.get<Product>(`${API_URL}/products/${id}`);
   },
 
-  getProductsByCategory(category: string) {
-    return api.get<Product[]>(`${API_URL}/products/category/${category}`);
-  },
 
-  searchProducts(params: Record<string, string>) {
-    // Constrói a URL com query params
-    const queryParams = new URLSearchParams();
-    
-    // Adiciona cada parâmetro à query string
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        queryParams.append(key, value);
-      }
-    });
-    
-    // Para compatibilidade, verifique se precisamos ajustar os parâmetros
-    if (params.search && !params.keyword && !params.term) {
-      queryParams.append('keyword', params.search);
-    }
-    
-    console.log('Search query params:', queryParams.toString());
-    
-    // Faz a requisição com os parâmetros de busca
-    return api.get(`${API_URL}/products/search?${queryParams.toString()}`);
-  },
-  
-  // Método para buscar produtos com suporte a tratamento de erros
   searchProductsSafe(params: Record<string, string>) {
     console.log('Searching products with params:', params);
     
@@ -80,7 +51,7 @@ const ProductService = {
       return api.get(`${API_URL}/products/search/advanced`, { params });
     }
     
-    // Trước hết, tìm kiếm sử dụng endpoint /search trước
+    // tìm kiếm sử dụng endpoint /search trước
     return api.get(`${API_URL}/products/search`, { params })
       .catch(error => {
         console.log('Primary search endpoint failed:', error.message);
@@ -97,8 +68,7 @@ const ProductService = {
             }
           });
         }
-        
-        // Nếu không, thử endpoint chính
+
         console.log('Trying main products endpoint as fallback');
         return api.get(`${API_URL}/products`, { 
           params: { 
@@ -116,29 +86,13 @@ const ProductService = {
     return api.get<Product[]>(`${API_URL}/products/recommended`);
   },
 
-  getTopSellingProducts() {
-    return api.get<Product[]>(`${API_URL}/products/top-selling`);
-  },
+
 
   getCategories() {
     return api.get(`${API_URL}/categories`);
   },
 
-  rateProduct(productId: string, rating: number) {
-    return api.post(`${API_URL}/products/${productId}/rate`, { rating });
-  },
 
-  addToWishlist(productId: string) {
-    return api.post(`${API_URL}/wishlist/add/${productId}`);
-  },
-
-  removeFromWishlist(productId: string) {
-    return api.delete(`${API_URL}/wishlist/remove/${productId}`);
-  },
-
-  getProductReviews(productId: string) {
-    return api.get(`${API_URL}/products/${productId}/reviews`);
-  },
 
   addReview(productId: string, reviewData: ReviewData) {
     console.log('Sending review data:', reviewData);
@@ -152,19 +106,18 @@ const ProductService = {
 
   // Phương thức để lấy gợi ý tìm kiếm
   getSearchSuggestions(term: string) {
-    // Alterando o endpoint para corresponder ao que existe no backend
     return api.get(`${API_URL}/products/search`, {
       params: { 
         keyword: term,
-        size: 5,  // Limitar a 5 sugestões
+        size: 5,  
         autocomplete: true
       }
     }).catch(() => {
-      // Tentar um endpoint alternativo
+
       return api.get(`${API_URL}/products`, {
         params: { keyword: term, size: 5 }
       }).catch(() => {
-        // Se ambos falharem, retornar um objeto compatível com AxiosResponse
+
         return Promise.resolve({
           data: [],
           status: 200,
@@ -180,7 +133,6 @@ const ProductService = {
   getMaxPrice() {
     return api.get(`${API_URL}/products/max-price`)
       .catch(() => {
-        // Retornar um valor padrão em caso de erro, com estrutura AxiosResponse
         return Promise.resolve({
           data: { maxPrice: 100000000 },
           status: 200,
@@ -221,13 +173,6 @@ const ProductService = {
     });
   },
 
-  getFeaturedProducts() {
-    return api.get<Product[]>(`${API_URL}/products/recommended`);
-  },
-
-  getRelatedProducts(productId: string, limit = 4) {
-    return api.get<Product[]>(`${API_URL}/products/recommended`, { params: { limit } });
-  },
 
   // Favorites management
   getFavorites() {
@@ -260,14 +205,11 @@ const ProductService = {
     });
   },
 
-  addProductReview(productId: string, reviewData: { rating: number; comment: string }) {
-    return api.post(`/products/${productId}/reviews`, reviewData);
-  },
+
 
   // Add a new method for simple review submission
   addSimpleReview: (productId: string, reviewData: any) => {
     console.log('Sending simple review data:', reviewData);
-    // Use URLSearchParams to properly format the request parameters
     const params = new URLSearchParams();
     params.append('rating', reviewData.rating.toString());
     
@@ -295,7 +237,6 @@ const ProductService = {
     console.log('User data:', user ? 'Available' : 'Not available', 'User ID:', user?.id);
     console.log('Using token for deletion:', token ? 'Token available' : 'No token');
     
-    // Make sure to include the token in the request headers
     return api.delete(`/reviews/${reviewId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -325,7 +266,6 @@ const ProductService = {
     }
   },
 
-  // Método auxiliar que converte objetos de filtro para query params
   buildSearchQueryParams: (filters: {
     search?: string;
     category?: string;

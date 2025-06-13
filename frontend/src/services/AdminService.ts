@@ -12,19 +12,19 @@ interface Page<T> {
 
 class AdminService {
   // Dashboard
-  async getDashboardSummary() {
-    try {
-      console.log('Fetching admin dashboard summary');
-      const response = await api.get('/admin/dashboard');
-      console.log('Admin dashboard response:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('Error fetching admin dashboard:', error.message);
-      console.error('Response status:', error.response?.status);
-      console.error('Response data:', error.response?.data);
-      throw error;
-    }
-  }
+  // async getDashboardSummary() {
+  //   try {
+  //     console.log('Fetching admin dashboard summary');
+  //     const response = await api.get('/admin/dashboard');
+  //     console.log('Admin dashboard response:', response.data);
+  //     return response.data;
+  //   } catch (error: any) {
+  //     console.error('Error fetching admin dashboard:', error.message);
+  //     console.error('Response status:', error.response?.status);
+  //     console.error('Response data:', error.response?.data);
+  //     throw error;
+  //   }
+  // }
 
   async getDashboardStats() {
     try {
@@ -38,66 +38,66 @@ class AdminService {
     }
   }
 
-  async getSalesData() {
-    try {
-      console.log('Fetching sales data from dashboard');
-      // Sử dụng endpoint dashboard vì backend không có endpoint riêng cho sales
-      const response = await api.get('/admin/dashboard');
-      console.log('Sales data extracted from dashboard:', response.data);
+  // async getSalesData() {
+  //   try {
+  //     console.log('Fetching sales data from dashboard');
+  //     // Sử dụng endpoint dashboard vì backend không có endpoint riêng cho sales
+  //     const response = await api.get('/admin/dashboard');
+  //     console.log('Sales data extracted from dashboard:', response.data);
       
-      // Trích xuất dữ liệu doanh thu theo tháng từ response
-      // Đơn giản hóa dữ liệu để dùng trong biểu đồ
-      const salesData = [];
-      for (let i = 1; i <= 12; i++) {
-        salesData.push({
-          month: `T${i}`,
-          sales: 0,
-          date: `${i.toString().padStart(2, '0')}/${new Date().getFullYear()}`
-        });
-      }
+  //     // Trích xuất dữ liệu doanh thu theo tháng từ response
+  //     // Đơn giản hóa dữ liệu để dùng trong biểu đồ
+  //     const salesData = [];
+  //     for (let i = 1; i <= 12; i++) {
+  //       salesData.push({
+  //         month: `T${i}`,
+  //         sales: 0,
+  //         date: `${i.toString().padStart(2, '0')}/${new Date().getFullYear()}`
+  //       });
+  //     }
       
-      return { data: salesData };
-    } catch (error: any) {
-      console.error('Error fetching sales data:', error.message);
-      throw error;
-    }
-  }
+  //     return { data: salesData };
+  //   } catch (error: any) {
+  //     console.error('Error fetching sales data:', error.message);
+  //     throw error;
+  //   }
+  // }
 
-  async getTopProducts(limit: number = 5) {
-    try {
-      console.log('Fetching top products from dashboard');
-      // Sử dụng dữ liệu từ dashboard vì backend không có endpoint riêng
-      const response = await api.get('/admin/dashboard');
-      console.log('Top products extracted from dashboard:', 
-        response.data.productPerformance || []);
+  // async getTopProducts(limit: number = 5) {
+  //   try {
+  //     console.log('Fetching top products from dashboard');
+  //     // Sử dụng dữ liệu từ dashboard vì backend không có endpoint riêng
+  //     const response = await api.get('/admin/dashboard');
+  //     console.log('Top products extracted from dashboard:', 
+  //       response.data.productPerformance || []);
       
-      // API trả về productPerformance
-      return { 
-        data: response.data.productPerformance || []
-      };
-    } catch (error: any) {
-      console.error('Error fetching top products:', error.message);
-      throw error;
-    }
-  }
+  //     // API trả về productPerformance
+  //     return { 
+  //       data: response.data.productPerformance || []
+  //     };
+  //   } catch (error: any) {
+  //     console.error('Error fetching top products:', error.message);
+  //     throw error;
+  //   }
+  // }
 
-  async getRecentOrders(limit: number = 5) {
-    try {
-      console.log('Fetching recent orders from dashboard');
-      // Sử dụng dữ liệu từ dashboard vì backend không có endpoint riêng
-      const response = await api.get('/admin/dashboard');
-      console.log('Recent orders extracted from dashboard:', 
-        response.data.recentOrders || []);
+  // async getRecentOrders(limit: number = 5) {
+  //   try {
+  //     console.log('Fetching recent orders from dashboard');
+  //     // Sử dụng dữ liệu từ dashboard vì backend không có endpoint riêng
+  //     const response = await api.get('/admin/dashboard');
+  //     console.log('Recent orders extracted from dashboard:', 
+  //       response.data.recentOrders || []);
       
-      // API trả về recentOrders
-      return {
-        data: response.data.recentOrders || []
-      };
-    } catch (error: any) {
-      console.error('Error fetching recent orders:', error.message);
-      throw error;
-    }
-  }
+  //     // API trả về recentOrders
+  //     return {
+  //       data: response.data.recentOrders || []
+  //     };
+  //   } catch (error: any) {
+  //     console.error('Error fetching recent orders:', error.message);
+  //     throw error;
+  //   }
+  // }
 
   // Users
   async getAllUsers(params?: any) {
@@ -114,14 +114,14 @@ class AdminService {
     }
   }
 
-  async getUser(id: string) {
-    try {
-      return await api.get<User>(`/admin/users/${id}`);
-    } catch (error: any) {
-      console.error(`Error fetching user ${id}:`, error.message);
-      throw error;
-    }
-  }
+  // async getUser(id: string) {
+  //   try {
+  //     return await api.get<User>(`/admin/users/${id}`);
+  //   } catch (error: any) {
+  //     console.error(`Error fetching user ${id}:`, error.message);
+  //     throw error;
+  //   }
+  // }
 
   async updateUser(id: string, userData: any) {
     try {
@@ -313,42 +313,42 @@ class AdminService {
     }
   }
 
-  async getCategories(params?: any) {
-    try {
-      // Determine if this is an admin request
-      const isAdminRequest = params?.admin;
+  // async getCategories(params?: any) {
+  //   try {
+  //     // Determine if this is an admin request
+  //     const isAdminRequest = params?.admin;
       
-      if (isAdminRequest) {
-        // For admin requests, use POST method to get all categories
-        console.log('Using admin categories endpoint with POST method');
+  //     if (isAdminRequest) {
+  //       // For admin requests, use POST method to get all categories
+  //       console.log('Using admin categories endpoint with POST method');
         
-        // Extract parameters
-        const requestData = { 
-          includeInactive: params?.includeInactive ?? true,
-          showAll: params?.showAll ?? true,
-          all: true
-        };
+  //       // Extract parameters
+  //       const requestData = { 
+  //         includeInactive: params?.includeInactive ?? true,
+  //         showAll: params?.showAll ?? true,
+  //         all: true
+  //       };
         
-        return await api.post('/admin/categories/all', requestData);
-      } else {
-        // For regular requests, use GET method
-        console.log('Using regular categories endpoint with GET method');
-        return await api.get<any[]>('/categories', { params });
-      }
-    } catch (error: any) {
-      console.error('Error fetching categories:', error.message);
-      throw error;
-    }
-  }
+  //       return await api.post('/admin/categories/all', requestData);
+  //     } else {
+  //       // For regular requests, use GET method
+  //       console.log('Using regular categories endpoint with GET method');
+  //       return await api.get<any[]>('/categories', { params });
+  //     }
+  //   } catch (error: any) {
+  //     console.error('Error fetching categories:', error.message);
+  //     throw error;
+  //   }
+  // }
 
-  async getCategory(id: string) {
-    try {
-      return await api.get<Category>(`/admin/categories/${id}`);
-    } catch (error: any) {
-      console.error(`Error fetching category ${id}:`, error.message);
-      throw error;
-    }
-  }
+  // async getCategory(id: string) {
+  //   try {
+  //     return await api.get<Category>(`/admin/categories/${id}`);
+  //   } catch (error: any) {
+  //     console.error(`Error fetching category ${id}:`, error.message);
+  //     throw error;
+  //   }
+  // }
 
   async createCategory(categoryData: any) {
     try {
@@ -434,18 +434,18 @@ class AdminService {
     }
   }
 
-  async getOrder(id: string) {
-    try {
-      const response = await api.get<Order>(`/orders/${id}`);
-      if (response.data) {
-        response.data = this.normalizeOrderData(response.data);
-      }
-      return response;
-    } catch (error: any) {
-      console.error(`Error fetching order ${id}:`, error.message);
-      throw error;
-    }
-  }
+  // async getOrder(id: string) {
+  //   try {
+  //     const response = await api.get<Order>(`/orders/${id}`);
+  //     if (response.data) {
+  //       response.data = this.normalizeOrderData(response.data);
+  //     }
+  //     return response;
+  //   } catch (error: any) {
+  //     console.error(`Error fetching order ${id}:`, error.message);
+  //     throw error;
+  //   }
+  // }
 
   async updateOrderStatus(id: string | number, status: string) {
     try {
@@ -509,28 +509,28 @@ class AdminService {
   }
   
   // Lấy danh sách tất cả các yêu cầu hoàn tiền
-  async getAllRefundRequests(params?: any) {
-    try {
-      console.log('Fetching all refund requests');
-      const response = await api.get('/refunds/all', { params });
-      console.log('Admin refunds response:', response);
-      return response;
-    } catch (error: any) {
-      console.error('Error fetching refund requests:', error.message);
-      console.error('Response status:', error.response?.status);
-      console.error('Response data:', error.response?.data);
-      throw error;
-    }
-  }
+  // async getAllRefundRequests(params?: any) {
+  //   try {
+  //     console.log('Fetching all refund requests');
+  //     const response = await api.get('/refunds/all', { params });
+  //     console.log('Admin refunds response:', response);
+  //     return response;
+  //   } catch (error: any) {
+  //     console.error('Error fetching refund requests:', error.message);
+  //     console.error('Response status:', error.response?.status);
+  //     console.error('Response data:', error.response?.data);
+  //     throw error;
+  //   }
+  // }
 
   // Reviews
   async getAllReviews(params?: any) {
     return api.get('/admin/reviews', { params });
   }
 
-  async getReview(id: string) {
-    return api.get(`/admin/reviews/${id}`);
-  }
+  // async getReview(id: string) {
+  //   return api.get(`/admin/reviews/${id}`);
+  // }
 
   async updateReviewStatus(id: string, status: string) {
     return api.put(`/admin/reviews/${id}/status`, { status });
@@ -541,21 +541,21 @@ class AdminService {
   }
 
   // Notifications
-  async getAllNotifications(params?: any) {
-    return api.get('/admin/notifications', { params });
-  }
+  // async getAllNotifications(params?: any) {
+  //   return api.get('/admin/notifications', { params });
+  // }
 
-  async createNotification(notificationData: any) {
-    return api.post('/admin/notifications', notificationData);
-  }
+  // async createNotification(notificationData: any) {
+  //   return api.post('/admin/notifications', notificationData);
+  // }
 
-  async updateNotification(id: string, notificationData: any) {
-    return api.put(`/admin/notifications/${id}`, notificationData);
-  }
+  // async updateNotification(id: string, notificationData: any) {
+  //   return api.put(`/admin/notifications/${id}`, notificationData);
+  // }
 
-  async deleteNotification(id: string) {
-    return api.delete(`/admin/notifications/${id}`);
-  }
+  // async deleteNotification(id: string) {
+  //   return api.delete(`/admin/notifications/${id}`);
+  // }
 
   // Coupons
   async getActiveCoupons() {
@@ -777,24 +777,24 @@ class AdminService {
   }
   
   // Phương thức lấy một đơn hàng theo ID
-  async getOrderById(orderId: string) {
-    try {
-      console.log(`Fetching order by ID: ${orderId}`);
-      const response = await api.get(`/orders/${orderId}`);
-      console.log('Get order by ID response:', response);
+  // async getOrderById(orderId: string) {
+  //   try {
+  //     console.log(`Fetching order by ID: ${orderId}`);
+  //     const response = await api.get(`/orders/${orderId}`);
+  //     console.log('Get order by ID response:', response);
       
-      if (response.data) {
-        response.data = this.normalizeOrderData(response.data);
-      }
+  //     if (response.data) {
+  //       response.data = this.normalizeOrderData(response.data);
+  //     }
       
-      return response;
-    } catch (error: any) {
-      console.error(`Error fetching order ${orderId}:`, error.message);
-      console.error('Response status:', error.response?.status);
-      console.error('Response data:', error.response?.data);
-      throw error;
-    }
-  }
+  //     return response;
+  //   } catch (error: any) {
+  //     console.error(`Error fetching order ${orderId}:`, error.message);
+  //     console.error('Response status:', error.response?.status);
+  //     console.error('Response data:', error.response?.data);
+  //     throw error;
+  //   }
+  // }
 }
 
 export default new AdminService();

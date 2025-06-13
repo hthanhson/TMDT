@@ -167,25 +167,8 @@ const AuthService = {
     return !!(user && user.roles && user.roles.includes('ROLE_ADMIN'));
   },
 
-  updateProfile(userData: Partial<UserData>): Promise<UserData> {
-    return api.put('/users/profile', userData).then(
-      (response) => {
-        const currentUser = this.getCurrentUser();
-        if (currentUser) {
-          const updatedUser = { ...currentUser, ...response.data };
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-        }
-        return response.data;
-      }
-    );
-  },
+  
 
-  changePassword(oldPassword: string, newPassword: string): Promise<any> {
-    return api.put('/users/change-password', {
-      oldPassword,
-      newPassword,
-    });
-  }
 };
 
 export default AuthService;

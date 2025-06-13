@@ -7,9 +7,6 @@ const OrderService = {
   getOrders() {
     return api.get<Order[]>(`/orders/my-orders`);
   },
-  transaction() {
-    return api.get<string>(`/PaySuccess`);
-  },
 
   getOrderById(id: string) {
     return api.get<Order>(`/orders/${id}`);
@@ -35,10 +32,6 @@ const OrderService = {
         'Content-Type': 'multipart/form-data'
       }
     });
-  },
-
-  getRefundStatus(id: string | number) {
-    return api.get(`/orders/${id}/refund-status`);
   },
 
   getOrderSummary() {
