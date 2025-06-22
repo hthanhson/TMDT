@@ -176,6 +176,52 @@ public class AdminController {
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+    }    @PutMapping("/users/{id}/status")
+    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> request) {
+        try {
+            System.out.println("Updating user status for user ID: " + id);
+            System.out.println("Request body: " + request);
+
+            Boolean enabled = request.get("enabled");
+            if (enabled == null) {
+                return new ResponseEntity<>("Thiếu tham số enabled", HttpStatus.BAD_REQUEST);
+            }
+
+            Optional<User> userData = userRepository.findById(id);
+            if (!userData.isPresent()) {
+                System.out.println("User not found with ID: " + id);
+                return new ResponseEntity<>("Không tìm thấy người dùng", HttpStatus.NOT_FOUND);
+            }
+
+            User user = userData.get();
+            
+            // Check if the status is actually changing
+            if (enabled.equals(user.getEnabled())) {
+                return new ResponseEntity<>(
+                    Map.of("message", "Trạng thái người dùng không thay đổi", 
+                          "enabled", enabled),
+                    HttpStatus.OK
+                );
+            }
+
+            user.setEnabled(enabled);
+            user = userRepository.save(user);
+
+            System.out.println("Successfully updated user status. User ID: " + id + ", New status: " + enabled);
+
+            return new ResponseEntity<>(
+                Map.of("message", "Cập nhật trạng thái thành công",
+                      "enabled", user.getEnabled()),
+                HttpStatus.OK
+            );
+        } catch (Exception e) {
+            System.err.println("Error updating user status for ID " + id + ": " + e.getMessage());
+            e.printStackTrace();
+            return new ResponseEntity<>(
+                Map.of("error", "Lỗi khi cập nhật trạng thái: " + e.getMessage()),
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
     }
 
     @DeleteMapping("/users/{id}")

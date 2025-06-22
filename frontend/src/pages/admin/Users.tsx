@@ -342,9 +342,9 @@ const AdminUsers: React.FC = () => {
                     ))}
                   </TableCell>
                   <TableCell>
-                    <IconButton onClick={() => handleOpenDialog(user)}>
+                    {/* <IconButton onClick={() => handleOpenDialog(user)}>
                       <EditIcon />
-                    </IconButton>
+                    </IconButton> */}
                     <IconButton
                       onClick={() => handleDeleteUser(user.id, user.roles)}
                       color="error"
@@ -353,13 +353,13 @@ const AdminUsers: React.FC = () => {
                     >
                       <DeleteIcon />
                     </IconButton>
-                    {/* <IconButton
+                    <IconButton
                       onClick={() => handleToggleUserStatus(user.id, !user.enabled)}
                       color={user.enabled ? "error" : "success"}
                       disabled={hasAdminRole(user.roles)}
                     >
                       {user.enabled ? <BlockIcon /> : <CheckCircleIcon />}
-                    </IconButton> */}
+                    </IconButton>
                   </TableCell>
                   {!(hasShiperRole(user.roles) || hasAdminRole(user.roles)) && (
                   <TableCell >

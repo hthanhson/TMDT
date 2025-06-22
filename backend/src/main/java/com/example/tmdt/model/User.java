@@ -47,6 +47,8 @@ public class User {
     @Email
     private String email;
 
+    private Boolean enabled = true;  // Default is true when user is created
+
     @NotBlank
     @Size(max = 120)
     private String password;
